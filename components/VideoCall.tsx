@@ -148,7 +148,7 @@ export function VideoCall({ sessionCode, onLeave }: VideoCallProps) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function checkRemote(call: any) {
-      const participants = call.participants();
+      const participants = call.participants() as Record<string, { local?: boolean }>;
       const remoteExists = Object.values(participants).some(
         (p: { local?: boolean }) => !p.local
       );
