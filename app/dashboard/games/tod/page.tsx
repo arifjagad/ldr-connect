@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -83,7 +83,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<{ data: 
   return json;
 }
 
-export default function TodPage() {
+function TodContent() {
   const searchParams = useSearchParams();
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [categories, setCategories] = useState<string[]>([]);
@@ -884,5 +884,24 @@ export default function TodPage() {
         />
       )}
     </main>
+  );
+}
+
+// ── Wrapper with Suspense ──────────────────────────────────────────────────────
+export default function TodPage() {
+  return (
+    <Suspense fallback={
+      <main className="relative mx-auto w-full max-w-md px-6 py-12 lg:px-8">
+        <div className="rounded-2xl border border-white/10 bg-[#111113] p-6 text-center">
+          <div className="animate-pulse space-y-4">
+            <div className="h-12 w-12 mx-auto rounded-lg bg-white/10"></div>
+            <div className="h-4 w-24 mx-auto rounded bg-white/10"></div>
+            <div className="h-3 w-32 mx-auto rounded bg-white/10"></div>
+          </div>
+        </div>
+      </main>
+    }>
+      <TodContent />
+    </Suspense>
   );
 }

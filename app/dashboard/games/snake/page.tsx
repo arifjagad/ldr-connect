@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -47,7 +47,7 @@ type Phase = "idle" | "setup" | "waiting" | "playing" | "finished";
 type FinishReason = "time_up" | "completed" | "expired" | null;
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
-export default function SnakeGamePage() {
+function SnakeGameContent() {
   const { user } = useAuthStore();
   const searchParams = useSearchParams();
   const [joinCodeInput, setJoinCodeInput] = useState(
@@ -801,4 +801,23 @@ export default function SnakeGamePage() {
   }
 
   return null;
+}
+
+// ── Wrapper with Suspense ──────────────────────────────────────────────────────
+export default function SnakeGamePage() {
+  return (
+    <Suspense fallback={
+      <main className="relative mx-auto w-full max-w-md px-6 py-12 lg:px-8">
+        <div className="rounded-2xl border border-white/10 bg-[#111113] p-6 text-center">
+          <div className="animate-pulse space-y-4">
+            <div className="h-12 w-12 mx-auto rounded-lg bg-white/10"></div>
+            <div className="h-4 w-24 mx-auto rounded bg-white/10"></div>
+            <div className="h-3 w-32 mx-auto rounded bg-white/10"></div>
+          </div>
+        </div>
+      </main>
+    }>
+      <SnakeGameContent />
+    </Suspense>
+  );
 }
