@@ -1,0 +1,27 @@
+# LDR-Connect SEO
+User-agent: *
+Allow: /
+Allow: /auth/login
+Allow: /auth/register
+Allow: /coin
+Allow: /couple
+Allow: /dashboard
+Allow: /games
+Disallow: /admin
+Disallow: /api
+Disallow: /join
+Disallow: /_next
+Disallow: /private
+
+# Sitemap
+Sitemap: https://ldr-connect.netlify.app/sitemap.xml
+
+# Crawl delay (milliseconds)
+Crawl-delay: 1
+
+# Specific rules for search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
