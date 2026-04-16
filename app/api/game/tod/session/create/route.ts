@@ -124,7 +124,10 @@ export async function POST(request: NextRequest) {
   });
 
   // supabase-js v2 wraps composite-type RPC results in an array
-  const session = Array.isArray(rpcData) ? rpcData[0] ?? null : rpcData;
+  // PostgreSQL RETURNS composite mengembalikan object kosong (semua null) saat tidak ada data
+  // — cek .id untuk memastikan sesi valid
+  const raw = Array.isArray(rpcData) ? rpcData[0] ?? null : rpcData;
+  const session = raw?.id ? raw : null;
 
   if (rpcError) {
     const msg = rpcError.message ?? "";
@@ -148,6 +151,14 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json(
       { success: false, message: msg || "Gagal membuat sesi", data: null },
+      { status: 500 }
+    );
+  }
+
+  // Guard: jika RPC sukses tapi session null (tidak terduga)
+  if (!session) {
+    return NextResponse.json(
+      { success: false, message: "Gagal membuat sesi: data tidak tersedia", data: null },
       { status: 500 }
     );
   }

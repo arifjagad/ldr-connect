@@ -110,6 +110,15 @@ function TodContent() {
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   function applySession(s: TodSession, isFinished = false) {
+    // Jika sesi sudah cancelled, jangan resume — reset ke idle
+    if (s.status === "cancelled") {
+      phaseRef.current = "idle";
+      setPhase("idle");
+      setSession(null);
+      setCurrentQuestion(null);
+      return;
+    }
+
     setSession(s);
     // Anggap expired jika status masih 'playing' tapi expires_at sudah lewat
     const isExpiredByTime =
@@ -129,9 +138,14 @@ function TodContent() {
       setPhase("playing");
       const active = s.questions.find((q) => !q.is_completed) ?? null;
       setCurrentQuestion(active);
-    } else {
+    } else if (s.status === "waiting") {
       phaseRef.current = "waiting";
       setPhase("waiting");
+    } else {
+      // Status tidak dikenal — fallback ke idle
+      phaseRef.current = "idle";
+      setPhase("idle");
+      setSession(null);
     }
   }
 
@@ -358,7 +372,18 @@ function TodContent() {
     }
   }
 
-  function handleLeave() {
+  async function handleLeave() {
+    // Batalkan / expire sesi di database sebelum reset local state
+    if (session) {
+      const code = session.session_code;
+      if (session.status === "waiting") {
+        // Host membatalkan sesi yang belum dimulai → cancel + refund coin
+        fetch(`/api/game/tod/session/${code}/cancel`, { method: "POST" }).catch(() => {});
+      } else if (session.status === "playing") {
+        // User keluar dari sesi yang sedang berjalan → tandai expired
+        fetch(`/api/game/tod/session/${code}/expire`, { method: "POST" }).catch(() => {});
+      }
+    }
     stopRealtime();
     stopTimer();
     setPhase("idle");
@@ -553,7 +578,7 @@ function TodContent() {
             {/* Share via WhatsApp */}
             <div className="mt-4 flex justify-center gap-2">
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Ayo main Truth or Dare bareng aku di LDR-Connect! 🎮\n\nKlik link ini untuk langsung join:\n${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/join/${session.session_code}\n\nAtau masukkan kode: ${session.session_code}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`Ayo main Truth or Dare bareng aku di LDR-Connect! 🎮\n\nKlik link ini untuk langsung join:\n${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/join/${session.session_code}\n\nAtau masukkan kode: ${session.session_code}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-xl border border-[#25D366]/25 bg-[#25D366]/10 px-4 py-2 text-xs font-semibold text-[#25D366] transition hover:border-[#25D366]/40 hover:bg-[#25D366]/15"

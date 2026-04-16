@@ -23,7 +23,10 @@ export async function GET() {
   });
 
   // supabase-js v2 wraps composite-type RPC results in an array
-  const session = Array.isArray(rpcData) ? rpcData[0] ?? null : rpcData ?? null;
+  const raw = Array.isArray(rpcData) ? rpcData[0] ?? null : rpcData ?? null;
+  // PostgreSQL RETURNS composite mengembalikan object kosong (semua null)
+  // saat tidak ada row — cek .id untuk memastikan ini sesi valid
+  const session = raw?.id ? raw : null;
 
   return NextResponse.json({
     success: true,
