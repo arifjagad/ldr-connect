@@ -604,23 +604,6 @@ function TodContent() {
             <div className="mt-6 flex flex-col gap-2">
               <button
                 type="button"
-                onClick={handleNext}
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#818CF8] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#A78BFA] disabled:opacity-60"
-              >
-                {loading ? (
-                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                  </svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-                {loading ? "Memuat…" : "Mulai Pertanyaan Pertama"}
-              </button>
-              <button
-                type="button"
                 onClick={handleLeave}
                 className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10"
               >
