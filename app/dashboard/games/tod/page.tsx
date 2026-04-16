@@ -92,6 +92,7 @@ function TodContent() {
     searchParams?.get("join")?.toUpperCase() ?? ""
   );
   const [session, setSession] = useState<TodSession | null>(null);
+  const [isHost, setIsHost] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState<TodQuestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -258,8 +259,9 @@ function TodContent() {
 
       // Cek apakah ada sesi aktif — jika ada, langsung resume
       try {
-        const json = await apiFetch<{ session: TodSession | null }>("/api/game/tod/session/active");
+        const json = await apiFetch<{ session: TodSession | null; is_host: boolean }>("/api/game/tod/session/active");
         if (json.data.session) {
+          setIsHost(json.data.is_host);
           applySession(json.data.session);
           startRealtime(json.data.session.session_code);
         }
@@ -280,6 +282,7 @@ function TodContent() {
       const json = await apiFetch<{ session: TodSession }>("/api/game/tod/session/create", {
         method: "POST", body: JSON.stringify({ category }),
       });
+      setIsHost(true);
       applySession(json.data.session);
       startRealtime(json.data.session.session_code);
     } catch (e) {
@@ -299,6 +302,7 @@ function TodContent() {
       const json = await apiFetch<JoinResponse>("/api/game/tod/session/join", {
         method: "POST", body: JSON.stringify({ session_code: code }),
       });
+      setIsHost(false);
       applySession(json.data.session);
       startRealtime(json.data.session.session_code);
     } catch (e) {
@@ -545,55 +549,89 @@ function TodContent() {
         </div>
       )}
 
-      {/* ─── WAITING: Lobby ──────────────────────────────────────────────────── */}
+      {/* ─── WAITING: Lobi ──────────────────────────────────────────────────────── */}
       {phase === "waiting" && session && (
-        <div className="overflow-hidden rounded-2xl border border-[#818CF8]/20 bg-[#111113]">
-          <div className="h-0.5 bg-linear-to-r from-[#818CF8] to-[#A78BFA]" />
-          <div className="p-8 text-center">
-            {/* Pulse animation */}
-            <div className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#818CF8]/20" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#818CF8]/20 ring-1 ring-[#818CF8]/30">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="1.8">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-              </div>
+        <div className="space-y-4">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#111113] p-8 text-center text-[#FFF5F8]">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#5C5470]/20">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9B93B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
             </div>
 
-            <h2 className="text-xl font-bold text-[#FFF5F8]">Menunggu Partner…</h2>
-            <p className="mt-1 text-sm text-[#5C5470]">Bagikan session code ke pasanganmu</p>
+            {isHost ? (
+              <>
+                <h2 className="text-xl font-bold text-[#FFF5F8]">Menunggu Partner…</h2>
+                <p className="mt-1 text-sm text-[#5C5470]">Bagikan session code ke pasanganmu</p>
 
-            {/* Session code */}
-            <div className="mx-auto mt-6 max-w-xs rounded-2xl border border-[#818CF8]/25 bg-[#818CF8]/10 p-5">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">Session Code</p>
-              <p className="mt-2 font-mono text-lg font-bold tracking-[0.15em] text-[#A78BFA]">
-                {session.session_code}
-              </p>
-              <div className="mt-3 flex justify-center">
-                <CopyButton text={session.session_code} label="Salin Code" />
-              </div>
-            </div>
+                <div className="mt-6 flex w-full max-w-sm flex-col items-center rounded-xl border border-white/5 bg-[#18181C] p-6">
+                  <span className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Session Code</span>
+                  <span className="mt-2 font-mono text-2xl font-bold tracking-widest text-[#818CF8]">
+                    {session.session_code}
+                  </span>
+                  <div className="mt-4 flex gap-2">
+                    <CopyButton text={session.session_code} label="Salin Code" />
+                  </div>
+                </div>
 
-            {/* Share via WhatsApp */}
-            <div className="mt-4 flex justify-center gap-2">
-              <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Ayo main Truth or Dare bareng aku di LDR-Connect! 🎮\n\nKlik link ini untuk langsung join:\n${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/join/${session.session_code}\n\nAtau masukkan kode: ${session.session_code}`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 rounded-xl border border-[#25D366]/25 bg-[#25D366]/10 px-4 py-2 text-xs font-semibold text-[#25D366] transition hover:border-[#25D366]/40 hover:bg-[#25D366]/15"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
-                </svg>
-                Kirim via WhatsApp
-              </a>
-            </div>
+                <div className="mt-6 w-full max-w-sm">
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`Ayo main Truth or Dare bareng aku di LDR-Connect! 🎮\n\nKlik link ini untuk langsung join:\n${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/join/${session.session_code}\n\nAtau masukkan kode: ${session.session_code}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366]/10 px-5 py-2.5 text-sm font-semibold text-[#25D366] ring-1 ring-[#25D366]/30 transition hover:bg-[#25D366]/20"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                    </svg>
+                    Kirim via WhatsApp
+                  </a>
+                </div>
 
-            <p className="mt-3 text-xs text-[#5C5470]">Sesi akan otomatis expired dalam 10 menit jika partner tidak bergabung.</p>
+                <p className="mt-4 text-xs text-[#5C5470]">Sesi akan otomatis expired dalam 10 menit jika partner tidak bergabung.</p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-[#FFF5F8]">Pasanganmu Memanggil!</h2>
+                <p className="mt-1 text-sm text-[#5C5470]">Pasanganmu sedang menunggumu untuk bermain.</p>
+
+                <div className="mt-6 flex w-full max-w-sm flex-col items-center rounded-xl border border-white/5 bg-[#18181C] p-6">
+                  <span className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Sesi Aktif</span>
+                  <span className="mt-2 font-mono text-2xl font-bold tracking-widest text-[#FF3D7F]">
+                    {session.session_code}
+                  </span>
+                </div>
+
+                <div className="mt-6 flex w-full max-w-sm flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setJoinCodeInput(session.session_code);
+                      handleJoin();
+                    }}
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.3)] transition hover:bg-[#FF6B9D] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                    Join Sesi Sekarang
+                  </button>
+                </div>
+              </>
+            )}
 
             {error && (
-              <div className="mt-4 flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <div className="mt-6 flex w-full max-w-sm items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
@@ -601,7 +639,7 @@ function TodContent() {
               </div>
             )}
 
-            <div className="mt-6 flex flex-col gap-2">
+            <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
               <button
                 type="button"
                 onClick={handleLeave}

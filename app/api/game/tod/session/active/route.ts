@@ -28,9 +28,17 @@ export async function GET() {
   // saat tidak ada row — cek .id untuk memastikan ini sesi valid
   const session = raw?.id ? raw : null;
 
+  let isHost = false;
+  let isParticipant = false;
+
+  if (session) {
+    isHost = session.host_user_id === user.id;
+    isParticipant = isHost || session.partner_user_id === user.id;
+  }
+
   return NextResponse.json({
     success: true,
     message: session ? "Sesi aktif ditemukan" : "Tidak ada sesi aktif",
-    data: { session },
+    data: { session, is_host: isHost, is_participant: isParticipant },
   });
 }
