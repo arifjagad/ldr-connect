@@ -173,7 +173,6 @@ function TodContent() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "game_sessions", filter: `session_code=eq.${code}` },
         (payload) => {
-          if (loadingRef.current) return;
           applySession(payload.new as TodSession);
         }
       )
@@ -184,7 +183,7 @@ function TodContent() {
     // Polling sebagai fallback
     const schedulePoll = () => {
       if (phaseRef.current === "finished" || phaseRef.current === "idle") return;
-      const delay = phaseRef.current === "waiting" ? 3000 : 6000;
+      const delay = phaseRef.current === "waiting" ? 3000 : 2000;
       pollRef.current = setTimeout(async () => {
         await refreshSession(code);
         schedulePoll();
