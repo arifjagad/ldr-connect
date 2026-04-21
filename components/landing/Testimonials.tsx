@@ -9,9 +9,9 @@ const testimonials = [
   {
     quote:
       "Awalnya skeptis, tapi setelah nyoba satu sesi langsung nagih. Dare-nya malah jadi momen sweet yang gak terduga. Coin-nya worth banget!",
-    name: "Bela & Arif",
+    name: "Bela & Hendra",
     location: "Bandung ↔ Medan",
-    initials: ["B", "A"],
+    initials: ["B", "H"],
   },
   {
     quote:
