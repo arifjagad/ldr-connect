@@ -27,6 +27,59 @@ export function VideoCall({ sessionCode, onLeave }: VideoCallProps) {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
+  // ── Track helpers (component-scoped so they can be called on re-mount) ──────
+
+  function attachLocalTrack() {
+    const call = callRef.current;
+    if (!call) return;
+    const local = call.participants()?.local;
+    if (!local) return;
+    const track = local.tracks?.video?.persistentTrack;
+    if (track && localVideoRef.current) {
+      localVideoRef.current.srcObject = new MediaStream([track]);
+      localVideoRef.current.play().catch(() => {});
+    }
+  }
+
+  function attachTracks() {
+    const call = callRef.current;
+    if (!call) return;
+    const participants = call.participants();
+    for (const p of Object.values(participants) as { local: boolean; tracks: Record<string, { persistentTrack?: MediaStreamTrack }> }[]) {
+      const videoTrack = p.tracks?.video?.persistentTrack;
+      if (!videoTrack) continue;
+      if (p.local && localVideoRef.current) {
+        localVideoRef.current.srcObject = new MediaStream([videoTrack]);
+        localVideoRef.current.play().catch(() => {});
+      } else if (!p.local && remoteVideoRef.current) {
+        const audioTrack = p.tracks?.audio?.persistentTrack;
+        const tracks: MediaStreamTrack[] = [videoTrack];
+        if (audioTrack) tracks.push(audioTrack);
+        remoteVideoRef.current.srcObject = new MediaStream(tracks);
+        remoteVideoRef.current.play().catch(() => {});
+      }
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function checkRemote(call: any) {
+    const participants = call.participants() as Record<string, { local?: boolean }>;
+    const remoteExists = Object.values(participants).some(
+      (p: { local?: boolean }) => !p.local
+    );
+    setHasRemote(remoteExists);
+  }
+
+  // ── Re-attach tracks when panel is restored after minimize ──────────────────
+  useEffect(() => {
+    if (!minimized && status === "connected") {
+      attachLocalTrack();
+      attachTracks();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minimized]);
+
+  // ── Main call setup ──────────────────────────────────────────────────────────
   useEffect(() => {
     let destroyed = false;
 
@@ -70,18 +123,18 @@ export function VideoCall({ sessionCode, onLeave }: VideoCallProps) {
         call.on("joined-meeting", () => {
           if (destroyed) return;
           setStatus("connected");
-          attachLocalTrack(call);
+          attachLocalTrack();
         });
 
         call.on("participant-updated", () => {
           if (destroyed) return;
-          attachTracks(call);
+          attachTracks();
           checkRemote(call);
         });
 
         call.on("participant-joined", () => {
           if (destroyed) return;
-          attachTracks(call);
+          attachTracks();
           setHasRemote(true);
         });
 
@@ -97,7 +150,6 @@ export function VideoCall({ sessionCode, onLeave }: VideoCallProps) {
             err?.errorMsg ??
             err?.error?.msg ??
             "Koneksi video gagal";
-          // account-missing-payment-method: Daily.co account belum setup billing
           if (msg.includes("missing-payment-method") || msg.includes("payment")) {
             setErrorMsg("Akun Daily.co perlu payment method. Cek dashboard Daily.co.");
           } else {
@@ -116,45 +168,6 @@ export function VideoCall({ sessionCode, onLeave }: VideoCallProps) {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function attachLocalTrack(call: any) {
-      const local = call.participants()?.local;
-      if (!local) return;
-      const track = local.tracks?.video?.persistentTrack;
-      if (track && localVideoRef.current) {
-        localVideoRef.current.srcObject = new MediaStream([track]);
-        localVideoRef.current.play().catch(() => {});
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function attachTracks(call: any) {
-      const participants = call.participants();
-      for (const p of Object.values(participants) as { local: boolean; tracks: Record<string, { persistentTrack?: MediaStreamTrack }> }[]) {
-        const videoTrack = p.tracks?.video?.persistentTrack;
-        if (!videoTrack) continue;
-        if (p.local && localVideoRef.current) {
-          localVideoRef.current.srcObject = new MediaStream([videoTrack]);
-          localVideoRef.current.play().catch(() => {});
-        } else if (!p.local && remoteVideoRef.current) {
-          const audioTrack = p.tracks?.audio?.persistentTrack;
-          const tracks: MediaStreamTrack[] = [videoTrack];
-          if (audioTrack) tracks.push(audioTrack);
-          remoteVideoRef.current.srcObject = new MediaStream(tracks);
-          remoteVideoRef.current.play().catch(() => {});
-        }
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function checkRemote(call: any) {
-      const participants = call.participants() as Record<string, { local?: boolean }>;
-      const remoteExists = Object.values(participants).some(
-        (p: { local?: boolean }) => !p.local
-      );
-      setHasRemote(remoteExists);
-    }
-
     init();
 
     return () => {
@@ -165,6 +178,7 @@ export function VideoCall({ sessionCode, onLeave }: VideoCallProps) {
         callRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionCode]);
 
   async function toggleAudio() {
