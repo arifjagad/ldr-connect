@@ -30,7 +30,7 @@ export async function GET() {
   const { data: sessions, error } = await serviceClient
     .from("game_sessions")
     .select(
-      "id, session_code, game_type, status, questions, coin_deducted, partner_joined_at, expires_at, created_at, host_user_id, partner_user_id"
+      "id, session_code, game_type, status, questions, game_state, coin_deducted, partner_joined_at, expires_at, created_at, host_user_id, partner_user_id"
     )
     .or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
     .or(`status.in.(completed,expired,cancelled),and(status.eq.playing,expires_at.lt.${now})`)

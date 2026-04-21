@@ -1,12 +1,14 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
-import { SnakeBoard } from "@/components/snake/SnakeBoard";
+import { PhaserBoard } from "@/components/snake/PhaserBoard";
 import { Dice } from "@/components/snake/Dice";
 import { ChallengeModal } from "@/components/snake/ChallengeModal";
+import { VideoCall } from "@/components/VideoCall";
 import type { SnakeSession, SnakeGameState } from "@/lib/types";
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
@@ -79,7 +81,9 @@ function SnakeGameContent() {
 
   // Video call
   const [showVideo, setShowVideo] = useState(false);
-  const dailyRef = useRef<HTMLIFrameElement>(null);
+
+  // Challenge modal is only shown after pion animation completes
+  const [challengeReady, setChallengeReady] = useState(true);
 
   // Realtime
   const supabaseRef = useRef(createClient());
@@ -350,6 +354,16 @@ function SnakeGameContent() {
     }
   }
 
+  // Hide challenge modal while animation plays; PhaserBoard calls this when done
+  const handleMoveDone = useCallback(() => {
+    setChallengeReady(true);
+  }, []);
+
+  // Whenever a new roll causes positions to change, hide until animation finishes
+  useEffect(() => {
+    if (phase === "playing") setChallengeReady(false);
+  }, [gameState?.host_position, gameState?.partner_position]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleNewGame() {
     setSession(null);
     setGameState(null);
@@ -368,19 +382,27 @@ function SnakeGameContent() {
   // IDLE
   if (phase === "idle") {
     return (
-      <main className="relative mx-auto w-full max-w-4xl px-6 py-12 lg:px-8">
-        <div className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-80 w-80 -translate-x-1/2 rounded-full blur-[100px]"
-          style={{ background: "radial-gradient(ellipse, rgba(129,140,248,0.12) 0%, transparent 70%)" }} />
+      <main className="relative mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full blur-[120px]"
+          style={{ background: "radial-gradient(ellipse, rgba(129,140,248,0.10) 0%, transparent 70%)" }}
+        />
 
         <div className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Dashboard / Games / Ular Tangga</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#FFF5F8]">
-            Snake &{" "}
-            <span style={{ backgroundImage: "linear-gradient(90deg, #818CF8, #A78BFA)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Ladder
-            </span>
-          </h1>
-          <p className="mt-2 text-sm text-[#9B93B0]">Board klasik dengan tantangan Truth or Dare di setiap kotak. Harus tepat angka 100 untuk menang!</p>
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
+            <Link href="/dashboard/games" className="transition hover:text-[#9B93B0]">Games</Link>
+            {" / "}Ular Tangga
+          </p>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#818CF8]/30 to-[#A78BFA]/20 text-xl">
+              🎲
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">Snake & Ladder</h1>
+              <p className="text-sm text-[#5C5470]">Board klasik dengan Truth or Dare di setiap kotak!</p>
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
@@ -518,7 +540,7 @@ function SnakeGameContent() {
   // SETUP (konfirmasi sebelum create)
   if (phase === "setup") {
     return (
-      <main className="relative mx-auto w-full max-w-md px-6 py-12 lg:px-8">
+      <main className="relative mx-auto w-full max-w-md px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
         <div className="rounded-2xl border border-[#818CF8]/20 bg-[#111113] p-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#818CF8]">Konfirmasi</p>
           <h2 className="text-xl font-bold text-[#FFF5F8] mb-4">Mulai game baru?</h2>
@@ -549,7 +571,7 @@ function SnakeGameContent() {
     const shareText = `Yuk main Ular Tangga bareng aku di LDR-Connect! 🎲\nKode: ${session.session_code}\nLink: ${typeof window !== "undefined" ? window.location.origin : ""}/join/${session.session_code}`;
 
     return (
-      <main className="relative mx-auto w-full max-w-md px-6 py-12 lg:px-8">
+      <main className="relative mx-auto w-full max-w-md px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
         <div className="rounded-2xl border border-[#818CF8]/20 bg-[#111113] p-6 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#818CF8]/15">
             <span className="text-3xl">🎲</span>
@@ -583,44 +605,94 @@ function SnakeGameContent() {
   if (phase === "finished" && session && gameState) {
     const gs = gameState;
     const winnerIsMe = gs.winner === myRole;
-    const partnerWon = gs.winner && gs.winner !== myRole;
-    const isDraw = !gs.winner;
+    const partnerWon = !!(gs.winner && gs.winner !== myRole);
+    const accentColor = finishReason === "time_up"
+      ? "rgba(251,191,36,0.25)"
+      : winnerIsMe
+      ? "rgba(52,211,153,0.20)"
+      : "rgba(129,140,248,0.20)";
+    const barBg = finishReason === "time_up"
+      ? "linear-gradient(90deg,#FBBF24,#F59E0B)"
+      : winnerIsMe
+      ? "linear-gradient(90deg,#34D399,#6EE7B7)"
+      : "linear-gradient(90deg,#818CF8,#A78BFA)";
 
     return (
-      <main className="relative mx-auto w-full max-w-md px-6 py-12 lg:px-8">
-        <div className="rounded-2xl border border-white/10 bg-[#111113] p-8 text-center">
-          <div className="text-6xl mb-4">
-            {finishReason === "time_up" ? "⏰" : winnerIsMe ? "🎉" : partnerWon ? "😢" : "🤝"}
-          </div>
-          <h2 className="text-2xl font-bold text-[#FFF5F8] mb-2">
-            {finishReason === "time_up" ? "Waktu Habis!" : winnerIsMe ? "Kamu Menang!" : partnerWon ? "Pasanganmu Menang!" : "Game Selesai"}
-          </h2>
-          <p className="text-sm text-[#9B93B0] mb-2">
-            {finishReason === "time_up"
-              ? "Waktu 20 menit sudah habis."
-              : winnerIsMe
-              ? "Selamat! Kamu berhasil mencapai kotak 100 tepat!"
-              : partnerWon
-              ? "Pasanganmu mencapai kotak 100 duluan. Semangat!"
-              : "Game selesai."}
-          </p>
-
-          {/* Posisi akhir */}
-          <div className="my-5 flex justify-center gap-6">
-            <div className="text-center">
-              <div className="text-2xl font-black text-[#FF3D7F]">{gs.host_position}</div>
-              <div className="text-xs text-[#5C5470]">Host</div>
+      <main className="relative mx-auto w-full max-w-md px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+        <div className="overflow-hidden rounded-2xl border bg-[#111113]" style={{ borderColor: accentColor }}>
+          <div className="h-1 w-full" style={{ background: barBg }} />
+          <div className="p-6 sm:p-8 text-center">
+            <div className="mb-4 text-5xl">
+              {finishReason === "time_up" ? "⏰" : winnerIsMe ? "🎉" : partnerWon ? "😢" : "🤝"}
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-black text-[#818CF8]">{gs.partner_position}</div>
-              <div className="text-xs text-[#5C5470]">Partner</div>
+            <h2 className="text-2xl font-bold text-[#FFF5F8]">
+              {finishReason === "time_up" ? "Waktu Habis!" : winnerIsMe ? "Kamu Menang!" : partnerWon ? "Pasanganmu Menang!" : "Game Selesai"}
+            </h2>
+            <p className="mt-2 text-sm text-[#9B93B0]">
+              {finishReason === "time_up"
+                ? "Waktu 20 menit sudah habis."
+                : winnerIsMe
+                ? "Selamat! Kamu berhasil mencapai kotak 100 tepat!"
+                : partnerWon
+                ? "Pasanganmu mencapai kotak 100 duluan. Semangat!"
+                : "Game selesai."}
+            </p>
+
+            {/* Stats card */}
+            <div
+              className="mx-auto mt-6 max-w-xs rounded-2xl border p-4 text-left space-y-3"
+              style={{ borderColor: accentColor, background: winnerIsMe ? "rgba(52,211,153,0.06)" : finishReason === "time_up" ? "rgba(251,191,36,0.06)" : "rgba(129,140,248,0.06)" }}
+            >
+              <div className="flex justify-between text-xs text-[#5C5470]">
+                <span>Posisi Host</span>
+                <span className="font-mono font-bold text-[#FF3D7F]">{gs.host_position === 100 ? "100 🏆" : gs.host_position}</span>
+              </div>
+              <div className="flex justify-between text-xs text-[#5C5470]">
+                <span>Posisi Partner</span>
+                <span className="font-mono font-bold text-[#818CF8]">{gs.partner_position === 100 ? "100 🏆" : gs.partner_position}</span>
+              </div>
+              <div className="flex justify-between text-xs text-[#5C5470]">
+                <span>Session</span>
+                <span className="font-mono text-[#9B93B0]">{session.session_code}</span>
+              </div>
+              <div className="flex justify-between text-xs text-[#5C5470]">
+                <span>Hasil</span>
+                <span className="font-medium" style={{ color: finishReason === "time_up" ? "#FBBF24" : winnerIsMe ? "#34D399" : "#818CF8" }}>
+                  {finishReason === "time_up" ? "Waktu Habis" : winnerIsMe ? "Menang" : partnerWon ? "Kalah" : "Seri"}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handleNewGame}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#818CF8] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(129,140,248,0.3)] transition hover:bg-[#A78BFA]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M1 4v6h6M23 20v-6h-6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Main Lagi
+              </button>
+              <Link
+                href="/dashboard/games/history"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 8v4l3 3" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="12" cy="12" r="10" />
+                </svg>
+                Lihat History
+              </Link>
+              <Link
+                href="/dashboard/games"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10"
+              >
+                Kembali ke Games
+              </Link>
             </div>
           </div>
-
-          <button onClick={handleNewGame}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#818CF8] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_16px_rgba(129,140,248,0.35)] transition hover:bg-[#A78BFA]">
-            Main Lagi
-          </button>
         </div>
       </main>
     );
@@ -632,52 +704,78 @@ function SnakeGameContent() {
     const hasPendingChallenge = !!gameState.pending_challenge;
     const lastRoll = gameState.last_roll;
 
-    const dailyUrl = `https://ldrconnect.daily.co/${session.session_code}`;
+    // Timer derived values — matches ToD style
+    const totalSec = 20 * 60;
+    const timerPct = timerSeconds !== null ? (timerSeconds / totalSec) * 100 : 100;
+    const timerColor = timerPct > 50 ? "#34D399" : timerPct > 20 ? "#FBBF24" : "#FF3D7F";
+    const timerMM = timerSeconds !== null ? String(Math.floor(timerSeconds / 60)).padStart(2, "0") : "--";
+    const timerSS = timerSeconds !== null ? String(timerSeconds % 60).padStart(2, "0") : "--";
 
     return (
-      <main className="relative w-full max-w-6xl mx-auto px-4 py-6 lg:px-8">
+      <main className="relative w-full max-w-[860px] mx-auto px-4 py-4 lg:px-6">
         {/* Header bar */}
-        <div className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-white/[0.07] bg-[#111113] px-4 py-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xl">🎲</span>
-            <div>
-              <p className="text-xs font-semibold text-[#FFF5F8]">Snake & Ladder</p>
-              <p className="font-mono text-[10px] text-[#5C5470]">{session.session_code}</p>
+        <div className="mb-3 rounded-2xl border border-white/[0.07] bg-[#111113] px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 font-mono text-xs tracking-widest text-[#5C5470]">{session.session_code}</span>
+              <span className="h-1 w-1 shrink-0 rounded-full bg-[#5C5470]" />
+              <span className={`truncate text-xs ${hasPendingChallenge ? "text-yellow-400" : isMyTurn ? "text-[#818CF8]" : "text-[#9B93B0]"}`}>
+                {hasPendingChallenge ? "⚡ Tantangan aktif" : isMyTurn ? "Giliranmu" : "Giliran partner"}
+              </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="font-mono text-sm font-bold tabular-nums" style={{ color: timerColor }}>
+                {timerMM}:{timerSS}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowVideo((v) => !v)}
+                title={showVideo ? "Tutup video call" : "Buka video call"}
+                className={`flex h-7 w-7 items-center justify-center rounded-lg border transition ${
+                  showVideo
+                    ? "border-[#34D399]/40 bg-[#34D399]/15 text-[#34D399]"
+                    : "border-white/10 bg-white/5 text-[#5C5470] hover:text-[#9B93B0]"
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="23 7 16 12 23 17 23 7" />
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={handleNewGame}
+                className="text-xs text-[#5C5470] transition hover:text-[#9B93B0]"
+              >
+                Keluar
+              </button>
             </div>
           </div>
-
-          {/* Timer */}
-          <div className={`font-mono text-lg font-black ${timerSeconds !== null && timerSeconds < 60 ? "text-red-400" : "text-[#FFF5F8]"}`}>
-            {formatTime(timerSeconds)}
+          {/* Timer bar */}
+          <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/5">
+            <div
+              className="h-full rounded-full transition-all duration-1000"
+              style={{ width: `${timerPct}%`, backgroundColor: timerColor }}
+            />
           </div>
-
-          {/* Turn indicator */}
-          <div className={`rounded-full px-3 py-1 text-xs font-bold ${isMyTurn ? "bg-[#818CF8]/20 text-[#818CF8]" : "bg-white/5 text-[#5C5470]"}`}>
-            {hasPendingChallenge ? "⚡ Tantangan" : isMyTurn ? "Giliranmu" : "Giliran partner"}
-          </div>
-
-          {/* Video call toggle */}
-          <button onClick={() => setShowVideo(!showVideo)}
-            className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${showVideo ? "bg-[#FF3D7F]/20 text-[#FF6B9D]" : "bg-white/5 text-[#9B93B0] hover:bg-white/10"}`}>
-            {showVideo ? "🎥 Tutup" : "🎥 Video"}
-          </button>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Board */}
-          <div className="flex-1 flex justify-center">
-            <SnakeBoard
+        <div className="flex flex-col lg:flex-row items-start gap-3">
+          {/* Board — fixed width, no gap */}
+          <div className="w-full lg:w-[500px] shrink-0">
+            <PhaserBoard
               boardConfig={session.board_config}
               gameState={gameState}
               hostUserId={session.host_user_id}
               currentUserId={user?.id ?? ""}
+              onMoveDone={handleMoveDone}
             />
           </div>
 
-          {/* Side panel: dadu + info */}
-          <div className="lg:w-64 space-y-4">
+          {/* Side panel */}
+          <div className="flex-1 w-full space-y-3">
             {/* Dice panel */}
-            <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-5 flex flex-col items-center gap-4">
+            <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-4 flex flex-col items-center gap-3">
               <Dice
                 value={diceValue}
                 rolling={diceRolling}
@@ -687,19 +785,21 @@ function SnakeGameContent() {
 
               {/* Last roll info */}
               {lastRoll && (
-                <div className="w-full rounded-xl bg-white/5 p-3 text-center space-y-1">
-                  <p className="text-[10px] text-[#5C5470]">
-                    {lastRoll.player === myRole ? "Kamu" : "Partner"} dapat angka{" "}
-                    <span className="font-black text-[#FFF5F8] text-sm">{lastRoll.dice}</span>
-                  </p>
+                <div className="w-full overflow-hidden rounded-xl bg-white/5 px-3 py-2.5 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-[10px] text-[#5C5470]">
+                      {lastRoll.player === myRole ? "Kamu" : "Partner"} dapat angka
+                    </p>
+                    <span className="shrink-0 font-black text-[#FFF5F8] text-base leading-none">{lastRoll.dice}</span>
+                  </div>
                   {lastRoll.snake_from && (
-                    <p className="text-[10px] text-red-400">🐍 Turun dari {lastRoll.snake_from} → {lastRoll.final}</p>
+                    <p className="text-[10px] text-red-400">🐍 Turun {lastRoll.snake_from} → {lastRoll.final}</p>
                   )}
                   {lastRoll.ladder_from && (
-                    <p className="text-[10px] text-[#22C55E]">🪜 Naik dari {lastRoll.ladder_from} → {lastRoll.final}</p>
+                    <p className="text-[10px] text-[#22C55E]">🪜 Naik {lastRoll.ladder_from} → {lastRoll.final}</p>
                   )}
                   {lastRoll.bounced && (
-                    <p className="text-[10px] text-yellow-400">↩ Overshoot! Balik ke {lastRoll.final}</p>
+                    <p className="text-[10px] text-yellow-400">↩ Balik ke {lastRoll.final}</p>
                   )}
                   {lastRoll.dice === 6 && !lastRoll.bounced && (
                     <p className="text-[10px] text-yellow-400">★ Dapat 6 — lempar lagi!</p>
@@ -712,83 +812,77 @@ function SnakeGameContent() {
 
             {/* Score board */}
             <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-4">
-              <p className="mb-3 text-[10px] uppercase tracking-widest text-[#5C5470]">Posisi</p>
-              <div className="space-y-2">
+              <p className="mb-3 text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">POSISI</p>
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-[#FF3D7F]" />
-                    <span className="text-xs text-[#9B93B0]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#FF3D7F]" />
+                    <span className="truncate text-xs text-[#9B93B0]">
                       {myRole === "host" ? "Kamu (Host)" : "Host"}
                     </span>
                   </div>
-                  <span className="font-mono text-sm font-black text-[#FFF5F8]">
-                    {gameState.host_position === 0 ? "START" : gameState.host_position}
+                  <span className="ml-2 shrink-0 font-mono text-sm font-black text-[#FFF5F8]">
+                    {gameState.host_position === 0 ? "—" : gameState.host_position}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full bg-[#818CF8]" />
-                    <span className="text-xs text-[#9B93B0]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#818CF8]" />
+                    <span className="truncate text-xs text-[#9B93B0]">
                       {myRole === "partner" ? "Kamu (Partner)" : "Partner"}
                     </span>
                   </div>
-                  <span className="font-mono text-sm font-black text-[#FFF5F8]">
-                    {gameState.partner_position === 0 ? "START" : gameState.partner_position}
+                  <span className="ml-2 shrink-0 font-mono text-sm font-black text-[#FFF5F8]">
+                    {gameState.partner_position === 0 ? "—" : gameState.partner_position}
                   </span>
                 </div>
               </div>
 
               {/* Progress bars */}
               <div className="mt-3 space-y-1.5">
-                <div className="h-1.5 rounded-full bg-white/[0.06]">
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                   <div className="h-full rounded-full bg-[#FF3D7F] transition-all duration-500"
                     style={{ width: `${gameState.host_position}%` }} />
                 </div>
-                <div className="h-1.5 rounded-full bg-white/[0.06]">
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                   <div className="h-full rounded-full bg-[#818CF8] transition-all duration-500"
                     style={{ width: `${gameState.partner_position}%` }} />
                 </div>
               </div>
             </div>
 
-            {/* Turn status */}
-            <div className={`rounded-2xl border p-4 text-center text-xs font-medium ${
-              hasPendingChallenge
-                ? "border-yellow-500/20 bg-yellow-500/5 text-yellow-400"
-                : isMyTurn
-                ? "border-[#818CF8]/20 bg-[#818CF8]/5 text-[#818CF8]"
-                : "border-white/[0.07] bg-white/[0.02] text-[#5C5470]"
-            }`}>
+            {/* CTA */}
+            <button
+              type="button"
+              onClick={handleRoll}
+              disabled={!isMyTurn || hasPendingChallenge || diceRolling}
+              className={`w-full rounded-2xl border py-3 text-sm font-semibold transition ${
+                hasPendingChallenge
+                  ? "border-yellow-500/20 bg-yellow-500/5 text-yellow-400 cursor-default"
+                  : isMyTurn && !diceRolling
+                  ? "border-[#818CF8]/30 bg-[#818CF8]/10 text-[#818CF8] hover:bg-[#818CF8]/20"
+                  : "border-white/[0.07] bg-white/[0.02] text-[#5C5470] cursor-default"
+              }`}
+            >
               {hasPendingChallenge
-                ? "⚡ Ada tantangan yang harus diselesaikan!"
+                ? "⚡ Selesaikan tantangan dulu"
                 : isMyTurn
                 ? "🎲 Lempar dadu sekarang!"
-                : "⏳ Menunggu giliran partner..."}
-            </div>
+                : "⏳ Giliran partner..."}
+            </button>
           </div>
         </div>
 
-        {/* Video call embed */}
+        {/* Video call */}
         {showVideo && (
-          <div className="fixed bottom-4 right-4 z-40 w-80 rounded-2xl overflow-hidden border border-white/20 shadow-2xl">
-            <div className="flex items-center justify-between bg-[#111113] px-3 py-2">
-              <span className="text-xs font-semibold text-[#9B93B0]">Video Call</span>
-              <button onClick={() => setShowVideo(false)} className="text-[#5C5470] hover:text-[#FFF5F8]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <iframe
-              ref={dailyRef}
-              src={dailyUrl}
-              allow="camera; microphone; fullscreen; display-capture"
-              className="w-full"
-              style={{ height: 220, border: "none" }}
-            />
-          </div>
+          <VideoCall
+            sessionCode={session.session_code}
+            onLeave={() => setShowVideo(false)}
+          />
         )}
 
         {/* Challenge Modal */}
-        {hasPendingChallenge && gameState.pending_challenge && myRole && (
+        {hasPendingChallenge && gameState.pending_challenge && myRole && challengeReady && (
           <ChallengeModal
             challenge={gameState.pending_challenge}
             myRole={myRole}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuthStore } from "@/stores/auth-store";
 import type { TodQuestion } from "@/lib/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -12,6 +13,7 @@ type GameSession = {
   game_type: "tod" | "snake_ladder" | "quiz";
   status: "completed" | "expired" | "cancelled";
   questions: TodQuestion[];
+  game_state: Record<string, any> | null;
   coin_deducted: number;
   partner_joined_at: string | null;
   expires_at: string | null;
@@ -66,20 +68,27 @@ function StatusBadge({ status }: { status: GameSession["status"] }) {
   );
 }
 
-// For future games: show win/lose result
-// ToD doesn't have win/lose — show "–" instead
-function ResultBadge({ gameType, status }: { gameType: string; status: GameSession["status"] }) {
-  if (gameType === "tod") {
-    // No win/lose for ToD
-    return <span className="text-xs text-[#5C5470]">—</span>;
+function ResultBadge({ session, currentUserId }: { session: GameSession; currentUserId: string }) {
+  if (session.game_type === "snake_ladder" && session.game_state) {
+    const winner: string | null = session.game_state.winner ?? null;
+    if (!winner) return <span className="text-xs text-[#5C5470]">—</span>;
+
+    const myRole = session.host_user_id === currentUserId ? "host" : "partner";
+    const iWon = winner === myRole;
+
+    return (
+      <span className={`text-xs font-semibold ${iWon ? "text-[#34D399]" : "text-red-400"}`}>
+        {iWon ? "Menang" : "Kalah"}
+      </span>
+    );
   }
-  // Placeholder for future game types
   return <span className="text-xs text-[#5C5470]">—</span>;
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function GameHistoryPage() {
+  const { user } = useAuthStore();
   const [sessions, setSessions] = useState<GameSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -235,7 +244,7 @@ export default function GameHistoryPage() {
                       <span>•</span>
                       {/* Hasil: menang/kalah untuk game future, — untuk ToD */}
                       <span className="flex items-center gap-1">
-                        Hasil: <ResultBadge gameType={s.game_type} status={s.status} />
+                        Hasil: <ResultBadge session={s} currentUserId={user?.id ?? ""} />
                       </span>
                     </div>
                   </div>

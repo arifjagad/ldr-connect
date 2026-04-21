@@ -23,13 +23,13 @@ export function Dice({ value, rolling, disabled, onRoll }: DiceProps) {
     <button
       onClick={onRoll}
       disabled={disabled}
-      className={`group relative select-none transition-all duration-200 ${
+      className={`group flex flex-col items-center gap-2 select-none transition-all duration-200 ${
         disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:scale-110 active:scale-95"
       }`}
       title={disabled ? undefined : "Lempar dadu"}
     >
       <div
-        className={`relative h-20 w-20 rounded-2xl border-2 bg-white shadow-lg ${
+        className={`h-20 w-20 rounded-2xl border-2 bg-white shadow-lg ${
           rolling ? "animate-spin" : ""
         } ${
           disabled
@@ -44,16 +44,11 @@ export function Dice({ value, rolling, disabled, onRoll }: DiceProps) {
           ))}
         </svg>
       </div>
-      {!disabled && !rolling && (
-        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-medium text-[#9B93B0] whitespace-nowrap">
-          Klik lempar
-        </span>
-      )}
-      {rolling && (
-        <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-medium text-[#FF6B9D] whitespace-nowrap">
-          Rolling...
-        </span>
-      )}
+      <span className="text-[10px] font-medium whitespace-nowrap" style={{
+        color: rolling ? "#FF6B9D" : disabled ? "transparent" : "#9B93B0"
+      }}>
+        {rolling ? "Rolling..." : "Klik lempar"}
+      </span>
     </button>
   );
 }
