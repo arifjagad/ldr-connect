@@ -100,7 +100,7 @@ export default function ProfilePage() {
     : "—";
 
   return (
-    <main className="relative mx-auto w-full max-w-3xl px-6 py-12 lg:px-8">
+    <main className="relative mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
       {/* ambient glow */}
       <div
         aria-hidden
@@ -111,7 +111,7 @@ export default function ProfilePage() {
       {/* Header */}
       <div className="mb-8">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Dashboard / Profil</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#FFF5F8]">
+        <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">
           Profil &{" "}
           <span style={{ backgroundImage: "linear-gradient(90deg, #FF3D7F, #818CF8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Pengaturan

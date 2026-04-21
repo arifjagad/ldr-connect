@@ -25,7 +25,7 @@ export function Hero() {
         LDR
       </div>
 
-      <div className="relative mx-auto grid min-h-screen w-full max-w-7xl items-center gap-16 px-6 pb-24 pt-20 lg:grid-cols-[1.15fr_0.85fr] lg:px-8">
+      <div className="relative mx-auto grid min-h-screen w-full max-w-7xl items-center gap-10 px-5 pb-16 pt-16 sm:pb-24 sm:pt-20 lg:gap-16 lg:grid-cols-[1.15fr_0.85fr] lg:px-8">
         {/* ── Left copy ── */}
         <div>
           {/* Badge */}
@@ -38,10 +38,10 @@ export function Hero() {
 
           {/* Headline */}
           <h1 className="font-black leading-[1.0] tracking-tight text-[#FFF5F8]">
-            <span className="block text-6xl lg:text-[6rem]">Main <span className="text-[#FF3D7F]">bareng,</span></span>
-            <span className="block text-6xl lg:text-[6rem]">walau beda</span>
+            <span className="block text-4xl sm:text-6xl lg:text-[6rem]">Main <span className="text-[#FF3D7F]">bareng,</span></span>
+            <span className="block text-4xl sm:text-6xl lg:text-[6rem]">walau beda</span>
             <span
-              className="block text-6xl lg:text-[6rem]"
+              className="block text-4xl sm:text-6xl lg:text-[6rem]"
               style={{
                 WebkitTextStroke: "2px #FF3D7F",
                 color: "transparent",
@@ -175,7 +175,7 @@ export function Hero() {
 
           {/* Floating badge 1 */}
           <div
-            className="absolute -left-4 top-8 rounded-xl border border-[#FF3D7F20] bg-[#111113] px-3 py-2 shadow-xl"
+            className="absolute -left-4 top-8 hidden sm:block rounded-xl border border-[#FF3D7F20] bg-[#111113] px-3 py-2 shadow-xl"
             style={{ animationDelay: "1s" }}
           >
             <p className="text-[10px] font-semibold text-[#5C5470]">Pertanyaan AI</p>
@@ -183,7 +183,7 @@ export function Hero() {
           </div>
 
           {/* Floating badge 2 */}
-          <div className="absolute -right-4 bottom-16 rounded-xl border border-[#FF3D7F20] bg-[#111113] px-3 py-2 shadow-xl">
+          <div className="absolute -right-4 bottom-16 hidden sm:block rounded-xl border border-[#FF3D7F20] bg-[#111113] px-3 py-2 shadow-xl">
             <p className="text-[10px] font-semibold text-[#5C5470]">Coin terpakai</p>
             <p className="text-xs font-bold text-[#FFF5F8]">🪙 1 Coin</p>
           </div>

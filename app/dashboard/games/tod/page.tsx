@@ -413,7 +413,7 @@ function TodContent() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <main className="relative mx-auto w-full max-w-3xl px-6 py-12 lg:px-8">
+    <main className="relative mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
       {/* Ambient glow */}
       <div
         aria-hidden
@@ -432,7 +432,7 @@ function TodContent() {
             🔥
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#FFF5F8]">Truth or Dare</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">Truth or Dare</h1>
             <p className="text-sm text-[#5C5470]">Main bareng pasangan, jujur atau tantangan!</p>
           </div>
         </div>
@@ -551,7 +551,7 @@ function TodContent() {
       {/* ─── WAITING: Lobi ──────────────────────────────────────────────────────── */}
       {phase === "waiting" && session && (
         <div className="space-y-4">
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#111113] p-8 text-center text-[#FFF5F8]">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#111113] p-6 sm:p-8 text-center text-[#FFF5F8]">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#5C5470]/20">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9B93B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -724,7 +724,7 @@ function TodContent() {
                       : "linear-gradient(90deg, #FF3D7F, #FF6B9D)",
                 }}
               />
-              <div className="p-8">
+              <div className="p-5 sm:p-8">
                 {/* Type + category */}
                 <div className="flex items-center gap-2">
                   <QuestionTypeBadge type={currentQuestion.type} />
@@ -815,7 +815,7 @@ function TodContent() {
                 : "linear-gradient(90deg, #34D399, #6EE7B7)",
             }}
           />
-          <div className="p-10 text-center">
+          <div className="p-6 sm:p-10 text-center">
             {finishReason === "time_up" ? (
               <>
                 <div className="mb-4 text-5xl">⏰</div>

@@ -167,7 +167,7 @@ export default function CouplePage() {
   const isLinked = !!partner;
 
   return (
-    <main className="relative mx-auto w-full max-w-3xl px-6 py-12 lg:px-8">
+    <main className="relative mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
       {/* ambient glow */}
       <div
         aria-hidden
@@ -178,7 +178,7 @@ export default function CouplePage() {
       {/* Header */}
       <div className="mb-10">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Dashboard / Couple</p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-[#FFF5F8]">
+        <h1 className="mt-2 text-2xl sm:text-4xl font-bold tracking-tight text-[#FFF5F8]">
           Couple{" "}
           <span style={{ backgroundImage: "linear-gradient(90deg, #818CF8, #A78BFA)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Connection
@@ -192,7 +192,7 @@ export default function CouplePage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Couple Code Kamu</p>
-            <p className="mt-3 font-mono text-4xl font-bold tracking-[0.15em] text-[#A78BFA]">
+            <p className="mt-3 font-mono text-3xl md:text-4xl font-bold tracking-[0.15em] text-[#A78BFA]">
               {myCode || "——————"}
             </p>
             <p className="mt-2 text-xs text-[#5C5470]">Bagikan ke partner agar bisa terhubung denganmu.</p>

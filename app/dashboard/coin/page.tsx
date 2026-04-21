@@ -23,14 +23,38 @@ function StatusBadge({ status }: { status: CoinTransaction["payment_status"] }) 
   );
 }
 
-function TypeBadge({ type }: { type: CoinTransaction["type"] }) {
+function TypeBadge({ type, metadata }: { type: CoinTransaction["type"]; metadata: CoinTransaction["metadata"] }) {
+  const reason = metadata?.reason as string | undefined;
+  const isRefund = reason === "session_expired_refund";
+  const isGame = reason === "game_session_created" || reason === "game_session_joined";
+
+  if (type === "topup" && isRefund) {
+    return (
+      <span className="flex items-center gap-1 text-xs font-medium text-[#60A5FA]">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Refund
+      </span>
+    );
+  }
   if (type === "topup") {
     return (
       <span className="flex items-center gap-1 text-xs font-medium text-[#34D399]">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Topup
+        Top Up
+      </span>
+    );
+  }
+  if (isGame) {
+    return (
+      <span className="flex items-center gap-1 text-xs font-medium text-[#FF6B9D]">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M12 5v14M5 12l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Main Game
       </span>
     );
   }
@@ -39,7 +63,7 @@ function TypeBadge({ type }: { type: CoinTransaction["type"] }) {
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
         <path d="M12 5v14M5 12l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      Deduct
+      Dipotong
     </span>
   );
 }
@@ -158,7 +182,7 @@ export default function CoinPage() {
   }
 
   return (
-    <main className="relative mx-auto w-full max-w-5xl px-6 py-12 lg:px-8">
+    <main className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
       {/* ambient glow */}
       <div
         aria-hidden
@@ -169,7 +193,7 @@ export default function CoinPage() {
       {/* Header */}
       <div className="mb-10">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Dashboard / Coin</p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-[#FFF5F8]">
+        <h1 className="mt-2 text-2xl sm:text-4xl font-bold tracking-tight text-[#FFF5F8]">
           Coin{" "}
           <span style={{ backgroundImage: "linear-gradient(90deg, #34D399, #6EE7B7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Wallet
@@ -337,26 +361,40 @@ export default function CoinPage() {
                   <p className="text-sm text-[#5C5470]">Belum ada transaksi</p>
                 </div>
               )}
-              {transactions.map((tx) => (
+              {transactions.map((tx) => {
+                const reason = tx.metadata?.reason as string | undefined;
+                const gameType = tx.metadata?.game_type as string | undefined;
+                const sessionCode = tx.metadata?.session_code as string | undefined;
+                const isRefund = reason === "session_expired_refund";
+                const isGame = reason === "game_session_created" || reason === "game_session_joined";
+                const gameLabel = gameType === "tod" ? "Truth or Dare" : gameType === "snake_ladder" ? "Ular Tangga" : null;
+                const amountColor = isRefund ? "text-[#60A5FA]" : tx.type === "topup" ? "text-[#34D399]" : "text-[#FF6B9D]";
+                return (
                 <div key={tx.id} className="rounded-xl border border-white/[0.07] bg-[#18181C] p-4">
                   <div className="flex items-start justify-between gap-2">
-                    <TypeBadge type={tx.type} />
+                    <TypeBadge type={tx.type} metadata={tx.metadata} />
                     <StatusBadge status={tx.payment_status} />
                   </div>
                   <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className={`text-xl font-bold ${tx.type === "topup" ? "text-[#34D399]" : "text-[#FF6B9D]"}`}>
+                    <span className={`text-xl font-bold ${amountColor}`}>
                       {tx.type === "topup" ? "+" : "-"}{tx.amount}
                     </span>
                     <span className="text-xs text-[#5C5470]">coin</span>
                   </div>
-                  <p className="mt-1.5 font-mono text-[10px] text-[#5C5470] break-all">{tx.payment_reference}</p>
+                  {gameLabel && (
+                    <p className="mt-1 text-[10px] text-[#5C5470]">🎮 {gameLabel}{sessionCode ? ` · ${sessionCode}` : ""}</p>
+                  )}
+                  {!isGame && !isRefund && tx.payment_reference && (
+                    <p className="mt-1.5 font-mono text-[10px] text-[#5C5470] break-all">{tx.payment_reference}</p>
+                  )}
                   {tx.paid_at && (
                     <p className="mt-1 text-[10px] text-[#5C5470]">
                       {new Date(tx.paid_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

@@ -237,7 +237,7 @@ export default function AnniversariesPage() {
   const inactiveItems = items.filter((i) => !i.is_active);
 
   return (
-    <main className="relative mx-auto w-full max-w-5xl px-6 py-12 lg:px-8">
+    <main className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
       {/* ambient glow */}
       <div
         aria-hidden
@@ -248,7 +248,7 @@ export default function AnniversariesPage() {
       {/* Header */}
       <div className="mb-10">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Dashboard / Anniversary</p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-[#FFF5F8]">
+        <h1 className="mt-2 text-2xl sm:text-4xl font-bold tracking-tight text-[#FFF5F8]">
           Anniversary{" "}
           <span style={{ backgroundImage: "linear-gradient(90deg, #F472B6, #E879F9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             Tracker

@@ -268,7 +268,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="relative mx-auto w-full max-w-6xl px-6 py-12 lg:px-8">
+    <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
       {/* ambient glow */}
       <div
         aria-hidden
@@ -281,7 +281,7 @@ export default function DashboardPage() {
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
           User Dashboard
         </p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-[#FFF5F8]">
+        <h1 className="mt-2 text-2xl sm:text-4xl font-bold tracking-tight text-[#FFF5F8]">
           Welcome back,{" "}
           <span
             style={{
@@ -500,7 +500,7 @@ export default function DashboardPage() {
             ? "border-[#818CF8]/30 bg-[#818CF8]/8"
             : "border-[#FF3D7F]/30 bg-[#FF3D7F]/8"
         }`}>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="text-2xl">
                 {activeSession.host_user_id === user?.id ? "🎮" : "👾"}
