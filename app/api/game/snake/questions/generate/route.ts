@@ -3,9 +3,85 @@ import { createClient } from "@/lib/supabase/server";
 
 /**
  * POST /api/game/snake/questions/generate
- * Generate 15 pertanyaan via Gemini AI untuk board Ular Tangga
- * Body: { type?: "truth" | "dare" | "mix", category?: string, count?: number }
+ * Generate pertanyaan via OpenRouter (qwen/qwen3-coder:free) untuk board Ular Tangga
+ * Body: { type?: "truth" | "dare" | "mix", category?: string, narasi?: string, count?: number }
  */
+
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
+
+type GeneratedQuestion = { type: "truth" | "dare"; question: string; category: string };
+
+async function callOpenRouter(prompt: string): Promise<GeneratedQuestion[]> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY tidak dikonfigurasi");
+
+  const res = await fetch(OPENROUTER_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.9,
+      max_tokens: 2048,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error(`[OpenRouter] HTTP ${res.status} ${res.statusText}`);
+    console.error(`[OpenRouter] Raw error body:`, errText);
+    let friendlyMsg = "AI error";
+    try {
+      const errJson = JSON.parse(errText);
+      const msg: string = errJson?.error?.message ?? errJson?.message ?? "";
+      const code = errJson?.error?.code ?? errJson?.code ?? "";
+      console.error(`[OpenRouter] Parsed — code: ${code}, message: ${msg}`);
+      if (res.status === 429 || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("rate limit")) {
+        friendlyMsg = "Kuota AI sedang habis. Coba lagi beberapa saat.";
+      } else if (res.status === 400) {
+        friendlyMsg = "Request ke AI tidak valid. Coba lagi.";
+      } else if (res.status === 401 || res.status === 403) {
+        friendlyMsg = "API key tidak valid atau tidak punya akses.";
+      } else {
+        friendlyMsg = msg || `HTTP ${res.status}`;
+      }
+    } catch (parseErr) {
+      console.error(`[OpenRouter] Gagal parse error JSON:`, parseErr);
+      friendlyMsg = `HTTP ${res.status}: ${errText.slice(0, 100)}`;
+    }
+    console.error(`[OpenRouter] friendlyMsg =>`, friendlyMsg);
+    throw new Error(friendlyMsg);
+  }
+
+  console.log(`[OpenRouter] Response OK, parsing content...`);
+
+  const json = await res.json();
+  const rawText: string = json?.choices?.[0]?.message?.content ?? "";
+
+  const jsonMatch =
+    rawText.match(/```(?:json)?\s*([\s\S]*?)```/) ??
+    rawText.match(/(\[[\s\S]*\])/);
+
+  const jsonStr = jsonMatch ? jsonMatch[1].trim() : rawText.trim();
+
+  let parsed: GeneratedQuestion[];
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    throw new Error("Gagal memparse respons AI. Coba lagi.");
+  }
+
+  if (!Array.isArray(parsed)) throw new Error("Format respons AI tidak valid");
+
+  return parsed.filter(
+    (q) => q && typeof q.question === "string" && q.question.trim().length > 0
+  );
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -17,7 +93,7 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); } catch { /* ok */ }
 
   const type = body.type ?? "mix";
-  const category = body.category ?? "umum";
+  const category = body.category ?? "romantis";
   const narasi = (body.narasi ?? "").trim();
   const count = Math.min(Math.max(body.count ?? 15, 10), 20);
 
@@ -43,67 +119,41 @@ ${narasiSection}
 - Jangan terlalu vulgar, tetap sopan tapi bisa seru dan romantis
 - Variasikan tingkat kesulitan dan kedalaman pertanyaan
 
-Kembalikan JSON array berformat:
+Kembalikan HANYA array JSON dengan format:
 [
   {"type": "truth", "question": "...", "category": "${category}"},
   {"type": "dare", "question": "...", "category": "${category}"}
 ]
-Hanya kembalikan JSON array saja, tanpa teks lain.`;
+Jangan tambahkan teks lain selain JSON.`;
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ success: false, message: "Gemini API key tidak dikonfigurasi", data: null }, { status: 500 });
-  }
-
+  let questions: GeneratedQuestion[];
   try {
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.9, maxOutputTokens: 2048 },
-        }),
-      }
+    questions = await callOpenRouter(prompt);
+  } catch (e) {
+    return NextResponse.json(
+      { success: false, message: (e as Error).message, data: null },
+      { status: 502 }
     );
-
-    if (!geminiRes.ok) {
-      return NextResponse.json({ success: false, message: "Gemini API error", data: null }, { status: 500 });
-    }
-
-    const geminiData = await geminiRes.json();
-    const rawText: string = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-    // Extract JSON dari response (bisa terbungkus markdown code fence)
-    const jsonMatch =
-      rawText.match(/```(?:json)?\s*([\s\S]*?)```/) ??
-      rawText.match(/(\[[\s\S]*\])/);
-
-    const jsonStr = jsonMatch ? jsonMatch[1].trim() : rawText.trim();
-    const questions = JSON.parse(jsonStr);
-
-    if (!Array.isArray(questions) || questions.length === 0) {
-      return NextResponse.json({ success: false, message: "Format respons AI tidak valid", data: null }, { status: 500 });
-    }
-
-    // Validasi & normalisasi
-    const validated = questions
-      .filter((q) => q.type && q.question)
-      .map((q) => ({
-        type: q.type === "dare" ? "dare" : "truth",
-        question: String(q.question).trim(),
-        category: String(q.category ?? category).trim(),
-      }))
-      .slice(0, count);
-
-    return NextResponse.json({
-      success: true,
-      message: `${validated.length} pertanyaan berhasil digenerate`,
-      data: { questions: validated },
-    });
-  } catch (err) {
-    console.error("Gemini error:", err);
-    return NextResponse.json({ success: false, message: "Gagal memproses respons AI", data: null }, { status: 500 });
   }
+
+  if (questions.length === 0) {
+    return NextResponse.json(
+      { success: false, message: "AI tidak menghasilkan pertanyaan yang valid. Coba lagi.", data: null },
+      { status: 502 }
+    );
+  }
+
+  const validated = questions
+    .map((q) => ({
+      type: (q.type === "dare" ? "dare" : "truth") as "truth" | "dare",
+      question: String(q.question).trim(),
+      category: String(q.category ?? category).trim(),
+    }))
+    .slice(0, count);
+
+  return NextResponse.json({
+    success: true,
+    message: `${validated.length} pertanyaan berhasil digenerate`,
+    data: { questions: validated },
+  });
 }

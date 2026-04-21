@@ -2,6 +2,73 @@
 
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+
+// ── Custom Select ──────────────────────────────────────────────────────────────
+const CATEGORIES = [
+  { value: "romantis",  label: "Romantis",  emoji: "💕" },
+  { value: "kenangan",  label: "Kenangan",  emoji: "🌸" },
+  { value: "harapan",   label: "Harapan",   emoji: "✨" },
+  { value: "seru",      label: "Seru",      emoji: "🔥" },
+  { value: "umum",      label: "Umum",      emoji: "🎯" },
+];
+
+function CategorySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = CATEGORIES.find((c) => c.value === value) ?? CATEGORIES[0];
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#18181C] px-3 py-2.5 text-xs text-[#FFF5F8] transition hover:border-[#818CF8]/40"
+      >
+        <span className="flex items-center gap-2">
+          <span>{selected.emoji}</span>
+          <span>{selected.label}</span>
+        </span>
+        <svg
+          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C5470" strokeWidth="2.5"
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#18181C] shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => { onChange(c.value); setOpen(false); }}
+              className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-xs transition hover:bg-white/5 ${
+                c.value === value ? "text-[#818CF8] bg-[#818CF8]/8" : "text-[#9B93B0]"
+              }`}
+            >
+              <span>{c.emoji}</span>
+              <span>{c.label}</span>
+              {c.value === value && (
+                <svg className="ml-auto" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -436,15 +503,7 @@ function SnakeGameContent() {
                     </button>
                   ))}
                 </div>
-                <select
-                  value={aiCategory}
-                  onChange={(e) => setAiCategory(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-[#18181C] px-3 py-2 text-xs text-[#FFF5F8] outline-none"
-                >
-                  {["romantis", "kenangan", "harapan", "seru", "umum"].map((c) => (
-                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                  ))}
-                </select>
+                <CategorySelect value={aiCategory} onChange={setAiCategory} />
 
                 {/* Narasi / konteks khusus untuk AI */}
                 <div>
@@ -486,7 +545,14 @@ function SnakeGameContent() {
                     ) : "✨ Generate Pertanyaan AI"}
                   </button>
                 )}
-                {aiError && <p className="text-[10px] text-red-400">{aiError}</p>}
+                {aiError && (
+                  <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2.5">
+                    <svg className="mt-0.5 shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <p className="text-[10px] leading-relaxed text-red-400">{aiError}</p>
+                  </div>
+                )}
               </div>
             )}
 
