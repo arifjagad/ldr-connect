@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { CoinPackage, CoinTransaction, WalletData } from "@/lib/types";
 
 type TopupResponse = {
@@ -60,6 +60,14 @@ export default function CoinPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const verifyingRef = useRef(false);
+
+  // Auto-dismiss toast setelah 4 detik
+  useEffect(() => {
+    if (!status && !error) return;
+    const t = setTimeout(() => { setStatus(null); setError(null); }, 4000);
+    return () => clearTimeout(t);
+  }, [status, error]);
 
   const canTopup = useMemo(() => selectedPackage !== null, [selectedPackage]);
   const selectedPkg = useMemo(
@@ -123,23 +131,30 @@ export default function CoinPage() {
   }
 
   async function handleVerify() {
-    if (!verifyReference.trim()) return;
+    if (!verifyReference.trim() || verifyingRef.current) return;
+    verifyingRef.current = true;
     setLoading(true); setError(null); setStatus(null);
 
-    const res = await fetch("/api/coin/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payment_reference: verifyReference.trim() }),
-    });
+    try {
+      const res = await fetch("/api/coin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payment_reference: verifyReference.trim() }),
+      });
 
-    if (res.ok) {
-      const json = await res.json();
-      setStatus(json.message);
-      await refreshWalletAndTransactions();
-    } else {
-      setError(await parseError(res));
+      if (res.ok) {
+        const json = await res.json();
+        setStatus(json.message);
+        await refreshWalletAndTransactions();
+      } else {
+        setError(await parseError(res));
+      }
+    } catch {
+      setError("Gagal terhubung ke server. Coba beberapa saat lagi.");
+    } finally {
+      verifyingRef.current = false;
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -309,7 +324,7 @@ export default function CoinPage() {
           <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
             <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Riwayat Transaksi</p>
 
-            <div className="mt-5 space-y-3">
+            <div className="mt-5 max-h-135 space-y-3 overflow-y-auto pr-1 [scrollbar-color:#2D2A3E_transparent] [scrollbar-width:thin]">
               {transactions.length === 0 && (
                 <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
                   <svg className="mx-auto mb-3 text-[#5C5470]" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -347,23 +362,32 @@ export default function CoinPage() {
         </div>
       </div>
 
-      {/* Feedback */}
-      {status && (
-        <div className="mt-5 flex items-center gap-3 rounded-xl border border-[#34D399]/20 bg-[#34D399]/10 px-4 py-3 text-sm text-[#34D399]">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          {status}
-        </div>
-      )}
-      {error && (
-        <div className="mt-5 flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          {error}
+      {/* Toast notification — fixed di pojok kanan bawah */}
+      {(status || error) && (
+        <div className={`fixed right-6 top-6 z-50 flex max-w-sm items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-sm transition-all ${
+          error
+            ? "border-red-500/25 bg-[#1A0A10]/95 text-red-300"
+            : "border-[#34D399]/25 bg-[#0A1A12]/95 text-[#34D399]"
+        }`}>
+          {error ? (
+            <svg className="mt-0.5 shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          ) : (
+            <svg className="mt-0.5 shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          <p className="text-sm leading-snug">{error ?? status}</p>
+          <button
+            type="button"
+            onClick={() => { setError(null); setStatus(null); }}
+            className="ml-1 shrink-0 opacity-50 transition hover:opacity-100"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
       )}
     </main>
