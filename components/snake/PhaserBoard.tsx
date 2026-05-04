@@ -469,7 +469,7 @@ export function PhaserBoard({
     <div className="w-full space-y-3">
       <div
         ref={divRef}
-        className="w-full rounded-2xl overflow-hidden border border-white/10"
+        className="w-full mx-auto rounded-2xl overflow-hidden border border-white/10"
         style={{ maxWidth: S }}
       />
 

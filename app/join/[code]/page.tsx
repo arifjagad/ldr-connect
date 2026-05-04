@@ -1,26 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 
-/**
- * /join/[code] — Quick join link.
- * 1. Cek apakah user sudah login (API akan return 401 jika belum)
- * 2. Fetch game_type dari /api/game/session/[code] menggunakan service client
- *    (bypass RLS — agar bisa dibaca sebelum partner_user_id terisi)
- * 3. Redirect ke halaman game yang sesuai dengan ?join=CODE
- */
-
 const GAME_ROUTES: Record<string, string> = {
-  tod: "/dashboard/games/tod",
+  tod:          "/dashboard/games/tod",
   snake_ladder: "/dashboard/games/snake",
-  quiz: "/dashboard/games/quiz",
+  quiz:         "/dashboard/games/quiz",
 };
 
 export default function JoinPage() {
   const router = useRouter();
   const params = useParams();
   const code = (params?.code as string ?? "").toUpperCase();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!code) {
@@ -29,8 +22,6 @@ export default function JoinPage() {
     }
 
     async function checkAndRedirect() {
-      // Gunakan API route (service client) agar bisa baca session
-      // meski partner_user_id masih NULL (belum join)
       const res = await fetch(`/api/game/session/${code}`);
 
       if (res.status === 401) {
@@ -38,15 +29,45 @@ export default function JoinPage() {
         return;
       }
 
+      if (!res.ok) {
+        setError("Link tidak valid atau sesi sudah berakhir. Minta kode baru dari pasanganmu.");
+        return;
+      }
+
       const data = await res.json();
-      const gameType: string = data?.data?.game_type ?? "tod";
-      const gamePath = GAME_ROUTES[gameType] ?? "/dashboard/games/tod";
+      const gameType: string | undefined = data?.data?.game_type;
+      const gamePath = gameType ? (GAME_ROUTES[gameType] ?? null) : null;
+
+      if (!gamePath) {
+        setError("Jenis game tidak dikenali. Minta kode baru dari pasanganmu.");
+        return;
+      }
 
       router.replace(`${gamePath}?join=${code}`);
     }
 
     checkAndRedirect();
   }, [code, router]);
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0A0A0B] px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/15">
+            <span className="text-3xl">❌</span>
+          </div>
+          <p className="text-base font-semibold text-white">Sesi Tidak Ditemukan</p>
+          <p className="mt-2 text-sm text-[#9B93B0]">{error}</p>
+          <button
+            onClick={() => router.replace("/dashboard/games")}
+            className="mt-6 rounded-xl bg-[#818CF8] px-6 py-2.5 text-sm font-medium text-white"
+          >
+            Ke Halaman Games
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0A0A0B]">

@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-
-/**
- * POST /api/game/snake/questions/generate
- * Generate pertanyaan via OpenRouter (qwen/qwen3-coder:free) untuk board Ular Tangga
- * Body: { type?: "truth" | "dare" | "mix", category?: string, narasi?: string, count?: number }
- */
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free";
+
+const bodySchema = z.object({
+  type:     z.enum(["truth", "dare", "mix"]).default("mix"),
+  category: z.string().min(1).max(50).default("romantis"),
+  narasi:   z.string().max(500).default(""),
+  count:    z.number().int().min(10).max(20).default(15),
+});
 
 type GeneratedQuestion = { type: "truth" | "dare"; question: string; category: string };
 
@@ -19,27 +22,23 @@ async function callOpenRouter(prompt: string): Promise<GeneratedQuestion[]> {
   const res = await fetch(OPENROUTER_API_URL, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type":  "application/json",
       "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      messages: [{ role: "user", content: prompt }],
+      model:       OPENROUTER_MODEL,
+      messages:    [{ role: "user", content: prompt }],
       temperature: 0.9,
-      max_tokens: 2048,
+      max_tokens:  2048,
     }),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error(`[OpenRouter] HTTP ${res.status} ${res.statusText}`);
-    console.error(`[OpenRouter] Raw error body:`, errText);
     let friendlyMsg = "AI error";
     try {
       const errJson = JSON.parse(errText);
       const msg: string = errJson?.error?.message ?? errJson?.message ?? "";
-      const code = errJson?.error?.code ?? errJson?.code ?? "";
-      console.error(`[OpenRouter] Parsed — code: ${code}, message: ${msg}`);
       if (res.status === 429 || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("rate limit")) {
         friendlyMsg = "Kuota AI sedang habis. Coba lagi beberapa saat.";
       } else if (res.status === 400) {
@@ -49,15 +48,11 @@ async function callOpenRouter(prompt: string): Promise<GeneratedQuestion[]> {
       } else {
         friendlyMsg = msg || `HTTP ${res.status}`;
       }
-    } catch (parseErr) {
-      console.error(`[OpenRouter] Gagal parse error JSON:`, parseErr);
-      friendlyMsg = `HTTP ${res.status}: ${errText.slice(0, 100)}`;
+    } catch {
+      friendlyMsg = `HTTP ${res.status}`;
     }
-    console.error(`[OpenRouter] friendlyMsg =>`, friendlyMsg);
     throw new Error(friendlyMsg);
   }
-
-  console.log(`[OpenRouter] Response OK, parsing content...`);
 
   const json = await res.json();
   const rawText: string = json?.choices?.[0]?.message?.content ?? "";
@@ -89,13 +84,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
 
-  let body: { type?: string; category?: string; narasi?: string; count?: number } = {};
-  try { body = await request.json(); } catch { /* ok */ }
+  // Rate limit: 3 generate per 10 menit per user (snake generate lebih banyak token)
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint:      "snake:questions:generate",
+    maxRequests:   3,
+    windowMinutes: 10,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
 
-  const type = body.type ?? "mix";
-  const category = body.category ?? "romantis";
-  const narasi = (body.narasi ?? "").trim();
-  const count = Math.min(Math.max(body.count ?? 15, 10), 20);
+  // Validasi input dengan Zod
+  let body: z.infer<typeof bodySchema>;
+  try {
+    const raw = await request.json().catch(() => ({}));
+    body = bodySchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        { success: false, message: e.issues[0].message, data: null },
+        { status: 422 }
+      );
+    }
+    return NextResponse.json(
+      { success: false, message: "Request tidak valid", data: null },
+      { status: 400 }
+    );
+  }
+
+  const { type, category, narasi, count } = body;
 
   const typeInstruction =
     type === "truth" ? "semua harus bertipe truth (pertanyaan)"
@@ -145,7 +160,7 @@ Jangan tambahkan teks lain selain JSON.`;
 
   const validated = questions
     .map((q) => ({
-      type: (q.type === "dare" ? "dare" : "truth") as "truth" | "dare",
+      type:     (q.type === "dare" ? "dare" : "truth") as "truth" | "dare",
       question: String(q.question).trim(),
       category: String(q.category ?? category).trim(),
     }))

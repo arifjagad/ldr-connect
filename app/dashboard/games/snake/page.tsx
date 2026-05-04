@@ -783,9 +783,9 @@ function SnakeGameContent() {
         <div className="mb-3 rounded-2xl border border-white/[0.07] bg-[#111113] px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="shrink-0 font-mono text-xs tracking-widest text-[#5C5470]">{session.session_code}</span>
-              <span className="h-1 w-1 shrink-0 rounded-full bg-[#5C5470]" />
-              <span className={`truncate text-xs ${hasPendingChallenge ? "text-yellow-400" : isMyTurn ? "text-[#818CF8]" : "text-[#9B93B0]"}`}>
+              <span className="hidden sm:inline shrink-0 font-mono text-xs tracking-widest text-[#5C5470]">{session.session_code}</span>
+              <span className="hidden sm:inline-block h-1 w-1 shrink-0 rounded-full bg-[#5C5470]" />
+              <span className={`truncate text-xs font-medium ${hasPendingChallenge ? "text-yellow-400" : isMyTurn ? "text-[#818CF8]" : "text-[#9B93B0]"}`}>
                 {hasPendingChallenge ? "⚡ Tantangan aktif" : isMyTurn ? "Giliranmu" : "Giliran partner"}
               </span>
             </div>
@@ -840,82 +840,83 @@ function SnakeGameContent() {
 
           {/* Side panel */}
           <div className="flex-1 w-full space-y-3">
-            {/* Dice panel */}
-            <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-4 flex flex-col items-center gap-3">
-              <Dice
-                value={diceValue}
-                rolling={diceRolling}
-                disabled={!isMyTurn || hasPendingChallenge || diceRolling}
-                onRoll={handleRoll}
-              />
-
-              {/* Last roll info */}
-              {lastRoll && (
-                <div className="w-full overflow-hidden rounded-xl bg-white/5 px-3 py-2.5 space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-[10px] text-[#5C5470]">
-                      {lastRoll.player === myRole ? "Kamu" : "Partner"} dapat angka
-                    </p>
-                    <span className="shrink-0 font-black text-[#FFF5F8] text-base leading-none">{lastRoll.dice}</span>
-                  </div>
-                  {lastRoll.snake_from && (
-                    <p className="text-[10px] text-red-400">🐍 Turun {lastRoll.snake_from} → {lastRoll.final}</p>
-                  )}
-                  {lastRoll.ladder_from && (
-                    <p className="text-[10px] text-[#22C55E]">🪜 Naik {lastRoll.ladder_from} → {lastRoll.final}</p>
-                  )}
-                  {lastRoll.bounced && (
-                    <p className="text-[10px] text-yellow-400">↩ Balik ke {lastRoll.final}</p>
-                  )}
-                  {lastRoll.dice === 6 && !lastRoll.bounced && (
-                    <p className="text-[10px] text-yellow-400">★ Dapat 6 — lempar lagi!</p>
-                  )}
-                </div>
-              )}
-
-              {error && <p className="text-[10px] text-red-400 text-center">{error}</p>}
-            </div>
-
-            {/* Score board */}
-            <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-4">
-              <p className="mb-3 text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">POSISI</p>
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#FF3D7F]" />
-                    <span className="truncate text-xs text-[#9B93B0]">
-                      {myRole === "host" ? "Kamu (Host)" : "Host"}
-                    </span>
-                  </div>
-                  <span className="ml-2 shrink-0 font-mono text-sm font-black text-[#FFF5F8]">
-                    {gameState.host_position === 0 ? "—" : gameState.host_position}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#818CF8]" />
-                    <span className="truncate text-xs text-[#9B93B0]">
-                      {myRole === "partner" ? "Kamu (Partner)" : "Partner"}
-                    </span>
-                  </div>
-                  <span className="ml-2 shrink-0 font-mono text-sm font-black text-[#FFF5F8]">
-                    {gameState.partner_position === 0 ? "—" : gameState.partner_position}
-                  </span>
-                </div>
+            {/* Grid: dadu + skor berdampingan di mobile, kolom tunggal di desktop */}
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 items-start">
+              {/* Dice panel */}
+              <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-3 sm:p-4 flex flex-col items-center gap-2">
+                <Dice
+                  value={diceValue}
+                  rolling={diceRolling}
+                  disabled={!isMyTurn || hasPendingChallenge || diceRolling}
+                  onRoll={handleRoll}
+                />
               </div>
 
-              {/* Progress bars */}
-              <div className="mt-3 space-y-1.5">
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-[#FF3D7F] transition-all duration-500"
-                    style={{ width: `${gameState.host_position}%` }} />
+              {/* Score board */}
+              <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-3 sm:p-4">
+                <p className="mb-2 text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">POSISI</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="h-2 w-2 shrink-0 rounded-full bg-[#FF3D7F]" />
+                      <span className="truncate text-[11px] text-[#9B93B0]">
+                        {myRole === "host" ? "Kamu" : "Host"}
+                      </span>
+                    </div>
+                    <span className="ml-1 shrink-0 font-mono text-sm font-black text-[#FFF5F8]">
+                      {gameState.host_position === 0 ? "—" : gameState.host_position}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="h-2 w-2 shrink-0 rounded-full bg-[#818CF8]" />
+                      <span className="truncate text-[11px] text-[#9B93B0]">
+                        {myRole === "partner" ? "Kamu" : "Partner"}
+                      </span>
+                    </div>
+                    <span className="ml-1 shrink-0 font-mono text-sm font-black text-[#FFF5F8]">
+                      {gameState.partner_position === 0 ? "—" : gameState.partner_position}
+                    </span>
+                  </div>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-[#818CF8] transition-all duration-500"
-                    style={{ width: `${gameState.partner_position}%` }} />
+                <div className="mt-2.5 space-y-1.5">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div className="h-full rounded-full bg-[#FF3D7F] transition-all duration-500"
+                      style={{ width: `${gameState.host_position}%` }} />
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div className="h-full rounded-full bg-[#818CF8] transition-all duration-500"
+                      style={{ width: `${gameState.partner_position}%` }} />
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Last roll info — full width di bawah grid */}
+            {lastRoll && (
+              <div className="overflow-hidden rounded-xl bg-white/5 px-3 py-2.5 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-[10px] text-[#5C5470]">
+                    {lastRoll.player === myRole ? "Kamu" : "Partner"} dapat angka
+                  </p>
+                  <span className="shrink-0 font-black text-[#FFF5F8] text-base leading-none">{lastRoll.dice}</span>
+                </div>
+                {lastRoll.snake_from && (
+                  <p className="text-[10px] text-red-400">🐍 Turun {lastRoll.snake_from} → {lastRoll.final}</p>
+                )}
+                {lastRoll.ladder_from && (
+                  <p className="text-[10px] text-[#22C55E]">🪜 Naik {lastRoll.ladder_from} → {lastRoll.final}</p>
+                )}
+                {lastRoll.bounced && (
+                  <p className="text-[10px] text-yellow-400">↩ Balik ke {lastRoll.final}</p>
+                )}
+                {lastRoll.dice === 6 && !lastRoll.bounced && (
+                  <p className="text-[10px] text-yellow-400">★ Dapat 6 — lempar lagi!</p>
+                )}
+              </div>
+            )}
+
+            {error && <p className="text-[10px] text-red-400 text-center">{error}</p>}
 
             {/* CTA */}
             <button

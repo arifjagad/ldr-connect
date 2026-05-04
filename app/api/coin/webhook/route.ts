@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { createHash } from "crypto";
+import { logSecurityEvent } from "@/lib/security-logger";
 
 /**
  * POST /api/coin/webhook
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
   let body: Record<string, string>;
   try {
     body = await request.json();
-    console.log("[webhook] Received payload:", JSON.stringify(body));
+    console.log("[webhook] Received:", body.order_id, body.transaction_status, body.fraud_status);
   } catch {
     // Midtrans "Tes URL" mungkin kirim body kosong / bukan JSON
     console.log("[webhook] Non-JSON body received (URL test?)");
@@ -43,6 +44,11 @@ export async function POST(request: NextRequest) {
     if (!order_id) {
       return NextResponse.json({ message: "OK (test)" });
     }
+    logSecurityEvent({
+      event: "security:webhook_sig_fail",
+      metadata: { order_id, transaction_status },
+      req: request,
+    });
     return NextResponse.json({ message: "Invalid signature" }, { status: 403 });
   }
 
@@ -63,7 +69,7 @@ export async function POST(request: NextRequest) {
   const newStatus = isPaid ? "paid" : "failed";
   const paidAt = isPaid ? (settlement_time ?? new Date().toISOString()) : null;
 
-  const serviceClient = await createServiceClient();
+  const serviceClient = createServiceClient();
   const { error: rpcError } = await serviceClient.rpc("update_payment_status", {
     p_payment_reference: order_id,
     p_new_status: newStatus,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 const MIDTRANS_API_URL = process.env.MIDTRANS_IS_PRODUCTION === "true"
@@ -77,8 +78,8 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  // Generate order ID
-  const orderId = `TOPUP-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  // Generate order ID pakai CSPRNG — Math.random() tidak aman untuk payment reference
+  const orderId = `TOPUP-${Date.now()}-${randomBytes(4).toString("hex").toUpperCase()}`;
 
   // Insert coin_transaction (pending) dengan service client untuk bypass RLS
   const { data: tx, error: txError } = await serviceClient

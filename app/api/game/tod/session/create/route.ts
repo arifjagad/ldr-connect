@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createDailyRoom } from "@/lib/daily";
+import { checkRateLimit } from "@/lib/rate-limit";
 
-/**
- * POST /api/game/tod/session/create
- * Buat sesi Truth or Dare baru
- * - Potong coin dari wallet host (atomic via RPC)
- * - Generate pertanyaan dari pool
- *
- * Body: { categories?: string[], question_count?: number }
- */
+const bodySchema = z.object({
+  categories:     z.array(z.string().min(1).max(50)).max(10).default([]),
+  question_count: z.number().int().min(5).max(20).default(10),
+});
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
-  // Validate session
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
     return NextResponse.json(
@@ -22,16 +20,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Parse body
-  let body: { categories?: string[]; question_count?: number } = {};
+  // Rate limit: 3 create sesi per 15 menit per user
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint:      "tod:session:create",
+    maxRequests:   3,
+    windowMinutes: 15,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Validasi input dengan Zod
+  let body: z.infer<typeof bodySchema>;
   try {
-    body = await request.json();
-  } catch {
-    // body optional — pakai default
+    const raw = await request.json().catch(() => ({}));
+    body = bodySchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        { success: false, message: e.issues[0].message, data: null },
+        { status: 422 }
+      );
+    }
+    return NextResponse.json(
+      { success: false, message: "Request tidak valid", data: null },
+      { status: 400 }
+    );
   }
 
-  const questionCount = Math.min(Math.max(body.question_count ?? 10, 5), 20);
-  const selectedCategories: string[] = body.categories ?? [];
+  const { question_count: questionCount, categories: selectedCategories } = body;
 
   // Cek user sudah linked dengan partner
   const { data: profile } = await supabase
@@ -47,7 +62,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Ambil game settings untuk ToD (coin_cost)
   const serviceClient = await createServiceClient();
   const { data: settings } = await serviceClient
     .from("game_settings")
@@ -77,31 +91,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Shuffle + ambil sejumlah questionCount
   const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, questionCount);
 
-  // Build questions JSONB array
   const questions = selected.map((q, i) => ({
-    order: i + 1,
-    type: q.type,
-    question: q.question,
-    category: q.category,
-    source: q.source,
-    answered_by: null,
+    order:        i + 1,
+    type:         q.type,
+    question:     q.question,
+    category:     q.category,
+    source:       q.source,
+    answered_by:  null,
     is_completed: false,
   }));
 
-  // Generate session code (12 char alphanumeric)
   const sessionCode = Array.from({ length: 12 }, () =>
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]
   ).join("");
 
-  // expires_at = 10 menit dari sekarang (waiting lobby)
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  // Cleanup: hapus sesi stale (status playing/waiting tapi expires_at sudah lewat)
-  // Ini agar create_game_session RPC tidak gagal karena ada sesi lama yang tidak di-expire
   await serviceClient
     .from("game_sessions")
     .update({ status: "expired" })
@@ -109,23 +117,18 @@ export async function POST(request: NextRequest) {
     .in("status", ["waiting", "playing"])
     .lt("expires_at", new Date().toISOString());
 
-  // Buat Daily.co room (best effort — jika gagal, game tetap jalan tanpa video)
   const gameDurationMinutes = (settings as { expires_in_minutes?: number } | null)?.expires_in_minutes ?? 10;
-  await createDailyRoom(sessionCode, 10 + gameDurationMinutes); // 10 menit waiting + durasi game
+  await createDailyRoom(sessionCode, 10 + gameDurationMinutes);
 
-  // Buat sesi + potong coin (atomic via RPC)
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("create_game_session", {
     p_host_user_id: user.id,
     p_session_code: sessionCode,
-    p_game_type: "tod",
-    p_questions: questions,
-    p_coin_cost: coinCost,
-    p_expires_at: expiresAt,
+    p_game_type:    "tod",
+    p_questions:    questions,
+    p_coin_cost:    coinCost,
+    p_expires_at:   expiresAt,
   });
 
-  // supabase-js v2 wraps composite-type RPC results in an array
-  // PostgreSQL RETURNS composite mengembalikan object kosong (semua null) saat tidak ada data
-  // — cek .id untuk memastikan sesi valid
   const raw = Array.isArray(rpcData) ? rpcData[0] ?? null : rpcData;
   const session = raw?.id ? raw : null;
 
@@ -155,7 +158,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Guard: jika RPC sukses tapi session null (tidak terduga)
   if (!session) {
     return NextResponse.json(
       { success: false, message: "Gagal membuat sesi: data tidak tersedia", data: null },

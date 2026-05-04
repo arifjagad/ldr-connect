@@ -33,6 +33,7 @@ export async function GET() {
     .eq("couple_id", coupleId)
     .eq("game_type", "snake_ladder")
     .in("status", ["waiting", "playing"])
+    .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

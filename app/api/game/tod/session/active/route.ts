@@ -19,7 +19,8 @@ export async function GET() {
 
   const serviceClient = createServiceClient();
   const { data: rpcData } = await serviceClient.rpc("get_active_session_for_couple", {
-    p_user_id: user.id,
+    p_user_id:   user.id,
+    p_game_type: "tod",
   });
 
   // supabase-js v2 wraps composite-type RPC results in an array

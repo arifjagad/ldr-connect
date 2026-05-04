@@ -35,10 +35,27 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=*, microphone=*, geolocation=()",
           },
+          // SEC-01: CSP dengan nonce ditangani oleh middleware.ts (per-request nonce)
+          // SEC-02: HSTS — browser selalu pakai HTTPS setelah kunjungan pertama
           {
-            key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.daily.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://*.daily.co wss://*.daily.co; frame-src 'self' https://*.daily.co; media-src 'self' https://*.daily.co blob:",
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
           },
+        ],
+      },
+      // PAY-05: Jangan cache halaman & API payment di browser/proxy
+      {
+        source: "/api/coin/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
+          { key: "Pragma", value: "no-cache" },
+        ],
+      },
+      {
+        source: "/topup/:path*",
+        headers: [
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
+          { key: "Pragma", value: "no-cache" },
         ],
       },
     ];

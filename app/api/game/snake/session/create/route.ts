@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createDailyRoom } from "@/lib/daily";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { SnakeBoardConfig, ChallengeCell, SnakeGameState } from "@/lib/types";
+
+const customQuestionSchema = z.object({
+  type:     z.enum(["truth", "dare"]),
+  question: z.string().min(5).max(500),
+  category: z.string().min(1).max(50),
+});
+
+const bodySchema = z.object({
+  custom_questions: z.array(customQuestionSchema).length(15).optional(),
+});
 
 /** Generate board: 8 ular, 8 tangga, 15 kotak tantangan — semua random, tidak overlap */
 function generateBoard(
@@ -46,7 +58,7 @@ function generateBoard(
 
   const challenges: ChallengeCell[] = shuffledSquares.map((square, i) => ({
     square,
-    type: shuffledQs[i % shuffledQs.length].type as "truth" | "dare",
+    type:     shuffledQs[i % shuffledQs.length].type as "truth" | "dare",
     question: shuffledQs[i % shuffledQs.length].question,
     category: shuffledQs[i % shuffledQs.length].category,
   }));
@@ -55,19 +67,14 @@ function generateBoard(
 }
 
 const initialGameState: SnakeGameState = {
-  host_position: 0,
+  host_position:    0,
   partner_position: 0,
-  current_turn: "host",
+  current_turn:     "host",
   pending_challenge: null,
-  last_roll: null,
-  winner: null,
+  last_roll:        null,
+  winner:           null,
 };
 
-/**
- * POST /api/game/snake/session/create
- * Menyimpan sesi ke game_sessions (game_type='snake_ladder')
- * Board config + game state disimpan di kolom board_config + game_state
- */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -75,8 +82,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
 
-  let body: { custom_questions?: Array<{ type: string; question: string; category: string }> } = {};
-  try { body = await request.json(); } catch { /* ok */ }
+  // Rate limit: 3 create sesi per 15 menit per user
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint:      "snake:session:create",
+    maxRequests:   3,
+    windowMinutes: 15,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Validasi input dengan Zod
+  let body: z.infer<typeof bodySchema>;
+  try {
+    const raw = await request.json().catch(() => ({}));
+    body = bodySchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        { success: false, message: e.issues[0].message, data: null },
+        { status: 422 }
+      );
+    }
+    return NextResponse.json(
+      { success: false, message: "Request tidak valid", data: null },
+      { status: 400 }
+    );
+  }
 
   const { data: profile } = await supabase
     .from("users")
@@ -121,27 +151,24 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  // Cleanup sesi stale di game_sessions (snake_ladder)
   await serviceClient
     .from("game_sessions")
     .update({ status: "expired" })
     .or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
-    .eq("game_type", "snake_ladder")
     .in("status", ["waiting", "playing"])
     .lt("expires_at", new Date().toISOString());
 
   await createDailyRoom(sessionCode, 10 + gameDurationMinutes);
 
-  // Pakai create_game_session RPC yang sudah di-update (sama dengan ToD)
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("create_game_session", {
     p_host_user_id: user.id,
     p_session_code: sessionCode,
-    p_game_type: "snake_ladder",
-    p_questions: [],                  // questions tidak dipakai untuk snake (ada di board_config)
-    p_coin_cost: coinCost,
-    p_expires_at: expiresAt,
+    p_game_type:    "snake_ladder",
+    p_questions:    [],
+    p_coin_cost:    coinCost,
+    p_expires_at:   expiresAt,
     p_board_config: boardConfig,
-    p_game_state: initialGameState,
+    p_game_state:   initialGameState,
   });
 
   const session = Array.isArray(rpcData) ? rpcData[0] ?? null : rpcData;

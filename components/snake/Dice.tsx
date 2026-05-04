@@ -29,7 +29,7 @@ export function Dice({ value, rolling, disabled, onRoll }: DiceProps) {
       title={disabled ? undefined : "Lempar dadu"}
     >
       <div
-        className={`h-20 w-20 rounded-2xl border-2 bg-white shadow-lg ${
+        className={`h-14 w-14 sm:h-20 sm:w-20 rounded-2xl border-2 bg-white shadow-lg ${
           rolling ? "animate-spin" : ""
         } ${
           disabled

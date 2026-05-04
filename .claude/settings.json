@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "WebSearch",
+      "Bash(grep -r \"namespace App\\\\\\\\\\\\Support\" /c/laragon/www/ptpn/palm-sign/app/Support --include=\"*.php\")",
+      "Bash(xargs ls *)",
+      "Bash(xargs cat *)",
+      "Bash(php artisan *)",
+      "Bash(grep -n 'saveQuietly\\\\|addHistory\\\\|return $dokumen\\\\|return redirect\\\\|HumanLog::info' c:/laragon/www/ptpn/palm-sign/app/Services/DocumentService.php)",
+      "Bash(grep -E \"README|\\\\.md$\")"
+    ]
+  }
+}

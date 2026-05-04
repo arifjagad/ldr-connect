@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { logSecurityEvent } from "@/lib/security-logger";
 
 const MIDTRANS_STATUS_URL = process.env.MIDTRANS_IS_PRODUCTION === "true"
   ? "https://api.midtrans.com/v2"
@@ -74,7 +75,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Map Midtrans status → internal status
-  const isPaid = midtransStatus === "capture" || midtransStatus === "settlement";
+  // capture HARUS fraud_status === "accept" — sama persis dengan logika di webhook
+  const fraudStatus = midtransData.fraud_status as string | undefined;
+  const isPaid =
+    (midtransStatus === "capture" && fraudStatus === "accept") ||
+    midtransStatus === "settlement";
   const isFailed = midtransStatus === "deny" || midtransStatus === "cancel" || midtransStatus === "expire";
 
   if (!isPaid && !isFailed) {
@@ -87,8 +92,28 @@ export async function POST(request: NextRequest) {
   const newStatus = isPaid ? "paid" : "failed";
   const paidAt = isPaid ? (midtransData.settlement_time as string ?? new Date().toISOString()) : null;
 
+  // Pastikan payment_reference milik user yang sedang login (ownership check)
+  const serviceClient = createServiceClient();
+  const { data: txOwner } = await serviceClient
+    .from("coin_transactions")
+    .select("user_id")
+    .eq("payment_reference", payment_reference)
+    .single();
+
+  if (!txOwner || txOwner.user_id !== user.id) {
+    logSecurityEvent({
+      event: "security:payment_ownership_violation",
+      userId: user.id,
+      metadata: { attempted_reference: payment_reference },
+      req: request,
+    });
+    return NextResponse.json(
+      { success: false, message: "Transaksi tidak ditemukan", data: null },
+      { status: 404 }
+    );
+  }
+
   // Update via RPC (atomic: update tx + tambah wallet jika paid)
-  const serviceClient = await createServiceClient();
   const { data: updatedTx, error: rpcError } = await serviceClient.rpc("update_payment_status", {
     p_payment_reference: payment_reference,
     p_new_status: newStatus,

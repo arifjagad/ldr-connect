@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-
-/**
- * POST /api/game/tod/questions/generate
- * Generate pertanyaan ToD menggunakan Gemini AI.
- * source = 'ai', is_active = true (langsung aktif, tanpa approval)
- *
- * Body: { type?: "truth"|"dare"|"both", category: string, count?: number }
- */
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+
+const bodySchema = z.object({
+  type:     z.enum(["truth", "dare", "both"]).default("both"),
+  category: z.string().min(1).max(50).default("romantis"),
+  count:    z.number().int().min(3).max(10).default(5),
+});
 
 type GeminiQuestion = { type: "truth" | "dare"; question: string };
 
@@ -38,7 +38,6 @@ async function callGemini(prompt: string): Promise<GeminiQuestion[]> {
   const json = await res.json();
   const rawText: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-  // Ekstrak JSON dari respons (Gemini kadang wrap dalam ```json ... ```)
   const jsonMatch = rawText.match(/```json\s*([\s\S]*?)```/) ?? rawText.match(/(\[[\s\S]*\])/);
   const jsonStr = jsonMatch ? jsonMatch[1] : rawText;
 
@@ -49,7 +48,6 @@ async function callGemini(prompt: string): Promise<GeminiQuestion[]> {
     throw new Error("Gagal memparse respons AI. Coba lagi.");
   }
 
-  // Validasi format
   if (!Array.isArray(parsed)) throw new Error("Format respons AI tidak valid");
 
   return parsed.filter(
@@ -72,23 +70,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { type?: string; category?: string; count?: number };
+  // Rate limit: 5 generate per 10 menit per user
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint:       "tod:questions:generate",
+    maxRequests:    5,
+    windowMinutes:  10,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Validasi input dengan Zod
+  let body: z.infer<typeof bodySchema>;
   try {
-    body = await request.json();
-  } catch {
-    body = {};
-  }
-
-  const typeInput = body.type ?? "both";
-  const category = body.category?.trim() || "romantis";
-  const count = Math.min(Math.max(body.count ?? 5, 3), 10);
-
-  if (typeInput !== "both" && !["truth", "dare"].includes(typeInput)) {
+    const raw = await request.json().catch(() => ({}));
+    body = bodySchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        { success: false, message: e.issues[0].message, data: null },
+        { status: 422 }
+      );
+    }
     return NextResponse.json(
-      { success: false, message: "type harus 'truth', 'dare', atau 'both'", data: null },
-      { status: 422 }
+      { success: false, message: "Request tidak valid", data: null },
+      { status: 400 }
     );
   }
+
+  const { type: typeInput, category, count } = body;
 
   // Pastikan user sudah linked
   const { data: profile } = await supabase
@@ -106,7 +114,6 @@ export async function POST(request: NextRequest) {
 
   const coupleId = user.id < profile.partner_id ? user.id : profile.partner_id;
 
-  // Buat prompt untuk Gemini
   const typeDesc =
     typeInput === "both"
       ? `campuran (truth dan dare, sekitar setengah-setengah)`
@@ -151,15 +158,14 @@ Jangan tambahkan teks lain selain JSON.`;
     );
   }
 
-  // Bulk insert ke database
   const serviceClient = createServiceClient();
   const rows = generated.map((q) => ({
-    couple_id: coupleId,
-    type: q.type,
+    couple_id:  coupleId,
+    type:       q.type,
     category,
-    question: q.question.trim(),
-    source: "ai" as const,
-    is_active: true,  // AI questions langsung aktif
+    question:   q.question.trim(),
+    source:     "ai" as const,
+    is_active:  true,
     created_by: user.id,
   }));
 

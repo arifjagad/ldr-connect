@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const z = require\\('zod'\\); const err = new z.ZodError\\([]\\); console.log\\(JSON.stringify\\(Object.keys\\(err\\)\\)\\); console.log\\(z.version ?? 'no version'\\)\")"
+    ]
+  }
+}

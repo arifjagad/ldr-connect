@@ -4,7 +4,7 @@ import type { SnakeGameState } from "@/lib/types";
 
 /**
  * POST /api/game/snake/session/[code]/confirm
- * Partner konfirmasi tantangan selesai — update game_state di game_sessions
+ * Partner konfirmasi tantangan selesai — delegasi ke RPC confirm_snake_challenge (atomic)
  */
 export async function POST(
   _request: NextRequest,
@@ -17,47 +17,32 @@ export async function POST(
   }
 
   const { code } = await params;
-  const serviceClient = await createServiceClient();
+  const serviceClient = createServiceClient();
 
-  const { data: session, error: sessionError } = await serviceClient
-    .from("game_sessions")
-    .select("*")
-    .eq("session_code", code.toUpperCase())
-    .eq("game_type", "snake_ladder")
-    .eq("status", "playing")
-    .single();
+  const { data: newState, error: rpcError } = await serviceClient.rpc("confirm_snake_challenge", {
+    p_session_code: code.toUpperCase(),
+    p_user_id: user.id,
+  });
 
-  if (sessionError || !session) {
-    return NextResponse.json({ success: false, message: "Sesi tidak ditemukan", data: null }, { status: 404 });
-  }
-
-  const gs = session.game_state as SnakeGameState;
-
-  if (!gs.pending_challenge) {
-    return NextResponse.json({ success: false, message: "Tidak ada tantangan yang perlu dikonfirmasi", data: null }, { status: 400 });
-  }
-
-  const challenger = gs.pending_challenge.player;
-  const challengerUserId = challenger === "host" ? session.host_user_id : session.partner_user_id;
-  if (user.id === challengerUserId) {
-    return NextResponse.json({ success: false, message: "Kamu tidak bisa mengkonfirmasi tantanganmu sendiri", data: null }, { status: 403 });
-  }
-
-  const rollAgain = gs.pending_challenge.roll_again;
-  const nextTurn: "host" | "partner" = rollAgain
-    ? challenger
-    : challenger === "host" ? "partner" : "host";
-
-  const newState: SnakeGameState = { ...gs, pending_challenge: null, current_turn: nextTurn };
-
-  const { error: updateError } = await serviceClient
-    .from("game_sessions")
-    .update({ game_state: newState, updated_at: new Date().toISOString() })
-    .eq("session_code", code.toUpperCase());
-
-  if (updateError) {
+  if (rpcError) {
+    const msg = rpcError.message ?? "";
+    if (msg.includes("SESSION_EXPIRED")) {
+      return NextResponse.json({ success: false, message: "Waktu sesi sudah habis", data: null }, { status: 410 });
+    }
+    if (msg.includes("SESSION_NOT_FOUND")) {
+      return NextResponse.json({ success: false, message: "Sesi tidak ditemukan atau tidak aktif", data: null }, { status: 404 });
+    }
+    if (msg.includes("NO_PENDING_CHALLENGE")) {
+      return NextResponse.json({ success: false, message: "Tidak ada tantangan yang perlu dikonfirmasi", data: null }, { status: 400 });
+    }
+    if (msg.includes("CANNOT_CONFIRM_OWN")) {
+      return NextResponse.json({ success: false, message: "Kamu tidak bisa mengkonfirmasi tantanganmu sendiri", data: null }, { status: 403 });
+    }
+    if (msg.includes("NOT_IN_SESSION")) {
+      return NextResponse.json({ success: false, message: "Kamu bukan peserta sesi ini", data: null }, { status: 403 });
+    }
     return NextResponse.json({ success: false, message: "Gagal update state", data: null }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, message: "Tantangan dikonfirmasi!", data: { game_state: newState } });
+  return NextResponse.json({ success: true, message: "Tantangan dikonfirmasi!", data: { game_state: newState as SnakeGameState } });
 }
