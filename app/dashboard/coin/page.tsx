@@ -6,6 +6,7 @@ import type { CoinPackage, CoinTransaction, WalletData } from "@/lib/types";
 type TopupResponse = {
   message: string;
   payment_url: string | null;
+  snap_token?: string | null;
   transaction: CoinTransaction;
 };
 
@@ -79,7 +80,6 @@ export default function CoinPage() {
   const [packages, setPackages] = useState<CoinPackage[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
-  const [verifyReference, setVerifyReference] = useState("");
   const [lastPaymentUrl, setLastPaymentUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +92,46 @@ export default function CoinPage() {
     const t = setTimeout(() => { setStatus(null); setError(null); }, 4000);
     return () => clearTimeout(t);
   }, [status, error]);
+
+  // Handle window focus auto-refresh (e.g. user returns from Midtrans payment tab)
+  useEffect(() => {
+    const onFocus = async () => {
+      // Refresh transactions and balance
+      const [walletRes, txRes] = await Promise.all([
+        fetch("/api/coin/balance"), fetch("/api/coin/transactions"),
+      ]);
+      const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
+      setWallet(walletJson.data?.wallet ?? null);
+      const txs: CoinTransaction[] = txJson.data?.transactions ?? [];
+      setTransactions(txs);
+
+      // Auto verify pending topups silently
+      const pendings = txs.filter((t) => t.payment_status === "pending" && t.type === "topup");
+      let needRefreshAgain = false;
+      for (const p of pendings) {
+        if (p.payment_reference) {
+          const vRes = await fetch("/api/coin/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ payment_reference: p.payment_reference })
+          });
+          if (vRes.ok) needRefreshAgain = true;
+        }
+      }
+      
+      if (needRefreshAgain) {
+        const [wRes2, tRes2] = await Promise.all([
+          fetch("/api/coin/balance"), fetch("/api/coin/transactions"),
+        ]);
+        const [wJson2, tJson2] = await Promise.all([wRes2.json(), tRes2.json()]);
+        setWallet(wJson2.data?.wallet ?? null);
+        setTransactions(tJson2.data?.transactions ?? []);
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   const canTopup = useMemo(() => selectedPackage !== null, [selectedPackage]);
   const selectedPkg = useMemo(
@@ -147,37 +187,24 @@ export default function CoinPage() {
     if (!res.ok) { setError(json.message); }
     else {
       setLastPaymentUrl(json.data.payment_url);
-      setVerifyReference(json.data.transaction.payment_reference ?? "");
       setStatus(json.message);
       await refreshWalletAndTransactions();
+
+      if (json.data.payment_url) {
+        window.open(json.data.payment_url, "_blank");
+      }
     }
     setLoading(false);
   }
 
-  async function handleVerify() {
-    if (!verifyReference.trim() || verifyingRef.current) return;
-    verifyingRef.current = true;
-    setLoading(true); setError(null); setStatus(null);
+  function handlePayPending(tx: CoinTransaction) {
+    const meta = tx.metadata as Record<string, unknown> | null;
+    const paymentUrl = meta?.payment_url as string | undefined;
 
-    try {
-      const res = await fetch("/api/coin/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payment_reference: verifyReference.trim() }),
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        setStatus(json.message);
-        await refreshWalletAndTransactions();
-      } else {
-        setError(await parseError(res));
-      }
-    } catch {
-      setError("Gagal terhubung ke server. Coba beberapa saat lagi.");
-    } finally {
-      verifyingRef.current = false;
-      setLoading(false);
+    if (paymentUrl) {
+      window.open(paymentUrl, "_blank");
+    } else {
+      setError("Link pembayaran tidak ditemukan, silakan buat topup baru.");
     }
   }
 
@@ -301,45 +328,6 @@ export default function CoinPage() {
                 </form>
               </div>
             )}
-
-            {/* Payment URL */}
-            {lastPaymentUrl && (
-              <a
-                href={lastPaymentUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-[#34D399]/30 bg-[#34D399]/10 px-4 py-3 text-sm font-semibold text-[#34D399] transition hover:bg-[#34D399]/15"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
-                Buka Halaman Pembayaran
-              </a>
-            )}
-          </div>
-
-          {/* Verify section */}
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-            <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Verifikasi Pembayaran</p>
-            <p className="mt-1 text-sm text-[#5C5470]">Masukkan reference jika status belum terupdate otomatis.</p>
-            <div className="mt-4 flex gap-3">
-              <input
-                value={verifyReference}
-                onChange={(e) => setVerifyReference(e.target.value)}
-                className="flex-1 rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#FF3D7F]/40 focus:ring-1 focus:ring-[#FF3D7F]/20 transition"
-                placeholder="TOPUP-xxxxxxxx"
-              />
-              <button
-                type="button"
-                onClick={handleVerify}
-                disabled={loading || !verifyReference.trim()}
-                className="flex items-center gap-2 rounded-xl bg-[#FF3D7F] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.25)] transition hover:bg-[#FF6B9D] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Verify
-              </button>
-            </div>
           </div>
         </div>
 
@@ -348,7 +336,7 @@ export default function CoinPage() {
           <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
             <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Riwayat Transaksi</p>
 
-            <div className="mt-5 max-h-135 space-y-3 overflow-y-auto pr-1 [scrollbar-color:#2D2A3E_transparent] [scrollbar-width:thin]">
+            <div className="mt-5 max-h-120 space-y-3 overflow-y-auto pr-1 [scrollbar-color:#2D2A3E_transparent] [scrollbar-width:thin]">
               {transactions.length === 0 && (
                 <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
                   <svg className="mx-auto mb-3 text-[#5C5470]" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -391,6 +379,14 @@ export default function CoinPage() {
                     <p className="mt-1 text-[10px] text-[#5C5470]">
                       {new Date(tx.paid_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
+                  )}
+                  {tx.payment_status === "pending" && tx.type === "topup" && (
+                    <button
+                      onClick={() => handlePayPending(tx)}
+                      className="mt-3 w-full rounded-lg bg-[#34D399]/10 py-2 text-xs font-semibold text-[#34D399] transition hover:bg-[#34D399]/20"
+                    >
+                      Lanjutkan Pembayaran
+                    </button>
                   )}
                 </div>
                 );

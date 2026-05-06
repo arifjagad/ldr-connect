@@ -37,13 +37,16 @@ function TopupSuccessContent() {
         if (res.ok && json.success) {
           setMessage(json.message ?? "Coin berhasil ditambahkan!");
           setVerifyState("success");
+          setTimeout(() => window.close(), 3000);
         } else {
           setMessage(json.message ?? "Coin akan diproses otomatis oleh sistem.");
           setVerifyState("failed");
+          setTimeout(() => window.close(), 3000);
         }
       } catch {
         setMessage("Coin akan diproses otomatis oleh sistem.");
         setVerifyState("failed");
+        setTimeout(() => window.close(), 3000);
       }
     }
 
@@ -127,36 +130,42 @@ function TopupSuccessContent() {
                 )}
 
                 {verifyState === "success" && (
-                  <div className="flex items-center gap-3 rounded-xl border border-[#34D399]/20 bg-[#34D399]/10 px-4 py-3 text-sm text-[#34D399]">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    {message ?? "Coin berhasil ditambahkan ke akun kamu!"}
+                  <div className="flex flex-col gap-2 rounded-xl border border-[#34D399]/20 bg-[#34D399]/10 px-4 py-3 text-sm text-[#34D399]">
+                    <div className="flex items-center gap-3">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      {message ?? "Coin berhasil ditambahkan ke akun kamu!"}
+                    </div>
+                    <p className="text-xs text-[#34D399]/70 text-center animate-pulse">Menutup halaman otomatis...</p>
                   </div>
                 )}
 
                 {verifyState === "failed" && (
-                  <div className="flex items-center gap-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-400">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
-                    </svg>
-                    {message ?? "Coin akan diproses secara otomatis oleh sistem."}
+                  <div className="flex flex-col gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-400">
+                    <div className="flex items-center gap-3">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      {message ?? "Coin akan diproses secara otomatis oleh sistem."}
+                    </div>
+                    <p className="text-xs text-yellow-400/70 text-center animate-pulse">Menutup halaman otomatis...</p>
                   </div>
                 )}
               </div>

@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
   };
 
   let paymentUrl: string | null = null;
+  let snapToken: string | null = null;
 
   try {
     const snapRes = await fetch(MIDTRANS_API_URL, {
@@ -146,6 +147,15 @@ export async function POST(request: NextRequest) {
     if (snapRes.ok) {
       const snapJson = await snapRes.json();
       paymentUrl = snapJson.redirect_url ?? null;
+      snapToken = snapJson.token ?? null;
+
+      // Update metadata dengan url dan token
+      await serviceClient
+        .from("coin_transactions")
+        .update({
+          metadata: { snap_token: snapToken, payment_url: paymentUrl }
+        })
+        .eq("id", tx.id);
     }
   } catch {
     // Midtrans error — transaksi tetap dibuat (user bisa retry via verify)
@@ -156,6 +166,7 @@ export async function POST(request: NextRequest) {
     message: "Transaksi berhasil dibuat. Lanjutkan ke pembayaran.",
     data: {
       payment_url: paymentUrl,
+      snap_token: snapToken,
       transaction: {
         id: tx.id,
         type: tx.type,
