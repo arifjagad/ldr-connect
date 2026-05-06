@@ -1,0 +1,188 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+
+interface Props {
+  duration?: number;
+  startedAt?: number;   // unix ms — timestamp server saat ronde mulai (untuk timeTaken)
+  bonusActive?: boolean;
+  onComplete: (score: number, timeTaken: number, metadata?: Record<string, unknown>) => void;
+}
+
+const COLORS = [
+  { id: "red",    bg: "bg-red-500",    glow: "#EF4444" },
+  { id: "blue",   bg: "bg-blue-500",   glow: "#3B82F6" },
+  { id: "green",  bg: "bg-green-500",  glow: "#22C55E" },
+  { id: "yellow", bg: "bg-yellow-400", glow: "#EAB308" },
+];
+
+const SEQ_LEN = 5;
+const SHOW_PHASE_MS = SEQ_LEN * 900 + 400; // ~4900ms untuk showing phase
+
+type Phase = "showing" | "input" | "done";
+
+export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = false, onComplete }: Props) {
+  const [sequence] = useState<string[]>(() =>
+    Array.from({ length: SEQ_LEN }, () => COLORS[Math.floor(Math.random() * COLORS.length)].id)
+  );
+  const [showingIndex, setShowingIndex] = useState(-1);
+  const [phase, setPhase] = useState<Phase>("showing");
+  const [userInput, setUserInput] = useState<string[]>([]);
+  const [timeLeft, setTimeLeft] = useState(duration); // mulai dari durasi penuh
+  const [highlight, setHighlight] = useState<string | null>(null);
+
+  const gameStartRef      = useRef(startedAt ?? Date.now());
+  const completedRef      = useRef(false);
+  // inputStartedAt: dicatat tepat saat showing phase selesai — dipakai sebagai basis countdown input.
+  // Ini BERBEDA dari startedAt round, karena kita tidak ingin delay render/network
+  // memotong waktu input player.
+  const inputStartedAtRef = useRef<number | null>(null);
+  // userInputRef: sinkron dengan userInput agar handleColorTap tidak baca stale state
+  const userInputRef      = useRef<string[]>([]);
+  useEffect(() => { userInputRef.current = userInput; }, [userInput]);
+
+  const finish = useCallback((correct: number) => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    const timeTaken = Date.now() - gameStartRef.current;
+    onComplete(Math.round((correct / SEQ_LEN) * 100), timeTaken, { correct, total: SEQ_LEN });
+  }, [onComplete]);
+
+  // ── Showing phase: tampilkan urutan warna satu per satu ──────────────────────
+  useEffect(() => {
+    if (phase !== "showing") return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    sequence.forEach((_, i) => {
+      timers.push(setTimeout(() => setShowingIndex(i),   i * 900));
+      timers.push(setTimeout(() => setShowingIndex(-1),  i * 900 + 700));
+    });
+    timers.push(setTimeout(() => {
+      setShowingIndex(-1);
+      // Catat kapan input phase BENAR-BENAR dimulai (bukan kapan round dimulai).
+      // Ini mencegah timer langsung 0 jika ada network/render latency.
+      inputStartedAtRef.current = Date.now();
+      setPhase("input");
+    }, SHOW_PHASE_MS));
+    return () => timers.forEach(clearTimeout);
+  // `sequence` dan `phase` stabil — sequence dari useState lazy init, phase hanya berubah 1x ke "input"
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Countdown: hitung dari inputStartedAt, bukan dari startedAt round ────────
+  useEffect(() => {
+    if (phase !== "input") return;
+    const inputStart = inputStartedAtRef.current ?? Date.now();
+    const id = setInterval(() => {
+      const elapsed   = Math.floor((Date.now() - inputStart) / 1000);
+      const remaining = Math.max(0, duration - elapsed);
+      setTimeLeft(remaining);
+      if (remaining <= 0 && !completedRef.current) {
+        clearInterval(id);
+        finish(0);
+      }
+    }, 250);
+    return () => clearInterval(id);
+  // `finish` stabil (useCallback); `duration` tidak berubah selama game.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, duration]);
+
+  // ── Tap handler ───────────────────────────────────────────────────────────────
+  const [wrongIndexes, setWrongIndexes] = useState<Set<number>>(new Set());
+  const correctCountRef = useRef(0);
+
+  const handleColorTap = (colorId: string) => {
+    if (phase !== "input" || completedRef.current) return;
+    const currentInput = userInputRef.current;
+    if (currentInput.length >= SEQ_LEN) return; // sudah penuh
+    const idx = currentInput.length;
+    const isCorrect = colorId === sequence[idx];
+    const newInput = [...currentInput, colorId];
+
+    setHighlight(colorId);
+    setTimeout(() => setHighlight(null), 300);
+
+    if (isCorrect) {
+      correctCountRef.current += 1;
+    } else {
+      setWrongIndexes(prev => new Set(prev).add(idx));
+    }
+
+    setUserInput(newInput);
+
+    // Selesai saat semua 5 warna sudah diinput
+    if (newInput.length === SEQ_LEN) {
+      setPhase("done");
+      finish(correctCountRef.current);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-5 select-none">
+      <div className="text-center">
+        <p className="text-sm font-medium text-[#9B93B0]">🧠 Ingat Urutan</p>
+        <p className="mt-1 text-xs text-[#5C5470]">Ingat dan ulangi urutan warna!</p>
+      </div>
+
+      {bonusActive && (
+        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400">
+          +50 BONUS AKTIF!
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        {sequence.map((colorId, i) => {
+          const c          = COLORS.find(x => x.id === colorId)!;
+          const isActive   = showingIndex === i;
+          const isAnswered = (phase === "input" || phase === "done") && i < userInput.length;
+          const isWrong    = isAnswered && wrongIndexes.has(i);
+          return (
+            <div
+              key={i}
+              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-150 ${
+                isActive   ? `${c.bg} border-transparent`
+                : isWrong  ? "bg-red-500/30 border-red-500 text-red-400"
+                : isAnswered ? "bg-green-500/30 border-green-500 text-green-400"
+                : "bg-transparent border-white/20"
+              }`}
+              style={isActive ? { boxShadow: `0 0 12px ${c.glow}` } : undefined}
+            >
+              {isAnswered && !isActive && (isWrong ? "✗" : "✓")}
+            </div>
+          );
+        })}
+      </div>
+
+      {phase === "showing" && (
+        <p className="text-sm text-[#9B93B0] animate-pulse">Perhatikan urutannya...</p>
+      )}
+
+      {phase === "input" && (
+        <>
+          <div className="flex items-center justify-between w-full text-xs text-[#5C5470]">
+            <span>{userInput.length}/{SEQ_LEN}</span>
+            <span className={timeLeft <= 5 ? "text-red-400 font-bold animate-pulse" : ""}>{timeLeft}s</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 w-full">
+            {COLORS.map(c => (
+              <button
+                key={c.id}
+                onClick={() => handleColorTap(c.id)}
+                className={`h-20 rounded-2xl ${c.bg} transition-all active:scale-95 ${
+                  highlight === c.id ? "opacity-60 scale-95" : "opacity-90 hover:opacity-100"
+                }`}
+                style={highlight === c.id ? { boxShadow: `0 0 20px ${c.glow}` } : undefined}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {phase === "done" && (
+        <div className="text-center py-4">
+          <p className="text-3xl font-bold text-[#FFF5F8]">{userInput.length}/{SEQ_LEN}</p>
+          <p className="text-sm text-[#9B93B0] mt-1">urutan benar</p>
+        </div>
+      )}
+    </div>
+  );
+}

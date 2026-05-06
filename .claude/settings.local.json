@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node -e \"const z = require\\('zod'\\); const err = new z.ZodError\\([]\\); console.log\\(JSON.stringify\\(Object.keys\\(err\\)\\)\\); console.log\\(z.version ?? 'no version'\\)\")"
+      "Bash(node -e \"const z = require\\('zod'\\); const err = new z.ZodError\\([]\\); console.log\\(JSON.stringify\\(Object.keys\\(err\\)\\)\\); console.log\\(z.version ?? 'no version'\\)\")",
+      "Bash(grep -v '^$')",
+      "Bash(Copy-Item \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\docs\\\\games\\\\DARE_DERBY_README.md\" \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\docs\\\\games\\\\dare-derby\\\\README.md\")",
+      "PowerShell(Copy-Item \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\docs\\\\games\\\\DARE_DERBY_README.md\" \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\docs\\\\games\\\\dare-derby\\\\README.md\")",
+      "PowerShell(New-Item -ItemType Directory -Path \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\docs\\\\games\\\\dare-derby\" -Force)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\components\\\\games\" -Recurse -Force | ForEach-Object { $_.FullName }; Write-Host \"---DOCS---\"; Get-ChildItem -Path \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\docs\\\\games\" -Recurse -Force | ForEach-Object { $_.FullName }; Write-Host \"---LIB---\"; Get-ChildItem -Path \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\lib\\\\games\" -Recurse -Force | ForEach-Object { $_.FullName })",
+      "Bash(Get-ChildItem -Path \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\dashboard\\\\games\\\\snake\" -Recurse -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "PowerShell($src = \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\snake\"; $dst = \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\snake-ladder\"; Copy-Item -Path $src -Destination $dst -Recurse -Force; Remove-Item -Path $src -Recurse -Force; Write-Host \"Done. Files at destination:\"; Get-ChildItem -Path $dst -Recurse -File | ForEach-Object { $_.FullName.Replace\\(\"c:\\\\Personal\\\\Project\\\\ldr connect\\\\\", \"\"\\) })",
+      "Read(//c/Users/vendo/.claude/projects/c--Personal-Project-ldr-connect/memory/**)",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\docs\\\\games\\\\rules-awal\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\session\\\\any-active\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\vendo\\.claude\\projects\\c--Personal-Project-ldr-connect\\memory",
+      "c:\\Personal\\Project\\ldr connect\\app\\api\\game\\snake-ladder\\session\\[code]"
     ]
   }
 }

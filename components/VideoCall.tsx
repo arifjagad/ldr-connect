@@ -9,12 +9,14 @@ type CallStatus = "idle" | "fetching-room" | "connecting" | "connected" | "error
 interface VideoCallProps {
   /** Session code, dipakai untuk fetch room URL dari server */
   sessionCode: string;
+  /** Nama game, menentukan endpoint room yang dipakai */
+  game?: "tod" | "snake-ladder" | "dare-derby";
   onLeave?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function VideoCall({ sessionCode, onLeave }: VideoCallProps) {
+export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps) {
   const [status, setStatus] = useState<CallStatus>("idle");
   const [minimized, setMinimized] = useState(false);
   const [audioMuted, setAudioMuted] = useState(false);
@@ -90,7 +92,7 @@ export function VideoCall({ sessionCode, onLeave }: VideoCallProps) {
       // 1. Ambil room URL dari server (sekaligus create jika belum ada)
       let roomUrl: string;
       try {
-        const res = await fetch(`/api/game/tod/session/${sessionCode}/room`);
+        const res = await fetch(`/api/game/${game}/session/${sessionCode}/room`);
         const json = await res.json();
         if (!res.ok || !json.data?.room_url) {
           throw new Error(json.message ?? "Gagal mendapatkan room video");

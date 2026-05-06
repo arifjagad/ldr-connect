@@ -158,6 +158,74 @@ export type SnakeSession = {
   updated_at: string;
 };
 
+// ── Dare Derby ───────────────────────────────────────────────────────────────
+
+export type DareDerbyDareLevel = "sweet_only" | "mixed" | "full_chaos";
+export type DareDerbyPhase = "lobby" | "playing" | "result" | "game_over";
+export type DareDerbyDareStatus = "pending" | "awaiting_confirm" | "completed" | "skipped";
+
+export type DareDerbyBoardConfig = {
+  total_rounds: number;
+  dare_level: DareDerbyDareLevel;
+  custom_dares: string[];
+  minigame_sequence: string[];
+};
+
+export type DareDerbyRoundResult = {
+  round_number: number;
+  minigame_id: string;
+  host_score: number;
+  partner_score: number;
+  loser: "host" | "partner" | "draw";
+  dare_id: number | null;
+  dare_content: string | null;
+  dare_category: "sweet" | "funny" | "bold" | "challenge" | null;
+  dare_status: DareDerbyDareStatus | null;
+  confirmed_at: string | null;
+};
+
+export type DareDerbyRoundSubmission = {
+  score: number;
+  time_taken: number;
+  submitted_at: string;
+  metadata: Record<string, unknown>;
+};
+
+export type DareDerbyGameState = {
+  phase: DareDerbyPhase;
+  current_round: number;
+  ready: { host: boolean; partner: boolean };
+  round_submissions: {
+    host: DareDerbyRoundSubmission | null;
+    partner: DareDerbyRoundSubmission | null;
+  };
+  skip_counts: { host: number; partner: number };
+  dare_counts: { host: number; partner: number };
+  is_replay_round: boolean;
+  pending_bonus_for: "host" | "partner" | null;
+  last_round_result: DareDerbyRoundResult | null;
+  forfeit_by?: "host" | "partner";
+};
+
+export type DareDerbySession = {
+  id: number;
+  session_code: string;
+  game_type: "dare_derby";
+  couple_id: string;
+  host_user_id: string;
+  partner_user_id: string | null;
+  status: "waiting" | "playing" | "completed" | "expired" | "cancelled";
+  questions: DareDerbyRoundResult[];
+  board_config: DareDerbyBoardConfig;
+  game_state: DareDerbyGameState;
+  coin_deducted: number;
+  partner_joined_at: string | null;
+  expires_at: string | null;
+  coin_refunded_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 // Response format standar dari API Routes
 export type ApiResponse<T = null> = {
   success: boolean;

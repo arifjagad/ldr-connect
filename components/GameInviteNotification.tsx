@@ -6,14 +6,21 @@ import { useAuthStore } from "@/stores/auth-store";
 
 type WaitingSession = {
   session_code: string;
-  game_type: "tod" | "snake_ladder" | "quiz";
+  game_type: string;
   host_user_id: string;
+  status: string;
 };
 
 const GAME_LABELS: Record<string, string> = {
-  tod: "Truth or Dare",
+  tod:          "Truth or Dare",
   snake_ladder: "Ular Tangga",
-  quiz: "Quiz",
+  dare_derby:   "Dare Derby",
+};
+
+const GAME_ROUTES: Record<string, string> = {
+  tod:          "/dashboard/games/tod",
+  snake_ladder: "/dashboard/games/snake-ladder",
+  dare_derby:   "/dashboard/games/dare-derby",
 };
 
 /**
@@ -30,39 +37,45 @@ export function GameInviteNotification() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Hanya poll jika user linked dengan partner
     if (!user?.partner_id) return;
 
     async function poll() {
       try {
-        const res = await fetch("/api/game/tod/session/active");
+        const res = await fetch("/api/game/session/any-active");
         if (!res.ok) return;
         const json = await res.json();
         const session = json?.data?.session;
+
+        // Sudah dalam game aktif — hentikan polling, tidak ada invite yang perlu dicek
+        if (session?.status === "playing") {
+          setInvite(null);
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          return;
+        }
 
         if (
           session &&
           session.status === "waiting" &&
           session.host_user_id !== user!.id
         ) {
-          // Partner yang buat sesi, bukan kita
+          // Ada undangan dari partner
           if (lastCodeRef.current !== session.session_code) {
-            // Notif baru (kode berbeda dari sebelumnya) — reset dismissed
             lastCodeRef.current = session.session_code;
             setDismissed(false);
           }
           setInvite(session as WaitingSession);
         } else {
-          // Tidak ada sesi menunggu dari partner
           setInvite(null);
         }
       } catch {
-        // Ignore network errors
+        // ignore network errors
       }
     }
 
-    poll(); // Langsung poll pertama kali
-    intervalRef.current = setInterval(poll, 12000); // Setiap 12 detik
+    poll();
+    // 12s saat menunggu undangan partner; komponen re-mount jika user berganti
+    intervalRef.current = setInterval(poll, 12000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -73,7 +86,8 @@ export function GameInviteNotification() {
     if (!invite) return;
     setInvite(null);
     setDismissed(true);
-    router.push(`/dashboard/games/tod?join=${invite.session_code}`);
+    const base = GAME_ROUTES[invite.game_type] ?? "/dashboard/games";
+    router.push(`${base}?join=${invite.session_code}`);
   }
 
   if (!invite || dismissed) return null;
@@ -81,11 +95,9 @@ export function GameInviteNotification() {
   return (
     <div className="fixed top-20 right-4 z-50 w-80 animate-slide-in-right">
       <div className="overflow-hidden rounded-2xl border border-[#FF3D7F]/30 bg-[#0E0E12]/95 shadow-2xl shadow-[#FF3D7F]/10 backdrop-blur-md">
-        {/* Top accent */}
         <div className="h-0.5 bg-linear-to-r from-[#FF3D7F] to-[#818CF8]" />
 
         <div className="p-4">
-          {/* Header */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FF3D7F]/15">
@@ -111,8 +123,7 @@ export function GameInviteNotification() {
             </button>
           </div>
 
-          {/* Game info */}
-          <div className="mt-3 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5">
+          <div className="mt-3 rounded-xl border border-white/[0.07] bg-white/3 px-3 py-2.5">
             <p className="text-xs text-[#5C5470]">Game</p>
             <p className="text-sm font-semibold text-[#FFF5F8]">
               {GAME_LABELS[invite.game_type] ?? invite.game_type}
@@ -122,7 +133,6 @@ export function GameInviteNotification() {
             </p>
           </div>
 
-          {/* Actions */}
           <div className="mt-3 flex gap-2">
             <button
               type="button"

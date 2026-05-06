@@ -25,7 +25,7 @@ const games = [
     tags: ["Romantis", "2 Pemain", "Realtime"],
   },
   {
-    href: "/dashboard/games/snake",
+    href: "/dashboard/games/snake-ladder",
     status: "available",
     statusLabel: "Available Now",
     title: "Snake & Ladder",
@@ -49,6 +49,27 @@ const games = [
       </svg>
     ),
     tags: ["Board Game", "2 Pemain", "Strategi"],
+  },
+  {
+    href: "/dashboard/games/dare-derby",
+    status: "available",
+    statusLabel: "Available Now",
+    title: "Dare Derby",
+    description:
+      "Mini-game kompetitif! Keduanya main game yang sama — yang kalah tiap ronde dapat dare nyata dari pasangan.",
+    gradient: "from-[#F97316]/20 via-[#FB923C]/10 to-transparent",
+    border: "border-[#F97316]/25 hover:border-[#F97316]/60",
+    glow: "rgba(249,115,22,0.15)",
+    badge: "bg-[#F97316]/15 text-[#FB923C] border-[#F97316]/25",
+    dot: "bg-[#F97316] shadow-[0_0_8px_#F97316]",
+    cta: "Mulai Game",
+    ctaStyle: "bg-[#F97316] hover:bg-[#FB923C] text-white shadow-[0_4px_20px_rgba(249,115,22,0.35)]",
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#FB923C" strokeWidth="1.5">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+      </svg>
+    ),
+    tags: ["Mini-game", "2 Pemain", "Kompetitif"],
   },
   {
     href: "#",
@@ -109,7 +130,7 @@ export default function GamesHubPage() {
       </div>
 
       {/* Game Cards */}
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {games.map((game) => (
           <div
             key={game.title}

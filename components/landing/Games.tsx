@@ -125,7 +125,7 @@ export async function Games() {
                 <p className="text-base font-black text-[#FF3D7F]">{snakeCost ?? "?"} Coin / Sesi</p>
               </div>
               <Link
-                href="/dashboard/games/snake"
+                href="/dashboard/games/snake-ladder"
                 className="rounded-full bg-[#FF3D7F] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#FF6B9D] hover:shadow-[0_0_20px_#FF3D7F50]"
               >
                 Main sekarang

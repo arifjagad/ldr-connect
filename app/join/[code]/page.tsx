@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 
 const GAME_ROUTES: Record<string, string> = {
   tod:          "/dashboard/games/tod",
-  snake_ladder: "/dashboard/games/snake",
+  snake_ladder: "/dashboard/games/snake-ladder",
   quiz:         "/dashboard/games/quiz",
 };
 

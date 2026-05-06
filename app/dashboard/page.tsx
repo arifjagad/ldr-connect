@@ -208,9 +208,9 @@ export default function DashboardPage() {
           setUpcomingAnniversaries(sorted);
         }
 
-        // Cek active session (untuk banner "sedang dalam game")
+        // Cek active session di semua game (untuk banner "sedang dalam game")
         try {
-          const sessionRes = await fetch("/api/game/tod/session/active");
+          const sessionRes = await fetch("/api/game/session/any-active");
           const sessionJson = await sessionRes.json();
           setActiveSession(sessionJson?.data?.session ?? null);
         } catch { /* ignore */ }
