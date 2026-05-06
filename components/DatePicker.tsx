@@ -48,7 +48,16 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date" }: Pro
   const [open, setOpen] = useState(false);
   const [viewYear, setViewYear] = useState(initYear);
   const [viewMonth, setViewMonth] = useState(initMonth);
+  const [showMonthSelect, setShowMonthSelect] = useState(false);
+  const [showYearSelect, setShowYearSelect] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const yearRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (showYearSelect && yearRef.current) {
+      yearRef.current.scrollIntoView({ block: "center" });
+    }
+  }, [showYearSelect]);
 
   // close on outside click
   useEffect(() => {
@@ -164,9 +173,74 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date" }: Pro
               </svg>
             </button>
 
-            <span className="text-sm font-semibold text-[#FFF5F8]">
-              {MONTHS[viewMonth]} {viewYear}
-            </span>
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-[#FFF5F8]">
+              {/* Month Select */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => { setShowMonthSelect(!showMonthSelect); setShowYearSelect(false); }}
+                  className="flex items-center gap-1 rounded hover:text-[#F472B6] transition"
+                >
+                  {MONTHS[viewMonth]}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#5C5470]">
+                    <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                
+                {showMonthSelect && (
+                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-32 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[#18181C] p-1.5 shadow-2xl z-50 [scrollbar-width:none]">
+                    {MONTHS.map((m, i) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => { setViewMonth(i); setShowMonthSelect(false); }}
+                        className={`w-full text-left px-3 py-2 text-xs rounded-lg transition ${
+                          viewMonth === i ? "bg-[#F472B6]/20 text-[#F472B6] font-bold" : "text-[#FFF5F8] hover:bg-white/10"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Year Select */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => { setShowYearSelect(!showYearSelect); setShowMonthSelect(false); }}
+                  className="flex items-center gap-1 rounded hover:text-[#F472B6] transition"
+                >
+                  {viewYear}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#5C5470]">
+                    <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                
+                {showYearSelect && (
+                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-24 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[#18181C] p-1.5 shadow-2xl z-50 [scrollbar-width:none]">
+                    {Array.from({ length: 100 }).map((_, i) => {
+                      const y = today.getFullYear() - 60 + i;
+                      const isSelected = viewYear === y;
+                      return (
+                        <button
+                          key={y}
+                          type="button"
+                          ref={isSelected ? yearRef : null}
+                          onClick={() => { setViewYear(y); setShowYearSelect(false); }}
+                          className={`w-full text-center px-2 py-2 text-xs rounded-lg transition ${
+                            isSelected ? "bg-[#F472B6]/20 text-[#F472B6] font-bold" : "text-[#FFF5F8] hover:bg-white/10"
+                          }`}
+                        >
+                          {y}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
 
             <button
               type="button"
