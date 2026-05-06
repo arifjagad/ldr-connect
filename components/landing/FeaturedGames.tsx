@@ -18,12 +18,12 @@ const games = [
     cost: "Segera hadir",
   },
   {
-    id: "quiz",
-    name: "Couple Quiz Battle",
-    desc: "Seberapa baik kamu mengenal pasanganmu? Jawab pertanyaan dan buktikan.",
-    badge: "SEGERA",
-    available: false,
-    cost: "Segera hadir",
+    id: "derby",
+    name: "Dare Derby",
+    desc: "Mini-game kompetitif! Keduanya main game yang sama — yang kalah tiap ronde dapat dare nyata.",
+    badge: "TERSEDIA",
+    available: true,
+    cost: "Mulai 3 Coin / Sesi",
   },
 ];
 

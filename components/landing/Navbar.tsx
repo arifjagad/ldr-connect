@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 
-const navLinks = [{ href: "/games", label: "Games" }];
+const navLinks: { href: string; label: string }[] = [];
 
 export function Navbar() {
   const pathname = usePathname();

@@ -15,7 +15,7 @@ export async function Games() {
   const prices = await getGamePrices();
   const todCost = prices["tod"] ?? 1;
   const snakeCost = prices["snake_ladder"] ?? null;
-  const quizCost = prices["quiz"] ?? null;
+  const derbyCost = prices["dare_derby"] ?? 3;
 
   return (
     <section className="mx-auto w-full max-w-7xl px-6 py-20 lg:px-8">
@@ -134,27 +134,43 @@ export async function Games() {
           </div>
         </div>
 
-        {/* Couple Quiz */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-[#111113] p-5 opacity-60 md:col-span-2">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/4 text-2xl grayscale">
-              🧠
-            </div>
-            <div className="flex-1">
-              <div className="mb-2 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#5C5470]">
-                Segera Hadir
+        {/* Dare Derby */}
+        <div className="group relative overflow-hidden rounded-2xl border border-[#FF3D7F30] bg-[#111113] p-6 transition-all duration-300 hover:border-[#FF3D7F60] md:col-span-2">
+          <div
+            className="pointer-events-none absolute -bottom-20 -right-20 h-60 w-60 rounded-full opacity-10 blur-3xl transition-opacity duration-500 group-hover:opacity-25"
+            style={{ background: "#FF3D7F" }}
+          />
+
+          <div className="relative flex h-full flex-col">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#FF3D7F] px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                Tersedia
               </div>
-              <h3 className="text-lg font-black text-[#FFF5F8]">Couple Quiz Battle</h3>
-              <p className="mt-1 text-sm text-[#9B93B0]">
-                Buktikan seberapa baik kamu mengenal pasanganmu lewat pertanyaan seru.
-              </p>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#FF3D7F30] bg-[#FF3D7F15] text-2xl">
+                ⚔️
+              </div>
             </div>
-          </div>
-          <div className="absolute right-4 top-4 rounded-full border border-white/8 bg-white/5 p-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C5470" strokeWidth="2.5">
-              <rect x="3" y="11" width="18" height="11" rx="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
+
+            <h3 className="mb-1 text-xl font-black text-[#FFF5F8]">Dare Derby</h3>
+            <p className="text-sm font-medium text-[#FF6B9D]">Mini-game kompetitif</p>
+
+            <p className="mt-3 flex-1 text-sm leading-relaxed text-[#9B93B0]">
+              Kalian main game yang sama secara bersamaan — yang kalah di tiap ronde dapat dare nyata yang harus dilakukan sekarang juga!
+            </p>
+
+            <div className="mt-5 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-[#5C5470]">Mulai dari</p>
+                <p className="text-base font-black text-[#FF3D7F]">{derbyCost} Coin / Sesi</p>
+              </div>
+              <Link
+                href="/dashboard/games/dare-derby"
+                className="rounded-full bg-[#FF3D7F] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#FF6B9D] hover:shadow-[0_0_20px_#FF3D7F50]"
+              >
+                Main sekarang
+              </Link>
+            </div>
           </div>
         </div>
       </div>
