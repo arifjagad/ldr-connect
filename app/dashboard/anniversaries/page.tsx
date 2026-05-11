@@ -434,7 +434,7 @@ export default function AnniversariesPage() {
   const inactiveItems = items.filter((i) => !i.is_active);
 
   return (
-    <main className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+    <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
       {/* ambient glow */}
       <div
         aria-hidden

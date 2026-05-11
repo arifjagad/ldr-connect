@@ -427,7 +427,7 @@ function SnakeGameContent() {
   // IDLE
   if (phase === "idle") {
     return (
-      <main className="relative mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+      <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full blur-[120px]"
@@ -647,7 +647,7 @@ function SnakeGameContent() {
   // WAITING
   if (phase === "waiting" && session) {
     return (
-      <main className="relative mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+      <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
         <div className="mb-8">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
             <a href="/dashboard/games" className="transition hover:text-[#9B93B0]">Games</a>

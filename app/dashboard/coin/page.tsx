@@ -319,7 +319,7 @@ export default function CoinPage() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <main className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+    <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full blur-[120px]"

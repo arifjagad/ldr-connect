@@ -15,7 +15,11 @@
       "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\session\\\\any-active\")",
       "Bash(Select-String -Pattern \"tod\")",
       "Bash(Select-String -NotMatch \"snake/session\")",
-      "Bash(mkdir \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\session\\\\[code]\\\\cancel\")"
+      "Bash(mkdir \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\session\\\\[code]\\\\cancel\")",
+      "Bash(sed -i 's/max-w-3xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8/max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8/g' \"c:/Personal/Project/ldr connect/app/dashboard/couple/page.tsx\")",
+      "Bash(sed -i 's/max-w-5xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8/max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8/g' \"c:/Personal/Project/ldr connect/app/dashboard/coin/page.tsx\")",
+      "Bash(sed -i 's/max-w-5xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8/max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8/g' \"c:/Personal/Project/ldr connect/app/dashboard/anniversaries/page.tsx\")",
+      "Bash(sed -i 's/max-w-3xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8/max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8/g' \"c:/Personal/Project/ldr connect/app/dashboard/profile/page.tsx\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\vendo\\.claude\\projects\\c--Personal-Project-ldr-connect\\memory",
