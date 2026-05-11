@@ -410,47 +410,55 @@ function TodContent() {
 
       {/* ─── IDLE: Create / Join ─────────────────────────────────────────────── */}
       {phase === "idle" && (
-        <div className="space-y-4">
+        <div className="grid gap-5 md:grid-cols-2">
           {/* Create card */}
           <div className="overflow-hidden rounded-2xl border border-[#FF3D7F]/20 bg-[#111113]">
             <div className="h-0.5 w-full bg-linear-to-r from-[#FF3D7F] to-[#818CF8]" />
             <div className="p-6">
-              <div className="flex items-center gap-3">
+              <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#FF6B9D]">Buat Sesi Baru</p>
+
+              {/* Header icon+text */}
+              <div className="mb-5 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF3D7F]/15">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF3D7F" strokeWidth="2">
                     <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-semibold text-[#FFF5F8]">Buat Sesi Baru</p>
-                  <p className="text-xs text-[#5C5470]">Kamu jadi host, partner join pakai code</p>
+                  <p className="font-semibold text-[#FFF5F8]">Kamu jadi host</p>
+                  <p className="text-xs text-[#5C5470]">Partner join pakai session code</p>
                 </div>
               </div>
 
-              <div className="mt-5 space-y-3">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-[#9B93B0]">
+                  <label className="block text-xs font-medium text-[#9B93B0] mb-2">
                     Kategori Pertanyaan
                   </label>
-                  <div className="mt-2">
-                    <SearchableSelect
-                      options={categories.map((c) => ({
-                        value: c,
-                        label: c.charAt(0).toUpperCase() + c.slice(1),
-                      }))}
-                      value={category}
-                      onChange={setCategory}
-                      placeholder="Pilih kategori..."
-                      searchPlaceholder="Cari kategori..."
-                    />
-                  </div>
+                  <SearchableSelect
+                    options={categories.map((c) => ({
+                      value: c,
+                      label: c.charAt(0).toUpperCase() + c.slice(1),
+                    }))}
+                    value={category}
+                    onChange={setCategory}
+                    placeholder="Pilih kategori..."
+                    searchPlaceholder="Cari kategori..."
+                  />
                 </div>
+
+                {error && (
+                  <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2.5 text-xs text-red-400">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+                    {error}
+                  </div>
+                )}
 
                 <button
                   type="button"
                   onClick={handleCreate}
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.3)] transition hover:bg-[#FF6B9D] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(255,61,127,0.35)] transition hover:bg-[#FF6B9D] hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? (
                     <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -461,15 +469,18 @@ function TodContent() {
                       <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
-                  {loading ? "Membuat sesi…" : "Mulai & Buat Sesi"}
+                  {loading ? "Membuat sesi…" : "✨ Mulai & Buat Sesi"}
                 </button>
+                <p className="text-center text-[10px] text-[#5C5470]">Memotong 1 coin per sesi</p>
               </div>
             </div>
           </div>
 
           {/* Join card */}
           <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-            <div className="flex items-center gap-3">
+            <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#5C5470]">Gabung Game</p>
+
+            <div className="mb-5 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#818CF8]/15">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" strokeLinecap="round" />
@@ -483,38 +494,43 @@ function TodContent() {
               </div>
             </div>
 
-            <div className="mt-5 flex gap-3">
-              <input
-                value={joinCodeInput}
-                onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                placeholder="Masukkan session code"
-                maxLength={12}
-                className="flex-1 rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 font-mono text-sm tracking-widest text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#818CF8]/50 focus:ring-1 focus:ring-[#818CF8]/30 transition"
-              />
-              <button
-                type="button"
-                onClick={handleJoin}
-                disabled={loading || joinCodeInput.trim().length < 4}
-                className="flex items-center gap-2 rounded-xl bg-[#818CF8] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(129,140,248,0.3)] transition hover:bg-[#A78BFA] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? (
-                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                  </svg>
-                ) : "Join"}
-              </button>
+            <input
+              value={joinCodeInput}
+              onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+              placeholder="Masukkan kode sesi"
+              maxLength={12}
+              className="w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-3 font-mono text-base font-bold tracking-widest text-[#FFF5F8] outline-none placeholder:text-[#5C5470] placeholder:font-normal placeholder:tracking-normal focus:border-[#818CF8]/40 focus:ring-1 focus:ring-[#818CF8]/20 transition"
+            />
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={loading || joinCodeInput.trim().length < 4}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#818CF8]/30 bg-[#818CF8]/10 px-5 py-3 text-sm font-bold text-[#818CF8] transition hover:bg-[#818CF8]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                </svg>
+              ) : null}
+              {loading ? "Bergabung..." : "Bergabung"}
+            </button>
+
+            {/* Info rules */}
+            <div className="mt-5 space-y-2 border-t border-white/[0.06] pt-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5C5470]">Cara Main</p>
+              {[
+                "Setiap giliran ambil satu kartu",
+                "Pilih Truth atau jawab Dare-nya",
+                "Partner bisa lihat & konfirmasi selesai",
+                "Selesaikan semua kartu untuk menang!",
+                "Durasi sesi: maksimal 10 menit",
+              ].map((rule, i) => (
+                <p key={i} className="flex items-start gap-2 text-[10px] text-[#9B93B0]">
+                  <span className="mt-0.5 text-[#5C5470]">•</span> {rule}
+                </p>
+              ))}
             </div>
           </div>
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              {error}
-            </div>
-          )}
         </div>
       )}
 
