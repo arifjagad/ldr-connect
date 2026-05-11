@@ -78,6 +78,7 @@ import { Dice } from "@/components/games/snake-ladder/Dice";
 import { ChallengeModal } from "@/components/games/snake-ladder/ChallengeModal";
 import { VideoCall } from "@/components/VideoCall";
 import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
+import { RealtimeBanner } from "@/components/games/RealtimeBanner";
 import type { SnakeSession, SnakeGameState } from "@/lib/types";
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
@@ -453,7 +454,19 @@ function SnakeGameContent() {
         <div className="grid gap-5 md:grid-cols-2">
           {/* Buat Game */}
           <div className="rounded-2xl border border-[#818CF8]/20 bg-[#111113] p-6">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-[#818CF8]">Buat Game Baru</p>
+            <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#818CF8]">Buat Game Baru</p>
+
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#818CF8]/15">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
+                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-[#FFF5F8]">Kamu jadi host</p>
+                <p className="text-xs text-[#5C5470]">Partner join pakai session code</p>
+              </div>
+            </div>
 
             {/* Toggle pertanyaan */}
             <div className="mb-4 flex items-center gap-3 rounded-xl border border-white/[0.07] p-3">
@@ -546,7 +559,21 @@ function SnakeGameContent() {
 
           {/* Join Game */}
           <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-[#5C5470]">Gabung Game</p>
+            <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#5C5470]">Gabung Game</p>
+
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#818CF8]/15">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" strokeLinecap="round" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-semibold text-[#FFF5F8]">Join Sesi Partner</p>
+                <p className="text-xs text-[#5C5470]">Masukkan session code dari partner</p>
+              </div>
+            </div>
             <input
               value={joinCodeInput}
               onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
@@ -786,7 +813,9 @@ function SnakeGameContent() {
     const timerSS = timerSeconds !== null ? String(timerSeconds % 60).padStart(2, "0") : "--";
 
     return (
-      <main className="relative w-full max-w-[860px] mx-auto px-4 py-4 lg:px-6">
+      <>
+        <RealtimeBanner realtimeOk={realtimeOk} />
+        <main className="relative w-full max-w-[860px] mx-auto px-4 py-4 lg:px-6">
         {/* Header bar */}
         <div className="mb-3 rounded-2xl border border-white/[0.07] bg-[#111113] px-4 py-3">
           <div className="flex items-center justify-between gap-2">
@@ -979,6 +1008,7 @@ function SnakeGameContent() {
           />
         )}
       </main>
+      </>
     );
   }
 

@@ -97,6 +97,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </Link>
                   );
                 })}
+
+                {/* Coin balance badge */}
+                {user && (
+                  <Link
+                    href="/dashboard/coin"
+                    title="Saldo Coin — klik untuk top up"
+                    className="flex items-center gap-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 px-3 py-1.5 text-sm font-semibold text-[#FB923C] transition hover:border-[#F97316]/50 hover:bg-[#F97316]/20"
+                  >
+                    <span className="text-sm">🪙</span>
+                    {user.wallet_balance}
+                  </Link>
+                )}
                 {/* Profile avatar button */}
                 <Link
                   href="/dashboard/profile"
@@ -118,8 +130,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
               </nav>
 
-              {/* Mobile: profile avatar + hamburger */}
+              {/* Mobile: coin balance + profile avatar + hamburger */}
               <div className="flex sm:hidden items-center gap-2">
+                {user && (
+                  <Link
+                    href="/dashboard/coin"
+                    className="flex items-center gap-1 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 px-2.5 py-1 text-xs font-semibold text-[#FB923C]"
+                  >
+                    <span>🪙</span>
+                    {user.wallet_balance}
+                  </Link>
+                )}
                 <Link
                   href="/dashboard/profile"
                   className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { VideoCall } from "@/components/VideoCall";
 import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
+import { RealtimeBanner } from "@/components/games/RealtimeBanner";
 import { TapTimingGame } from "@/components/games/dare-derby/mini-games/TapTimingGame";
 import { ReactionButtonGame } from "@/components/games/dare-derby/mini-games/ReactionButtonGame";
 import { MemorySequenceGame } from "@/components/games/dare-derby/mini-games/MemorySequenceGame";
@@ -653,7 +654,9 @@ function DareDerbyContent() {
     const partnerReady = gameState.ready[myRole === "host" ? "partner" : "host"];
 
     return (
-      <div className="mx-auto w-full max-w-md px-4 py-6 flex flex-col gap-4">
+      <>
+        <RealtimeBanner realtimeOk={realtimeOk} />
+        <div className="mx-auto w-full max-w-md px-4 py-6 flex flex-col gap-4">
         {/* Draw Toast — fixed overlay di tengah layar */}
         {showDrawToast && (
           <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
@@ -676,12 +679,6 @@ function DareDerbyContent() {
                     {partnerOnline ? "Online" : "Offline"}
                   </span>
                 </span>
-                {!realtimeOk && (
-                  <span className="flex items-center gap-1 text-[10px] text-[#FBBF24]" title="Koneksi realtime terputus — sedang mencoba kembali">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#FBBF24]" />
-                    Koneksi lemah
-                  </span>
-                )}
               </div>
             </div>
             <p className="text-sm font-medium text-[#FFF5F8]">
@@ -972,6 +969,7 @@ function DareDerbyContent() {
           />
         )}
       </div>
+      </>
     );
   }
 

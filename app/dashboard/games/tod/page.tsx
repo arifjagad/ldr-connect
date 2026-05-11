@@ -9,6 +9,7 @@ import type { TodQuestion, TodSession } from "@/lib/types";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { VideoCall } from "@/components/VideoCall";
 import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
+import { RealtimeBanner } from "@/components/games/RealtimeBanner";
 
 type RealtimeSubscription = { unsubscribe: () => void };
 
@@ -561,6 +562,7 @@ function TodContent() {
       {/* ─── PLAYING: Game ───────────────────────────────────────────────────── */}
       {phase === "playing" && session && (
         <div className="space-y-4">
+          <RealtimeBanner realtimeOk={realtimeOk} />
           {/* Game header */}
           <div className="rounded-2xl border border-white/[0.07] bg-[#111113] px-5 py-3">
             <div className="flex items-center justify-between">
@@ -574,13 +576,7 @@ function TodContent() {
                     {partnerOnline ? "Online" : "Offline"}
                   </span>
                 </span>
-                {!realtimeOk && (
-                  <span className="flex items-center gap-1.5 text-[10px] text-[#FBBF24]" title="Koneksi realtime terputus — sedang mencoba kembali">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#FBBF24]" />
-                    Koneksi lemah
-                  </span>
-                )}
-              </div>
+            </div>
               <div className="flex items-center gap-3">
                 {/* Session timer */}
                 <span
