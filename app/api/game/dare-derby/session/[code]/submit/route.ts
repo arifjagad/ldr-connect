@@ -5,7 +5,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 const bodySchema = z.object({
   score:      z.number().int().min(0),
   time_taken: z.number().int().min(0),
-  metadata:   z.record(z.unknown()).optional().default({}),
+  metadata:   z.record(z.string(), z.unknown()).optional().default({}),
 });
 
 /**

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createDailyRoom } from "@/lib/daily";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { broadcastGameInvite } from "@/lib/broadcast-invite";
 
 const bodySchema = z.object({
   categories:     z.array(z.string().min(1).max(50)).max(10).default([]),
@@ -164,6 +165,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  broadcastGameInvite({
+    hostUserId: user.id,
+    partnerId: profile.partner_id,
+    sessionCode,
+    gameType: "tod",
+  });
 
   return NextResponse.json({
     success: true,

@@ -12,11 +12,15 @@
       "PowerShell($src = \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\snake\"; $dst = \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\snake-ladder\"; Copy-Item -Path $src -Destination $dst -Recurse -Force; Remove-Item -Path $src -Recurse -Force; Write-Host \"Done. Files at destination:\"; Get-ChildItem -Path $dst -Recurse -File | ForEach-Object { $_.FullName.Replace\\(\"c:\\\\Personal\\\\Project\\\\ldr connect\\\\\", \"\"\\) })",
       "Read(//c/Users/vendo/.claude/projects/c--Personal-Project-ldr-connect/memory/**)",
       "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\docs\\\\games\\\\rules-awal\")",
-      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\session\\\\any-active\")"
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\session\\\\any-active\")",
+      "Bash(Select-String -Pattern \"tod\")",
+      "Bash(Select-String -NotMatch \"snake/session\")",
+      "Bash(mkdir \"c:\\\\Personal\\\\Project\\\\ldr connect\\\\app\\\\api\\\\game\\\\session\\\\[code]\\\\cancel\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\vendo\\.claude\\projects\\c--Personal-Project-ldr-connect\\memory",
-      "c:\\Personal\\Project\\ldr connect\\app\\api\\game\\snake-ladder\\session\\[code]"
+      "c:\\Personal\\Project\\ldr connect\\app\\api\\game\\snake-ladder\\session\\[code]",
+      "c:\\Personal\\Project\\ldr connect\\app\\api\\game\\session\\[code]"
     ]
   }
 }

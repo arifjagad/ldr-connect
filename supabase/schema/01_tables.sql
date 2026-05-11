@@ -1,15 +1,17 @@
 -- ============================================================
 -- LDR-Connect: Schema Fresh — 01 Tables, Indexes, Triggers
 --
--- State akhir setelah semua migrasi (001–013):
---   • game_sessions sudah ada board_config + game_state
+-- State akhir setelah semua migrasi (001–021):
+--   • game_sessions: board_config + game_state + dare_derby type
 --   • game_snake_sessions TIDAK ADA (dihapus di migration 006)
---   • rate_limit_events SUDAH ADA (dari migration 010)
---   • 011–013: hanya perubahan functions (lihat 03_functions.sql)
+--   • rate_limit_events (migration 010)
+--   • game_dare_questions + game_minigame_configs (migration 014)
+--   • vouchers + voucher_redemptions (migration 020+021)
+--   • coin_value NULLABLE pada vouchers (topup_discount tidak punya coin)
 --
 -- Urutan jalankan:
 --   01_tables.sql → 02_rls.sql → 03_functions.sql → 04_seed_data.sql
---   → kemudian seed question (004 & 005 di folder migrations/)
+--   → 05_seed_tod_questions.sql → 06_seed_snake_questions.sql
 -- ============================================================
 
 -- ============================================================
@@ -172,7 +174,7 @@ CREATE TABLE public.game_sessions (
   partner_user_id  UUID         REFERENCES public.users(id) ON DELETE SET NULL,
   session_code     VARCHAR(12)  UNIQUE NOT NULL,
   game_type        VARCHAR(20)  NOT NULL DEFAULT 'tod'
-                     CHECK (game_type IN ('tod', 'snake_ladder', 'quiz')),
+                     CHECK (game_type IN ('tod', 'snake_ladder', 'quiz', 'dare_derby')),
   status           VARCHAR(20)  NOT NULL DEFAULT 'waiting'
                      CHECK (status IN ('waiting', 'playing', 'completed', 'expired', 'cancelled')),
   questions        JSONB        NOT NULL DEFAULT '[]'::jsonb,
@@ -350,3 +352,104 @@ CREATE TRIGGER on_auth_user_created
 -- REALTIME: Aktifkan untuk game_sessions
 -- ============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE public.game_sessions;
+
+-- ============================================================
+-- TABLE: game_dare_questions (migration 014)
+-- Pool dare untuk game Dare Derby
+-- ============================================================
+CREATE TABLE public.game_dare_questions (
+  id         BIGSERIAL   PRIMARY KEY,
+  category   VARCHAR(20) NOT NULL
+               CHECK (category IN ('sweet', 'funny', 'bold', 'challenge')),
+  content    TEXT        NOT NULL,
+  is_active  BOOLEAN     NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_dare_q_category ON public.game_dare_questions(category);
+CREATE INDEX idx_dare_q_active   ON public.game_dare_questions(is_active);
+
+COMMENT ON COLUMN public.game_dare_questions.category IS 'sweet | funny | bold | challenge';
+
+-- ============================================================
+-- TABLE: game_minigame_configs (migration 014)
+-- Metadata mini-game Dare Derby
+-- ============================================================
+CREATE TABLE public.game_minigame_configs (
+  id         BIGSERIAL    PRIMARY KEY,
+  game_id    VARCHAR(50)  UNIQUE NOT NULL,
+  name       VARCHAR(100) NOT NULL,
+  category   VARCHAR(10)  NOT NULL
+               CHECK (category IN ('reflex', 'brain', 'skill')),
+  duration   INTEGER      NOT NULL CHECK (duration > 0),  -- detik
+  is_active  BOOLEAN      NOT NULL DEFAULT true,
+  config     JSONB        NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_minigame_category  ON public.game_minigame_configs(category);
+CREATE INDEX idx_minigame_is_active ON public.game_minigame_configs(is_active);
+
+COMMENT ON COLUMN public.game_minigame_configs.game_id  IS 'ID unik: tap_timing, memory_seq, dll';
+COMMENT ON COLUMN public.game_minigame_configs.duration IS 'Durasi max mini-game dalam detik';
+
+-- ============================================================
+-- TABLE: vouchers (migration 020+021)
+-- Voucher coin gratis (coin_credit) atau diskon topup (topup_discount)
+-- ============================================================
+CREATE TABLE public.vouchers (
+  id             BIGSERIAL    PRIMARY KEY,
+  code           VARCHAR(50)  UNIQUE NOT NULL,
+  type           VARCHAR(20)  NOT NULL DEFAULT 'coin_credit'
+                   CHECK (type IN ('coin_credit', 'topup_discount')),
+  coin_value     INTEGER,     -- NULL untuk topup_discount; 1–1000 untuk coin_credit
+  discount_type  VARCHAR(15), -- 'percentage' | 'fixed' | NULL
+  discount_value INTEGER,     -- % (1-100) atau IDR; NULL untuk coin_credit
+  max_discount   INTEGER,     -- batas atas diskon dalam IDR; NULL = tidak dibatasi
+  min_purchase   INTEGER,     -- minimum pembelian dalam IDR; NULL = tidak ada syarat
+  max_uses       INTEGER      NOT NULL DEFAULT 1 CHECK (max_uses > 0),
+  uses_remaining INTEGER      NOT NULL CHECK (uses_remaining >= 0),
+  valid_from     TIMESTAMPTZ  DEFAULT NOW(),
+  valid_until    TIMESTAMPTZ,
+  is_active      BOOLEAN      NOT NULL DEFAULT true,
+  created_by     UUID         REFERENCES public.users(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  CONSTRAINT uses_remaining_lte_max CHECK (uses_remaining <= max_uses),
+  CONSTRAINT voucher_type_fields_check CHECK (
+    (type = 'coin_credit'
+      AND discount_type IS NULL
+      AND discount_value IS NULL)
+    OR
+    (type = 'topup_discount'
+      AND discount_type IN ('percentage', 'fixed')
+      AND discount_value > 0
+      AND (discount_type != 'percentage' OR discount_value BETWEEN 1 AND 100)
+    )
+  )
+);
+
+CREATE INDEX idx_vouchers_code    ON public.vouchers(UPPER(code));
+CREATE INDEX idx_vouchers_active  ON public.vouchers(is_active);
+CREATE INDEX idx_vouchers_type    ON public.vouchers(type);
+
+COMMENT ON COLUMN public.vouchers.type           IS 'coin_credit = dapat coin gratis | topup_discount = diskon harga topup';
+COMMENT ON COLUMN public.vouchers.coin_value     IS 'Jumlah coin yang diberikan (hanya coin_credit, 1–1000)';
+COMMENT ON COLUMN public.vouchers.discount_type  IS 'percentage atau fixed IDR (hanya topup_discount)';
+COMMENT ON COLUMN public.vouchers.uses_remaining IS 'Sisa slot; dilindungi race condition via SELECT FOR UPDATE';
+
+-- ============================================================
+-- TABLE: voucher_redemptions (migration 020)
+-- Log setiap penggunaan voucher per user
+-- UNIQUE(voucher_id, user_id) — safety net untuk double-use
+-- ============================================================
+CREATE TABLE public.voucher_redemptions (
+  id                  BIGSERIAL   PRIMARY KEY,
+  voucher_id          BIGINT      NOT NULL REFERENCES public.vouchers(id) ON DELETE CASCADE,
+  user_id             UUID        NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  coin_transaction_id BIGINT      REFERENCES public.coin_transactions(id) ON DELETE SET NULL,
+  redeemed_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (voucher_id, user_id)
+);
+
+CREATE INDEX idx_vr_voucher_id ON public.voucher_redemptions(voucher_id);
+CREATE INDEX idx_vr_user_id    ON public.voucher_redemptions(user_id);

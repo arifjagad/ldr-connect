@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
@@ -21,10 +21,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, clearAuth } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
 
   const isAuthPage = pathname.startsWith("/auth");
   const isDashboardPage = pathname.startsWith("/dashboard");
   const isPublicPage = !isAuthPage && !isDashboardPage;
+
+  // Validasi sesi Supabase setiap kali user membuka halaman dashboard
+  // Menghindari stale cache di localStorage yang seolah "masuk sendiri" tanpa check
+  useEffect(() => {
+    if (!isDashboardPage) { setSessionReady(true); return; }
+
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        clearAuth();
+        router.replace("/auth/login");
+      } else {
+        setSessionReady(true);
+      }
+    });
+  }, [isDashboardPage, clearAuth, router]);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -32,6 +49,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     clearAuth();
     router.push("/auth/login");
     router.refresh();
+  }
+
+  if (isDashboardPage && !sessionReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0E0E12]">
+        <div className="flex flex-col items-center gap-4">
+          <svg className="animate-spin text-[#FF3D7F]" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+          </svg>
+          <p className="text-xs text-[#5C5470]">Memverifikasi sesi...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

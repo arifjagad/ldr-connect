@@ -128,7 +128,19 @@ const navItems = [
   },
 ];
 
-type ActiveSession = { session_code: string; game_type: string; host_user_id: string; status: string } | null;
+type ActiveSession = { session_code: string; game_type: string; host_user_id: string; status: string; expires_at: string } | null;
+
+const GAME_LABELS: Record<string, string> = {
+  tod:          "Truth or Dare",
+  snake_ladder: "Ular Tangga",
+  dare_derby:   "Dare Derby",
+};
+
+const GAME_ROUTES: Record<string, string> = {
+  tod:          "/dashboard/games/tod",
+  snake_ladder: "/dashboard/games/snake-ladder",
+  dare_derby:   "/dashboard/games/dare-derby",
+};
 
 export default function DashboardPage() {
   const { user, setUser } = useAuthStore();
@@ -193,11 +205,10 @@ export default function DashboardPage() {
           updated_at: wallets?.updated_at ?? profile.created_at,
         });
 
-        // Load anniversaries aktif (urutkan berdasarkan yang paling dekat)
+        // Load anniversaries aktif milik pasangan (RLS handles couple visibility)
         const { data: annData } = await supabase
           .from("anniversaries")
           .select("*")
-          .eq("user_id", authUser.id)
           .eq("is_active", true);
 
         if (annData) {
@@ -247,6 +258,36 @@ export default function DashboardPage() {
 
     loadData();
   }, [setUser]);
+
+  // Realtime: update banner saat status sesi berubah (cancelled / completed)
+  useEffect(() => {
+    if (!activeSession) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`dashboard-session-${activeSession.session_code}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "game_sessions", filter: `session_code=eq.${activeSession.session_code}` },
+        (payload) => {
+          const newStatus = (payload.new as { status: string }).status;
+          if (["expired", "cancelled", "completed"].includes(newStatus)) {
+            setActiveSession(null);
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeSession?.session_code]);
+
+  // Timer: hapus banner saat join window habis — hanya untuk status 'waiting'
+  // (untuk 'playing', expires_at sudah lewat sejak partner join, jadi tidak boleh dicek)
+  useEffect(() => {
+    if (!activeSession?.expires_at || activeSession.status !== "waiting") return;
+    const msLeft = new Date(activeSession.expires_at).getTime() - Date.now();
+    if (msLeft <= 0) { setActiveSession(null); return; }
+    const id = setTimeout(() => setActiveSession(null), msLeft);
+    return () => clearTimeout(id);
+  }, [activeSession?.expires_at, activeSession?.status]);
 
   const isLinked = user?.status === "linked";
 
@@ -512,14 +553,14 @@ export default function DashboardPage() {
                     : "Partner mengajakmu bermain!"}
                 </p>
                 <p className="text-xs text-[#9B93B0]">
-                  Truth or Dare · Kode: <span className="font-mono font-bold">{activeSession.session_code}</span>
+                  {GAME_LABELS[activeSession.game_type] ?? activeSession.game_type} · Kode: <span className="font-mono font-bold">{activeSession.session_code}</span>
                 </p>
               </div>
             </div>
             <Link
               href={activeSession.host_user_id === user?.id
-                ? "/dashboard/games/tod"
-                : `/dashboard/games/tod?join=${activeSession.session_code}`}
+                ? (GAME_ROUTES[activeSession.game_type] ?? "/dashboard/games")
+                : `${GAME_ROUTES[activeSession.game_type] ?? "/dashboard/games"}?join=${activeSession.session_code}`}
               className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white transition ${
                 activeSession.host_user_id === user?.id
                   ? "bg-[#818CF8] hover:bg-[#A78BFA]"

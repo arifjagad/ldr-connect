@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 
 type WaitingSession = {
@@ -23,64 +24,61 @@ const GAME_ROUTES: Record<string, string> = {
   dare_derby:   "/dashboard/games/dare-derby",
 };
 
-/**
- * Floating notification saat partner membuat sesi game dan menunggu kita join.
- * Menggunakan polling karena Supabase Realtime RLS tidak bisa lihat sesi partner
- * sebelum kita terdaftar sebagai partner_user_id.
- */
 export function GameInviteNotification() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [invite, setInvite] = useState<WaitingSession | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const lastCodeRef = useRef<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (!user?.partner_id) return;
+    if (!user?.id || !user.partner_id) return;
 
-    async function poll() {
+    // LEAST(user.id, partner_id) — konsisten dengan couple_id di DB
+    const coupleId = [user.id, user.partner_id].sort()[0];
+    const supabase = createClient();
+
+    async function fetchExistingInvite() {
       try {
         const res = await fetch("/api/game/session/any-active");
         if (!res.ok) return;
         const json = await res.json();
         const session = json?.data?.session;
-
-        // Sudah dalam game aktif — hentikan polling, tidak ada invite yang perlu dicek
-        if (session?.status === "playing") {
-          setInvite(null);
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          intervalRef.current = null;
-          return;
-        }
-
-        if (
-          session &&
-          session.status === "waiting" &&
-          session.host_user_id !== user!.id
-        ) {
-          // Ada undangan dari partner
+        if (session?.status === "waiting" && session.host_user_id !== user!.id) {
           if (lastCodeRef.current !== session.session_code) {
             lastCodeRef.current = session.session_code;
             setDismissed(false);
           }
           setInvite(session as WaitingSession);
-        } else {
-          setInvite(null);
         }
-      } catch {
-        // ignore network errors
-      }
+      } catch { /* ignore */ }
     }
 
-    poll();
-    // 12s saat menunggu undangan partner; komponen re-mount jika user berganti
-    intervalRef.current = setInterval(poll, 12000);
+    // Reset state saat couple_id berubah (partner unlink → relink)
+    setInvite(null);
+    setDismissed(false);
+    lastCodeRef.current = null;
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [user?.partner_id, user?.id]);
+    const channel = supabase
+      .channel(`couple-invites:${coupleId}`)
+      .on("broadcast", { event: "game_invite" }, ({ payload }) => {
+        const session = payload as WaitingSession;
+        if (session.host_user_id === user!.id) return;
+        if (lastCodeRef.current !== session.session_code) {
+          lastCodeRef.current = session.session_code;
+          setDismissed(false);
+        }
+        setInvite(session);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          // Satu kali fetch saat pertama connect — tangkap invite yang sudah ada
+          await fetchExistingInvite();
+        }
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, user?.partner_id]);
 
   function handleJoin() {
     if (!invite) return;

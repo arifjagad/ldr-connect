@@ -9,16 +9,20 @@
 -- ============================================================
 
 -- Enable RLS pada semua tabel
-ALTER TABLE public.users               ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.wallets             ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.coin_packages       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.coin_transactions   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.game_tod_questions  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.game_sessions       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.game_snake_questions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.anniversaries       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.admin_activity_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.game_settings       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wallets                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coin_packages          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coin_transactions      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_tod_questions     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_sessions          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_snake_questions   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.anniversaries          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_activity_logs    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_settings          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_dare_questions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.game_minigame_configs  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vouchers               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.voucher_redemptions    ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- HELPER FUNCTIONS (SECURITY DEFINER)
@@ -158,21 +162,36 @@ CREATE POLICY "game_sessions_select_own"
 
 -- ============================================================
 -- anniversaries
+-- (020: SELECT dibuka ke partner; 021: UPDATE dibuka ke partner)
 -- ============================================================
-CREATE POLICY "anniversaries_select_own"
-  ON public.anniversaries FOR SELECT
-  USING (user_id = auth.uid());
 
+-- Baca anniversary milik sendiri ATAU milik partner
+CREATE POLICY "anniversaries_select_couple"
+  ON public.anniversaries FOR SELECT
+  USING (
+    user_id = auth.uid()
+    OR user_id = (SELECT partner_id FROM public.users WHERE id = auth.uid())
+  );
+
+-- Insert hanya oleh pemilik
 CREATE POLICY "anniversaries_insert_own"
   ON public.anniversaries FOR INSERT
   TO authenticated
   WITH CHECK (user_id = auth.uid());
 
-CREATE POLICY "anniversaries_update_own"
+-- Update boleh dilakukan oleh pemilik ATAU partner
+CREATE POLICY "anniversaries_update_couple"
   ON public.anniversaries FOR UPDATE
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+  USING (
+    user_id = auth.uid()
+    OR user_id = (SELECT partner_id FROM public.users WHERE id = auth.uid())
+  )
+  WITH CHECK (
+    user_id = auth.uid()
+    OR user_id = (SELECT partner_id FROM public.users WHERE id = auth.uid())
+  );
 
+-- Delete hanya oleh pemilik (tidak boleh partner hapus milik partner)
 CREATE POLICY "anniversaries_delete_own"
   ON public.anniversaries FOR DELETE
   USING (user_id = auth.uid());
@@ -203,3 +222,62 @@ CREATE POLICY "snake_questions_select_active"
   ON public.game_snake_questions FOR SELECT
   TO authenticated
   USING (is_active = true);
+
+-- ============================================================
+-- game_dare_questions (migration 014)
+-- ============================================================
+CREATE POLICY "dare_questions_select_active"
+  ON public.game_dare_questions FOR SELECT
+  TO authenticated
+  USING (is_active = true);
+
+CREATE POLICY "dare_questions_all_admin"
+  ON public.game_dare_questions FOR ALL
+  USING (public.is_admin());
+
+-- ============================================================
+-- game_minigame_configs (migration 014)
+-- ============================================================
+CREATE POLICY "minigame_configs_select_active"
+  ON public.game_minigame_configs FOR SELECT
+  TO authenticated
+  USING (is_active = true);
+
+CREATE POLICY "minigame_configs_all_admin"
+  ON public.game_minigame_configs FOR ALL
+  USING (public.is_admin());
+
+-- ============================================================
+-- vouchers (migration 020+021)
+-- ============================================================
+
+-- Semua authenticated bisa baca voucher aktif (untuk cek kode)
+CREATE POLICY "vouchers_select_active"
+  ON public.vouchers FOR SELECT
+  TO authenticated
+  USING (is_active = true);
+
+-- Admin bisa baca semua (termasuk nonaktif)
+CREATE POLICY "vouchers_select_admin"
+  ON public.vouchers FOR SELECT
+  USING (public.is_admin());
+
+-- Admin bisa insert, update, delete
+CREATE POLICY "vouchers_write_admin"
+  ON public.vouchers FOR ALL
+  USING (public.is_admin());
+
+-- ============================================================
+-- voucher_redemptions (migration 020)
+-- ============================================================
+
+-- User bisa baca redemption milik sendiri
+CREATE POLICY "vr_select_own"
+  ON public.voucher_redemptions FOR SELECT
+  USING (user_id = auth.uid());
+
+-- INSERT/UPDATE hanya via service role (redeem_voucher + apply_topup_discount RPC)
+-- Admin bisa baca semua
+CREATE POLICY "vr_select_admin"
+  ON public.voucher_redemptions FOR SELECT
+  USING (public.is_admin());

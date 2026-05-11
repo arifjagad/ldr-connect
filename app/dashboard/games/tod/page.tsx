@@ -4,9 +4,11 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/stores/auth-store";
 import type { TodQuestion, TodSession } from "@/lib/types";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { VideoCall } from "@/components/VideoCall";
+import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
 
 type RealtimeSubscription = { unsubscribe: () => void };
 
@@ -21,38 +23,6 @@ type JoinResponse = { session: TodSession };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  async function handleCopy() {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-[#9B93B0] transition hover:border-[#FF3D7F]/40 hover:bg-[#FF3D7F]/10 hover:text-[#FF6B9D]"
-    >
-      {copied ? (
-        <>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          Copied!
-        </>
-      ) : (
-        <>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-          {label}
-        </>
-      )}
-    </button>
-  );
-}
 
 function QuestionTypeBadge({ type }: { type: "truth" | "dare" }) {
   if (type === "truth") {
@@ -84,6 +54,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<{ data: 
 }
 
 function TodContent() {
+  const { user } = useAuthStore();
   const searchParams = useSearchParams();
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [categories, setCategories] = useState<string[]>([]);
@@ -98,14 +69,14 @@ function TodContent() {
   const [error, setError] = useState<string | null>(null);
   const [finishReason, setFinishReason] = useState<FinishReason>(null);
   const [showVideo, setShowVideo] = useState(false);
+  const [partnerOnline, setPartnerOnline] = useState(false);
+  const [realtimeOk, setRealtimeOk] = useState(true);
 
   const [timeLeft, setTimeLeft] = useState<number>(0);
 
   const realtimeRef = useRef<RealtimeSubscription | null>(null);
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadingRef = useRef(false);
-  const pollInFlightRef = useRef(false);
   const phaseRef = useRef<GamePhase>("idle");
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -151,52 +122,51 @@ function TodContent() {
   }
 
   const refreshSession = useCallback(async (code: string) => {
-    if (loadingRef.current || pollInFlightRef.current) return;
-    pollInFlightRef.current = true;
+    if (loadingRef.current) return;
     try {
       const json = await apiFetch<{ session: TodSession }>(`/api/game/tod/session/${code}`);
       applySession(json.data.session);
     } catch { /* ignore transient errors */ }
-    finally { pollInFlightRef.current = false; }
   }, []);
 
   // ── Realtime via Supabase ─────────────────────────────────────────────────
 
-  function startRealtime(code: string) {
+  function startRealtime(code: string, userId?: string) {
     stopRealtime();
 
-    // Supabase Realtime — subscribe ke perubahan game_sessions
     const supabase = createClient();
     const channel = supabase
       .channel(`tod-session-${code}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "game_sessions", filter: `session_code=eq.${code}` },
-        (payload) => {
-          applySession(payload.new as TodSession);
-        }
+        (payload) => { applySession(payload.new as TodSession); }
       )
-      .subscribe();
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState<{ user_id: string }>();
+        const users = Object.values(state).flat();
+        setPartnerOnline(users.some((p) => p.user_id !== userId));
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          setRealtimeOk(true);
+          if (userId) await channel.track({ user_id: userId });
+          if (phaseRef.current !== "idle" && phaseRef.current !== "finished") {
+            await refreshSession(code);
+          }
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setRealtimeOk(false);
+        }
+      });
 
     realtimeRef.current = { unsubscribe: () => supabase.removeChannel(channel) };
-
-    // Polling sebagai fallback
-    const schedulePoll = () => {
-      if (phaseRef.current === "finished" || phaseRef.current === "idle") return;
-      const delay = phaseRef.current === "waiting" ? 3000 : 2000;
-      pollRef.current = setTimeout(async () => {
-        await refreshSession(code);
-        schedulePoll();
-      }, delay);
-    };
-    schedulePoll();
   }
 
   function stopRealtime() {
     realtimeRef.current?.unsubscribe();
     realtimeRef.current = null;
-    if (pollRef.current) { clearTimeout(pollRef.current); pollRef.current = null; }
-    pollInFlightRef.current = false;
+    setPartnerOnline(false);
+    setRealtimeOk(true);
   }
 
   function startSessionTimer(expiresAt: string, onExpire?: () => void) {
@@ -262,7 +232,7 @@ function TodContent() {
         if (json.data.session) {
           setIsHost(json.data.is_host);
           applySession(json.data.session);
-          startRealtime(json.data.session.session_code);
+          startRealtime(json.data.session.session_code, user?.id);
         }
       } catch { /* tidak ada sesi aktif, biarkan idle */ }
     }
@@ -283,7 +253,7 @@ function TodContent() {
       });
       setIsHost(true);
       applySession(json.data.session);
-      startRealtime(json.data.session.session_code);
+      startRealtime(json.data.session.session_code, user?.id);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -303,7 +273,7 @@ function TodContent() {
       });
       setIsHost(false);
       applySession(json.data.session);
-      startRealtime(json.data.session.session_code);
+      startRealtime(json.data.session.session_code, user?.id);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -442,8 +412,8 @@ function TodContent() {
       {phase === "idle" && (
         <div className="space-y-4">
           {/* Create card */}
-          <div className="rounded-2xl border border-[#FF3D7F]/20 bg-[#111113]">
-            <div className="h-0.5 w-full rounded-t-2xl bg-linear-to-r from-[#FF3D7F] to-[#818CF8]" />
+          <div className="overflow-hidden rounded-2xl border border-[#FF3D7F]/20 bg-[#111113]">
+            <div className="h-0.5 w-full bg-linear-to-r from-[#FF3D7F] to-[#818CF8]" />
             <div className="p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF3D7F]/15">
@@ -550,105 +520,26 @@ function TodContent() {
 
       {/* ─── WAITING: Lobi ──────────────────────────────────────────────────────── */}
       {phase === "waiting" && session && (
-        <div className="space-y-4">
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.07] bg-[#111113] p-6 sm:p-8 text-center text-[#FFF5F8]">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#5C5470]/20">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9B93B0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        <>
+          <GameWaitingLobby
+            sessionCode={session.session_code}
+            gameName="Truth or Dare"
+            gameEmoji="🔥"
+            isHost={isHost}
+            onCancel={handleLeave}
+            onJoin={!isHost ? () => { setJoinCodeInput(session.session_code); handleJoin(); } : undefined}
+            joinLoading={loading}
+            expiryMinutes={10}
+          />
+          {error && (
+            <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
+              {error}
             </div>
-
-            {isHost ? (
-              <>
-                <h2 className="text-xl font-bold text-[#FFF5F8]">Menunggu Partner…</h2>
-                <p className="mt-1 text-sm text-[#5C5470]">Bagikan session code ke pasanganmu</p>
-
-                <div className="mt-6 flex w-full max-w-sm flex-col items-center rounded-xl border border-white/5 bg-[#18181C] p-6">
-                  <span className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Session Code</span>
-                  <span className="mt-2 font-mono text-2xl font-bold tracking-widest text-[#818CF8]">
-                    {session.session_code}
-                  </span>
-                  <div className="mt-4 flex gap-2">
-                    <CopyButton text={session.session_code} label="Salin Code" />
-                  </div>
-                </div>
-
-                <div className="mt-6 w-full max-w-sm">
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(`Ayo main Truth or Dare bareng aku di LDR-Connect! 🎮\n\nKlik link ini untuk langsung join:\n${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/join/${session.session_code}\n\nAtau masukkan kode: ${session.session_code}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366]/10 px-5 py-2.5 text-sm font-semibold text-[#25D366] ring-1 ring-[#25D366]/30 transition hover:bg-[#25D366]/20"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-                    </svg>
-                    Kirim via WhatsApp
-                  </a>
-                </div>
-
-                <p className="mt-4 text-xs text-[#5C5470]">Sesi akan otomatis expired dalam 10 menit jika partner tidak bergabung.</p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-bold text-[#FFF5F8]">Pasanganmu Memanggil!</h2>
-                <p className="mt-1 text-sm text-[#5C5470]">Pasanganmu sedang menunggumu untuk bermain.</p>
-
-                <div className="mt-6 flex w-full max-w-sm flex-col items-center rounded-xl border border-white/5 bg-[#18181C] p-6">
-                  <span className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Sesi Aktif</span>
-                  <span className="mt-2 font-mono text-2xl font-bold tracking-widest text-[#FF3D7F]">
-                    {session.session_code}
-                  </span>
-                </div>
-
-                <div className="mt-6 flex w-full max-w-sm flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setJoinCodeInput(session.session_code);
-                      handleJoin();
-                    }}
-                    disabled={loading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.3)] transition hover:bg-[#FF6B9D] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {loading ? (
-                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                    Join Sesi Sekarang
-                  </button>
-                </div>
-              </>
-            )}
-
-            {error && (
-              <div className="mt-6 flex w-full max-w-sm items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                {error}
-              </div>
-            )}
-
-            <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
-              <button
-                type="button"
-                onClick={handleLeave}
-                className="rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10"
-              >
-                Batalkan Sesi
-              </button>
-            </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
 
       {/* ─── PLAYING: Game ───────────────────────────────────────────────────── */}
@@ -661,6 +552,18 @@ function TodContent() {
                 <span className="font-mono text-xs tracking-widest text-[#5C5470]">{session.session_code}</span>
                 <span className="h-1 w-1 rounded-full bg-[#5C5470]" />
                 <span className="text-xs text-[#9B93B0]">{completedQ}/{totalQ} pertanyaan</span>
+                <span className="flex items-center gap-1.5 text-[10px]" title={partnerOnline ? "Partner online" : "Partner offline"}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${partnerOnline ? "bg-[#34D399]" : "bg-[#5C5470]"}`} />
+                  <span className={partnerOnline ? "text-[#34D399]" : "text-[#5C5470]"}>
+                    {partnerOnline ? "Online" : "Offline"}
+                  </span>
+                </span>
+                {!realtimeOk && (
+                  <span className="flex items-center gap-1.5 text-[10px] text-[#FBBF24]" title="Koneksi realtime terputus — sedang mencoba kembali">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#FBBF24]" />
+                    Koneksi lemah
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 {/* Session timer */}

@@ -52,6 +52,20 @@ export type WalletData = {
   updated_at: string;
 };
 
+export type Voucher = {
+  id: number;
+  code: string;
+  coin_value: number;
+  max_uses: number;
+  uses_remaining: number;
+  valid_from: string | null;
+  valid_until: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  redemption_count?: number;
+};
+
 export type TodQuestion = {
   order: number;
   type: "truth" | "dare";

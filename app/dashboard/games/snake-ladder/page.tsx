@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
+import { useCountdown } from "@/lib/hooks/useCountdown";
 import Link from "next/link";
 
 // ── Custom Select ──────────────────────────────────────────────────────────────
@@ -76,33 +77,10 @@ import { PhaserBoard } from "@/components/games/snake-ladder/PhaserBoard";
 import { Dice } from "@/components/games/snake-ladder/Dice";
 import { ChallengeModal } from "@/components/games/snake-ladder/ChallengeModal";
 import { VideoCall } from "@/components/VideoCall";
+import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
 import type { SnakeSession, SnakeGameState } from "@/lib/types";
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
-function useCountdown(targetISO: string | null, onExpire: () => void) {
-  const [seconds, setSeconds] = useState<number | null>(null);
-  const calledRef = useRef(false);
-
-  useEffect(() => {
-    if (!targetISO) return;
-    calledRef.current = false;
-
-    const tick = () => {
-      const diff = Math.max(0, Math.floor((new Date(targetISO).getTime() - Date.now()) / 1000));
-      setSeconds(diff);
-      if (diff === 0 && !calledRef.current) {
-        calledRef.current = true;
-        onExpire();
-      }
-    };
-
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [targetISO, onExpire]);
-
-  return seconds;
-}
 
 function formatTime(s: number | null) {
   if (s === null) return "--:--";
@@ -112,7 +90,7 @@ function formatTime(s: number | null) {
 }
 
 // ── Tipe Phase ─────────────────────────────────────────────────────────────────
-type Phase = "idle" | "setup" | "waiting" | "playing" | "finished";
+type Phase = "idle" | "waiting" | "playing" | "finished";
 type FinishReason = "time_up" | "completed" | "expired" | null;
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
@@ -148,6 +126,9 @@ function SnakeGameContent() {
 
   // Video call
   const [showVideo, setShowVideo] = useState(false);
+  const [partnerOnline, setPartnerOnline] = useState(false);
+  const [realtimeOk, setRealtimeOk] = useState(true);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Challenge modal is only shown after pion animation completes
   const [challengeReady, setChallengeReady] = useState(true);
@@ -254,61 +235,54 @@ function SnakeGameContent() {
 
   // ── Supabase Realtime subscription ───────────────────────────────────────
   useEffect(() => {
-    if (!session?.session_code || phase === "idle" || phase === "setup" || phase === "finished") {
+    if (!session?.session_code) {
       channelRef.current?.unsubscribe();
+      channelRef.current = null;
+      setPartnerOnline(false);
       return;
     }
 
+    const code = session.session_code;
     const supabase = supabaseRef.current;
     const channel = supabase
-      .channel(`snake:${session.session_code}`)
+      .channel(`snake:${code}`)
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "game_sessions",
-          filter: `session_code=eq.${session.session_code}`,
-        },
+        { event: "UPDATE", schema: "public", table: "game_sessions", filter: `session_code=eq.${code}` },
         (payload) => {
           const updated = payload.new as SnakeSession;
           applySession(updated);
-
-          // Jika partner baru join (partner_user_id terisi), pindah ke playing
-          if (updated.status === "playing" && phase === "waiting") {
-            setPhase("playing");
-          }
-
-          // Sync dice value dari last_roll
           const gs = updated.game_state as SnakeGameState;
-          if (gs?.last_roll) {
-            setDiceValue(gs.last_roll.dice);
-          }
+          if (gs?.last_roll) setDiceValue(gs.last_roll.dice);
           setGameState(gs);
         }
       )
-      .subscribe();
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState<{ user_id: string }>();
+        const users = Object.values(state).flat();
+        setPartnerOnline(users.some((p) => p.user_id !== user?.id));
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          setRealtimeOk(true);
+          if (user?.id) await channel.track({ user_id: user.id });
+          const res = await fetch(`/api/game/snake-ladder/session/${code}`);
+          const data = await res.json();
+          if (data.data?.session) applySession(data.data.session);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setRealtimeOk(false);
+        }
+      });
 
     channelRef.current = channel;
-    return () => { channel.unsubscribe(); };
-  }, [session?.session_code, phase, applySession]);
-
-  // ── Polling fallback saat waiting (5s) dan playing (2s) ─────────────────
-  useEffect(() => {
-    const isWaiting = phase === "waiting";
-    const isPlaying = phase === "playing";
-    if ((!isWaiting && !isPlaying) || !session?.session_code) return;
-
-    const interval = isPlaying ? 2000 : 5000;
-
-    const id = setInterval(async () => {
-      const res = await fetch(`/api/game/snake-ladder/session/${session.session_code}`);
-      const data = await res.json();
-      if (data.data?.session) applySession(data.data.session);
-    }, interval);
-
-    return () => clearInterval(id);
-  }, [phase, session?.session_code, applySession]);
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+      setPartnerOnline(false);
+      setRealtimeOk(true);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.session_code]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -432,6 +406,9 @@ function SnakeGameContent() {
   }, [gameState?.host_position, gameState?.partner_position]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleNewGame() {
+    if (session?.status === "waiting" && session.host_user_id === user?.id) {
+      fetch(`/api/game/session/${session.session_code}/cancel`, { method: "POST" }).catch(() => {});
+    }
     setSession(null);
     setGameState(null);
     setPhase("idle");
@@ -442,6 +419,7 @@ function SnakeGameContent() {
     setDiceValue(1);
     setShowVideo(false);
     setError(null);
+    setShowConfirm(false);
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -558,7 +536,7 @@ function SnakeGameContent() {
 
             {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
 
-            <button onClick={() => setPhase("setup")}
+            <button onClick={() => setShowConfirm(true)}
               disabled={useAI && !aiQuestions}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#818CF8] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_16px_rgba(129,140,248,0.35)] transition hover:bg-[#A78BFA] disabled:opacity-50 disabled:cursor-not-allowed">
               {useAI && !aiQuestions ? "Generate pertanyaan dulu" : "Siapkan Board →"}
@@ -599,70 +577,100 @@ function SnakeGameContent() {
             </div>
           </div>
         </div>
-      </main>
-    );
-  }
 
-  // SETUP (konfirmasi sebelum create)
-  if (phase === "setup") {
-    return (
-      <main className="relative mx-auto w-full max-w-md px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-        <div className="rounded-2xl border border-[#818CF8]/20 bg-[#111113] p-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[#818CF8]">Konfirmasi</p>
-          <h2 className="text-xl font-bold text-[#FFF5F8] mb-4">Mulai game baru?</h2>
-          <div className="space-y-2 mb-6 text-sm text-[#9B93B0]">
-            <p>• Board 10×10 akan di-generate secara random</p>
-            <p>• {useAI && aiQuestions ? `${aiQuestions.length} pertanyaan AI siap dipakai` : "15 pertanyaan random dari pool"}</p>
-            <p>• <span className="text-[#FF6B9D] font-semibold">5 coin</span> akan dipotong</p>
-            <p>• Durasi game: <span className="font-semibold text-[#FFF5F8]">20 menit</span></p>
+        {/* ── Confirm Modal ──────────────────────────────────────────────────── */}
+        {showConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => !loadingCreate && setShowConfirm(false)}
+            />
+            <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#818CF8]/25 bg-[#111113] shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
+              <div className="h-0.5 w-full bg-linear-to-r from-[#818CF8] to-[#A78BFA]" />
+              <div className="p-6">
+              <div className="mb-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-[#818CF8]">Konfirmasi</p>
+                <h2 className="mt-1 text-xl font-bold text-[#FFF5F8]">Mulai game baru?</h2>
+              </div>
+              <div className="space-y-2.5 mb-6 text-sm text-[#9B93B0]">
+                <p className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[#5C5470]">•</span>
+                  Board 10×10 akan di-generate secara random
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[#5C5470]">•</span>
+                  {useAI && aiQuestions ? `${aiQuestions.length} pertanyaan AI siap dipakai` : "15 pertanyaan random dari pool"}
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[#5C5470]">•</span>
+                  <span><span className="font-semibold text-[#FF6B9D]">5 coin</span> akan dipotong</span>
+                </p>
+                <p className="flex items-start gap-2">
+                  <span className="mt-0.5 text-[#5C5470]">•</span>
+                  Durasi game: <span className="font-semibold text-[#FFF5F8]">20 menit</span>
+                </p>
+              </div>
+              {error && <p className="mb-4 text-xs text-red-400">{error}</p>}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(false)}
+                  disabled={loadingCreate}
+                  className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateSession}
+                  disabled={loadingCreate}
+                  className="flex-1 rounded-xl bg-[#818CF8] py-2.5 text-sm font-bold text-white shadow-[0_4px_16px_rgba(129,140,248,0.35)] transition hover:bg-[#A78BFA] disabled:opacity-50"
+                >
+                  {loadingCreate ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                      </svg>
+                      Membuat...
+                    </span>
+                  ) : "Buat Game!"}
+                </button>
+              </div>
+              </div>
+            </div>
           </div>
-          {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
-          <div className="flex gap-3">
-            <button onClick={() => setPhase("idle")}
-              className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-[#9B93B0] transition hover:text-[#FFF5F8]">
-              Batal
-            </button>
-            <button onClick={handleCreateSession} disabled={loadingCreate}
-              className="flex-1 rounded-xl bg-[#818CF8] py-2.5 text-sm font-bold text-white transition hover:bg-[#A78BFA] disabled:opacity-50">
-              {loadingCreate ? "Membuat..." : "Buat Game!"}
-            </button>
-          </div>
-        </div>
+        )}
       </main>
     );
   }
 
   // WAITING
   if (phase === "waiting" && session) {
-    const shareText = `Yuk main Ular Tangga bareng aku di LDR-Connect! 🎲\nKode: ${session.session_code}\nLink: ${typeof window !== "undefined" ? window.location.origin : ""}/join/${session.session_code}`;
-
     return (
-      <main className="relative mx-auto w-full max-w-md px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-        <div className="rounded-2xl border border-[#818CF8]/20 bg-[#111113] p-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#818CF8]/15">
-            <span className="text-3xl">🎲</span>
-          </div>
-          <p className="text-xs uppercase tracking-widest text-[#5C5470] mb-2">Menunggu partner bergabung</p>
-          <p className="font-mono text-3xl font-black tracking-[0.2em] text-[#818CF8] mb-1">{session.session_code}</p>
-          <p className="text-xs text-[#5C5470] mb-5">Bagikan kode ini ke pasanganmu</p>
-
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#25D366]/15 border border-[#25D366]/20 px-5 py-2.5 text-sm font-semibold text-[#25D366] transition hover:bg-[#25D366]/25"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            Kirim via WhatsApp
-          </a>
-
-          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-[#5C5470]">
-            <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-            </svg>
-            Menunggu partner...
+      <main className="relative mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+        <div className="mb-8">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
+            <a href="/dashboard/games" className="transition hover:text-[#9B93B0]">Games</a>
+            {" / "}Ular Tangga
+          </p>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#818CF8]/30 to-[#FF3D7F]/20 text-xl">
+              🎲
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">Ular Tangga</h1>
+              <p className="text-sm text-[#5C5470]">Lempar dadu, hadapi tantangan!</p>
+            </div>
           </div>
         </div>
+        <GameWaitingLobby
+          sessionCode={session.session_code}
+          gameName="Ular Tangga"
+          gameEmoji="🎲"
+          isHost={session.host_user_id === user?.id}
+          onCancel={handleNewGame}
+          expiryMinutes={20}
+        />
       </main>
     );
   }
@@ -788,6 +796,18 @@ function SnakeGameContent() {
               <span className={`truncate text-xs font-medium ${hasPendingChallenge ? "text-yellow-400" : isMyTurn ? "text-[#818CF8]" : "text-[#9B93B0]"}`}>
                 {hasPendingChallenge ? "⚡ Tantangan aktif" : isMyTurn ? "Giliranmu" : "Giliran partner"}
               </span>
+              <span className="hidden sm:flex items-center gap-1.5 text-[10px]" title={partnerOnline ? "Partner online" : "Partner offline"}>
+                <span className={`h-1.5 w-1.5 rounded-full ${partnerOnline ? "bg-[#34D399]" : "bg-[#5C5470]"}`} />
+                <span className={partnerOnline ? "text-[#34D399]" : "text-[#5C5470]"}>
+                  {partnerOnline ? "Online" : "Offline"}
+                </span>
+              </span>
+              {!realtimeOk && (
+                <span className="hidden sm:flex items-center gap-1.5 text-[10px] text-[#FBBF24]" title="Koneksi realtime terputus — sedang mencoba kembali">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#FBBF24]" />
+                  Koneksi lemah
+                </span>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span className="font-mono text-sm font-bold tabular-nums" style={{ color: timerColor }}>

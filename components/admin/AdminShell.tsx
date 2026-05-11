@@ -47,6 +47,19 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    href: "/admin/vouchers",
+    label: "Voucher",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20 12V22H4V12" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M22 7H2v5h20V7z" strokeLinecap="round" />
+        <path d="M12 22V7" strokeLinecap="round" />
+        <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" strokeLinecap="round" />
+        <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 export function AdminShell({
@@ -69,9 +82,9 @@ export function AdminShell({
   return (
     <div className="flex min-h-screen bg-[#0D0D10]">
       {/* Sidebar */}
-      <aside className="flex w-56 flex-col border-r border-white/[0.06] bg-[#111113]">
+      <aside className="flex w-56 flex-col border-r border-white/6 bg-[#111113]">
         {/* Logo */}
-        <div className="border-b border-white/[0.06] px-5 py-5">
+        <div className="border-b border-white/6 px-5 py-5">
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#5C5470]">
             LDR-Connect
           </p>
@@ -102,8 +115,8 @@ export function AdminShell({
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-white/[0.06] p-3">
-          <div className="mb-2 rounded-xl bg-white/[0.03] px-3 py-2.5">
+        <div className="border-t border-white/6 p-3">
+          <div className="mb-2 rounded-xl bg-white/3 px-3 py-2.5">
             <p className="text-[10px] text-[#5C5470]">Logged in as</p>
             <p className="truncate text-xs font-medium text-[#9B93B0]">{adminName}</p>
           </div>

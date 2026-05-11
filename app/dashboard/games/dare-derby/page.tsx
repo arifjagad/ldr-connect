@@ -1,11 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
+import { useCountdown } from "@/lib/hooks/useCountdown";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { VideoCall } from "@/components/VideoCall";
+import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
 import { TapTimingGame } from "@/components/games/dare-derby/mini-games/TapTimingGame";
 import { ReactionButtonGame } from "@/components/games/dare-derby/mini-games/ReactionButtonGame";
 import { MemorySequenceGame } from "@/components/games/dare-derby/mini-games/MemorySequenceGame";
@@ -39,24 +41,6 @@ const COIN_COSTS: Record<number, number> = { 5: 3, 7: 4, 10: 6 };
 type PagePhase = "idle" | "setup" | "waiting" | "game" | "finished";
 type FinishReason = "completed" | "time_up" | "cancelled" | null;
 
-// ── Countdown timer hook ──────────────────────────────────────────────────────
-function useCountdown(targetISO: string | null, onExpire: () => void) {
-  const [seconds, setSeconds] = useState<number | null>(null);
-  const calledRef = useRef(false);
-  useEffect(() => {
-    if (!targetISO) return;
-    calledRef.current = false;
-    const tick = () => {
-      const diff = Math.max(0, Math.floor((new Date(targetISO).getTime() - Date.now()) / 1000));
-      setSeconds(diff);
-      if (diff === 0 && !calledRef.current) { calledRef.current = true; onExpire(); }
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [targetISO, onExpire]);
-  return seconds;
-}
 
 function fmt(s: number | null) {
   if (s === null) return "--:--";
@@ -105,6 +89,8 @@ function DareDerbyContent() {
   const [submitted, setSubmitted] = useState(false);
   const [daringAction, setDaringAction] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [partnerOnline, setPartnerOnline] = useState(false);
+  const [realtimeOk, setRealtimeOk] = useState(true);
   const [showDrawToast, setShowDrawToast] = useState(false);
   const [myRoundResult, setMyRoundResult] = useState<{ score: number; metadata?: Record<string, unknown> } | null>(null);
 
@@ -255,16 +241,21 @@ function DareDerbyContent() {
 
   // ── Realtime ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!session?.session_code) return;
-    channelRef.current?.unsubscribe();
+    if (!session?.session_code) {
+      channelRef.current?.unsubscribe();
+      channelRef.current = null;
+      setPartnerOnline(false);
+      return;
+    }
 
+    const code = session.session_code;
     const channel = supabaseRef.current
-      .channel(`dare_derby:${session.session_code}`)
+      .channel(`dare_derby:${code}`)
       .on("postgres_changes", {
         event: "UPDATE",
         schema: "public",
         table: "game_sessions",
-        filter: `session_code=eq.${session.session_code}`,
+        filter: `session_code=eq.${code}`,
       }, (payload) => {
         const updated = payload.new as DareDerbySession;
         // Reset submitted setiap phase bukan "playing" (result, game_over, lobby).
@@ -276,13 +267,48 @@ function DareDerbyContent() {
         }
         applySession(updated);
       })
-      .subscribe();
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState<{ user_id: string }>();
+        const users = Object.values(state).flat();
+        setPartnerOnline(users.some((p) => p.user_id !== user?.id));
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          setRealtimeOk(true);
+          if (user?.id) await channel.track({ user_id: user.id });
+          const res = await fetch(`/api/game/dare-derby/session/${code}`);
+          const data = await res.json();
+          if (data.data?.session) applySession(data.data.session);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setRealtimeOk(false);
+        }
+      });
 
     channelRef.current = channel;
-    return () => { channel.unsubscribe(); };
-  }, [session?.session_code, applySession]);
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+      setPartnerOnline(false);
+      setRealtimeOk(true);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.session_code]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
+  function handleReset() {
+    if (session?.status === "waiting" && session.host_user_id === user?.id) {
+      fetch(`/api/game/session/${session.session_code}/cancel`, { method: "POST" }).catch(() => {});
+    }
+    setSession(null);
+    setGameState(null);
+    setPhase("idle");
+    setFinishReason(null);
+    setMyRoundResult(null);
+    setSubmitted(false);
+    setShowVideo(false);
+    setError(null);
+  }
+
   const handleCreate = async () => {
     setLoadingCreate(true);
     setError(null);
@@ -535,42 +561,33 @@ function DareDerbyContent() {
 
   // ── WAITING ───────────────────────────────────────────────────────────────
   if (phase === "waiting" && session) {
-    const shareText = `Yuk main Dare Derby bareng aku di LDR-Connect! 🎲\nKode: ${session.session_code}\nLink: ${typeof window !== "undefined" ? window.location.origin : ""}/join/${session.session_code}`;
-
     return (
-      <div className="mx-auto w-full max-w-md px-4 py-10 flex flex-col gap-6 items-center">
-        <div className="text-center">
-          <p className="text-xs text-[#5C5470] uppercase tracking-widest">Dare Derby</p>
-          <h1 className="mt-2 text-2xl font-bold text-[#FFF5F8]">Menunggu Partner</h1>
-          <p className="mt-1 text-sm text-[#9B93B0]">Bagikan kode ini ke pasanganmu</p>
+      <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+        <div className="mb-8">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
+            <a href="/dashboard/games" className="transition hover:text-[#9B93B0]">Games</a>
+            {" / "}Dare Derby
+          </p>
+          <div className="mt-2 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#FF3D7F]/30 to-[#818CF8]/20 text-xl">
+              🏁
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">Dare Derby</h1>
+              <p className="text-sm text-[#5C5470]">Kompetisi mini-game, yang kalah dapat dare!</p>
+            </div>
+          </div>
         </div>
-
-        <div className="rounded-2xl border border-[#FF3D7F]/25 bg-[#FF3D7F]/5 px-8 py-6 text-center w-full">
-          <p className="text-xs text-[#5C5470] mb-2">Kode Sesi</p>
-          <p className="text-3xl font-mono font-bold tracking-widest text-[#FF6B9D]">{session.session_code}</p>
-          <p className="text-xs text-[#5C5470] mt-3">{session.board_config.total_rounds} ronde · {DARE_LEVEL_LABELS[session.board_config.dare_level]}</p>
-        </div>
-
-        <a
-          href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366]/15 border border-[#25D366]/20 px-5 py-2.5 text-sm font-semibold text-[#25D366] transition hover:bg-[#25D366]/25"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-          Kirim via WhatsApp
-        </a>
-
-        <div className="text-sm text-[#5C5470]">
-          Sisa waktu tunggu: <span className="text-[#9B93B0] font-mono">{fmt(timerSeconds)}</span>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-[#5C5470]">
-          <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-          </svg>
-          Menunggu partner bergabung...
-        </div>
+        <GameWaitingLobby
+          sessionCode={session.session_code}
+          gameName="Dare Derby"
+          gameEmoji="🏁"
+          isHost={session.host_user_id === user?.id}
+          onCancel={handleReset}
+          expiryMinutes={20}
+          timerSeconds={timerSeconds}
+          extraInfo={`${session.board_config.total_rounds} ronde · ${DARE_LEVEL_LABELS[session.board_config.dare_level]}`}
+        />
       </div>
     );
   }
@@ -600,7 +617,23 @@ function DareDerbyContent() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-[#5C5470]">Dare Derby</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-[#5C5470]">Dare Derby</p>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1 text-[10px]" title={partnerOnline ? "Partner online" : "Partner offline"}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${partnerOnline ? "bg-[#34D399]" : "bg-[#5C5470]"}`} />
+                  <span className={partnerOnline ? "text-[#34D399]" : "text-[#5C5470]"}>
+                    {partnerOnline ? "Online" : "Offline"}
+                  </span>
+                </span>
+                {!realtimeOk && (
+                  <span className="flex items-center gap-1 text-[10px] text-[#FBBF24]" title="Koneksi realtime terputus — sedang mencoba kembali">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#FBBF24]" />
+                    Koneksi lemah
+                  </span>
+                )}
+              </div>
+            </div>
             <p className="text-sm font-medium text-[#FFF5F8]">
               Ronde {gameState.current_round}/{session.board_config.total_rounds}
             </p>

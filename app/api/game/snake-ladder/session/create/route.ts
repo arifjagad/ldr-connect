@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createDailyRoom } from "@/lib/daily";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { broadcastGameInvite } from "@/lib/broadcast-invite";
 import type { SnakeBoardConfig, ChallengeCell, SnakeGameState } from "@/lib/types";
 
 const customQuestionSchema = z.object({
@@ -183,6 +184,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Saldo coin tidak cukup", data: null }, { status: 400 });
     return NextResponse.json({ success: false, message: msg || "Gagal membuat sesi", data: null }, { status: 500 });
   }
+
+  broadcastGameInvite({
+    hostUserId: user.id,
+    partnerId: profile.partner_id,
+    sessionCode,
+    gameType: "snake_ladder",
+  });
 
   return NextResponse.json({ success: true, message: "Sesi berhasil dibuat!", data: { session } });
 }

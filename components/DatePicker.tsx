@@ -53,6 +53,19 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date" }: Pro
   const ref = useRef<HTMLDivElement>(null);
   const yearRef = useRef<HTMLButtonElement>(null);
 
+  // Sync calendar view when value is changed externally (e.g. form reset or edit modal open)
+  useEffect(() => {
+    if (open) return;
+    if (value) {
+      setViewYear(Number(value.split("-")[0]));
+      setViewMonth(Number(value.split("-")[1]) - 1);
+    } else {
+      const now = new Date();
+      setViewYear(now.getFullYear());
+      setViewMonth(now.getMonth());
+    }
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (showYearSelect && yearRef.current) {
       yearRef.current.scrollIntoView({ block: "center" });
@@ -129,7 +142,7 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date" }: Pro
           open
             ? "border-[#F472B6]/40 ring-1 ring-[#F472B6]/20"
             : "border-white/10 hover:border-white/20"
-        } bg-[#18181C] text-left`}
+        } bg-[#18181C] text-left ${displayLabel ? "pr-10" : ""}`}
       >
         <svg
           width="15"
@@ -145,18 +158,19 @@ export function DatePicker({ value, onChange, placeholder = "Pick a date" }: Pro
         <span className={displayLabel ? "text-[#FFF5F8]" : "text-[#5C5470]"}>
           {displayLabel ?? placeholder}
         </span>
-        {displayLabel && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onChange(""); }}
-            className="ml-auto text-[#5C5470] transition hover:text-[#9B93B0]"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-            </svg>
-          </button>
-        )}
       </button>
+      {/* Clear button — sibling, not nested inside the trigger */}
+      {displayLabel && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onChange(""); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5C5470] transition hover:text-[#9B93B0]"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
 
       {/* Calendar dropdown */}
       {open && (

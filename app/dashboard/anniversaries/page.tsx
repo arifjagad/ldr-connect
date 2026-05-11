@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import type { Anniversary } from "@/lib/types";
 import { DatePicker } from "@/components/DatePicker";
 
+// Single client instance shared across all operations in this page
+const supabase = createClient();
+
 function daysUntil(dateStr: string): number {
   const today = new Date();
   const target = new Date(dateStr);
@@ -24,14 +27,19 @@ function formatDate(dateStr: string): string {
 function AnniversaryCard({
   item,
   loading,
+  currentUserId,
   onToggle,
   onDelete,
+  onEdit,
 }: {
   item: Anniversary;
   loading: boolean;
+  currentUserId: string | null;
   onToggle: (item: Anniversary) => void;
   onDelete: (id: number) => void;
+  onEdit: (item: Anniversary) => void;
 }) {
+  const isOwn = currentUserId ? item.user_id === currentUserId : true;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const days = daysUntil(item.date);
   const isToday = days === 0 || days === 365;
@@ -65,7 +73,16 @@ function AnniversaryCard({
             {isToday ? "🎉" : isSoon ? "⏳" : "📅"}
           </div>
           <div>
-            <p className="font-semibold text-[#FFF5F8]">{item.title}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-[#FFF5F8]">{item.title}</p>
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                isOwn
+                  ? "bg-[#F472B6]/15 text-[#F472B6]"
+                  : "bg-[#818CF8]/15 text-[#818CF8]"
+              }`}>
+                {isOwn ? "Saya" : "Partner"}
+              </span>
+            </div>
             <p className="mt-0.5 text-xs text-[#5C5470]">{formatDate(item.date)}</p>
             {item.notes && (
               <p className="mt-2 text-sm leading-relaxed text-[#9B93B0]">{item.notes}</p>
@@ -92,6 +109,20 @@ function AnniversaryCard({
 
       {/* Actions */}
       <div className="mt-4 flex items-center gap-2 border-t border-white/6 pt-4">
+        {/* Edit button */}
+        <button
+          type="button"
+          onClick={() => onEdit(item)}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded-lg border border-[#818CF8]/20 bg-[#818CF8]/8 px-3 py-1.5 text-xs font-medium text-[#818CF8] transition hover:bg-[#818CF8]/15 disabled:opacity-50"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Edit
+        </button>
+
         <button
           type="button"
           onClick={() => onToggle(item)}
@@ -165,6 +196,160 @@ function AnniversaryCard({
   );
 }
 
+// ── Edit Modal ─────────────────────────────────────────────────────────────────
+
+function EditModal({
+  item,
+  onClose,
+  onSaved,
+}: {
+  item: Anniversary;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(item.title);
+  const [date, setDate] = useState(item.date);
+  const [notes, setNotes] = useState(item.notes ?? "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const { error: err } = await supabase
+      .from("anniversaries")
+      .update({ title, date, notes: notes || null })
+      .eq("id", item.id);
+
+    if (err) {
+      setError(err.message);
+    } else {
+      onSaved();
+      onClose();
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={() => !loading && onClose()}
+      />
+
+      {/* Modal card */}
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[#F472B6]/20 bg-[#0E0E12] shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
+        {/* Top accent bar */}
+        <div className="h-0.5 w-full bg-linear-to-r from-[#F472B6] to-[#E879F9]" />
+
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F472B6]/15">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F472B6" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[#FFF5F8]">Edit Momen</p>
+                <p className="text-xs text-[#5C5470]">Perbarui detail momen ini</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5C5470] transition hover:bg-white/5 hover:text-[#9B93B0] disabled:opacity-50"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div>
+              <label className="block text-xs font-medium text-[#9B93B0]">
+                Judul Momen
+              </label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#F472B6]/40 focus:ring-1 focus:ring-[#F472B6]/20 transition"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[#9B93B0]">
+                Tanggal
+              </label>
+              <DatePicker value={date} onChange={setDate} />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[#9B93B0]">
+                Catatan <span className="text-[#5C5470]">(opsional)</span>
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="mt-1.5 w-full resize-none rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#F472B6]/40 focus:ring-1 focus:ring-[#F472B6]/20 transition"
+                rows={3}
+                placeholder="Ceritakan momen ini..."
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-300">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={loading || !title || !date}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#F472B6] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(244,114,182,0.30)] transition hover:bg-[#E879F9] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? (
+                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                {loading ? "Menyimpan..." : "Simpan Perubahan"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
+
 export default function AnniversariesPage() {
   const [items, setItems] = useState<Anniversary[]>([]);
   const [title, setTitle] = useState("");
@@ -174,9 +359,10 @@ export default function AnniversariesPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [editingItem, setEditingItem] = useState<Anniversary | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const loadAnniversaries = useCallback(async () => {
-    const supabase = createClient();
     const { data, error: err } = await supabase
       .from("anniversaries")
       .select("*")
@@ -187,13 +373,26 @@ export default function AnniversariesPage() {
   }, []);
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
     loadAnniversaries().finally(() => setInitialLoading(false));
+  }, [loadAnniversaries]);
+
+  // Real-time: refreh saat ada perubahan anniversary (milik sendiri atau partner)
+  useEffect(() => {
+    const channel = supabase
+      .channel("anniversaries-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "anniversaries" }, () => {
+        loadAnniversaries();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [loadAnniversaries]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true); setError(null); setStatus(null);
-    const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -212,7 +411,6 @@ export default function AnniversariesPage() {
 
   async function toggleActive(item: Anniversary) {
     setLoading(true); setError(null); setStatus(null);
-    const supabase = createClient();
     const { error: err } = await supabase
       .from("anniversaries")
       .update({ is_active: !item.is_active })
@@ -225,7 +423,6 @@ export default function AnniversariesPage() {
 
   async function remove(itemId: number) {
     setLoading(true); setError(null); setStatus(null);
-    const supabase = createClient();
     const { error: err } = await supabase.from("anniversaries").delete().eq("id", itemId);
 
     if (err) setError(err.message);
@@ -379,8 +576,10 @@ export default function AnniversariesPage() {
                         key={item.id}
                         item={item}
                         loading={loading}
+                        currentUserId={currentUserId}
                         onToggle={toggleActive}
                         onDelete={remove}
+                        onEdit={setEditingItem}
                       />
                     ))}
                   </div>
@@ -399,8 +598,10 @@ export default function AnniversariesPage() {
                         key={item.id}
                         item={item}
                         loading={loading}
+                        currentUserId={currentUserId}
                         onToggle={toggleActive}
                         onDelete={remove}
+                        onEdit={setEditingItem}
                       />
                     ))}
                   </div>
@@ -410,6 +611,15 @@ export default function AnniversariesPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingItem && (
+        <EditModal
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSaved={loadAnniversaries}
+        />
+      )}
     </main>
   );
 }

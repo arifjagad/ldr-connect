@@ -980,3 +980,830 @@ BEGIN
   RETURN TRUE;
 END;
 $$;
+
+-- ============================================================
+-- DARE DERBY FUNCTIONS (migration 015–018)
+-- ============================================================
+
+-- ============================================================
+-- FUNCTION: select_dare_derby_minigames (latest: migration 017)
+-- Pilih mini-game balanced random untuk sesi Dare Derby.
+-- CROSS JOIN LATERAL memungkinkan repetisi jika stok per kategori
+-- tidak mencukupi (e.g., hanya 1 brain game tapi butuh 2).
+-- Distribusi: 5→(2R,2B,1S) / 7→(3R,2B,2S) / 10→(4R,3B,3S)
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.select_dare_derby_minigames(p_total_rounds INTEGER)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_reflex_count INTEGER;
+  v_brain_count  INTEGER;
+  v_skill_count  INTEGER;
+  v_result       JSONB;
+BEGIN
+  CASE p_total_rounds
+    WHEN 5  THEN v_reflex_count := 2; v_brain_count := 2; v_skill_count := 1;
+    WHEN 7  THEN v_reflex_count := 3; v_brain_count := 2; v_skill_count := 2;
+    WHEN 10 THEN v_reflex_count := 4; v_brain_count := 3; v_skill_count := 3;
+    ELSE
+      RAISE EXCEPTION 'INVALID_ROUND_COUNT'
+        USING DETAIL = 'Jumlah ronde harus 5, 7, atau 10';
+  END CASE;
+
+  WITH
+    reflex_pick AS (
+      SELECT b.game_id
+      FROM generate_series(1, v_reflex_count) AS gs(n)
+      CROSS JOIN LATERAL (
+        SELECT game_id FROM public.game_minigame_configs
+        WHERE category = 'reflex' AND is_active = true
+        ORDER BY random() LIMIT 1
+      ) b
+    ),
+    brain_pick AS (
+      SELECT b.game_id
+      FROM generate_series(1, v_brain_count) AS gs(n)
+      CROSS JOIN LATERAL (
+        SELECT game_id FROM public.game_minigame_configs
+        WHERE category = 'brain' AND is_active = true
+        ORDER BY random() LIMIT 1
+      ) b
+    ),
+    skill_pick AS (
+      SELECT b.game_id
+      FROM generate_series(1, v_skill_count) AS gs(n)
+      CROSS JOIN LATERAL (
+        SELECT game_id FROM public.game_minigame_configs
+        WHERE category = 'skill' AND is_active = true
+        ORDER BY random() LIMIT 1
+      ) b
+    ),
+    all_picks AS (
+      SELECT game_id FROM reflex_pick
+      UNION ALL SELECT game_id FROM brain_pick
+      UNION ALL SELECT game_id FROM skill_pick
+    )
+  SELECT jsonb_agg(game_id ORDER BY random())
+  INTO v_result
+  FROM all_picks;
+
+  RETURN COALESCE(v_result, '[]'::jsonb);
+END;
+$$;
+
+-- ============================================================
+-- FUNCTION: ready_up_dare_derby (migration 015)
+-- Player tap "Siap!" di lobby. Ketika keduanya ready → phase 'playing'.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.ready_up_dare_derby(
+  p_session_code VARCHAR(12),
+  p_user_id      UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_session       public.game_sessions;
+  v_gs            JSONB;
+  v_my_role       TEXT;
+  v_new_gs        JSONB;
+  v_host_ready    BOOLEAN;
+  v_partner_ready BOOLEAN;
+BEGIN
+  SELECT * INTO v_session
+  FROM public.game_sessions
+  WHERE session_code = p_session_code AND game_type = 'dare_derby'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'SESSION_NOT_FOUND' USING DETAIL = 'Sesi tidak ditemukan';
+  END IF;
+
+  IF v_session.expires_at IS NOT NULL AND v_session.expires_at < NOW() THEN
+    IF v_session.status IN ('playing', 'waiting') THEN
+      UPDATE public.game_sessions SET status = 'expired', updated_at = NOW()
+      WHERE id = v_session.id;
+    END IF;
+    RAISE EXCEPTION 'SESSION_EXPIRED' USING DETAIL = 'Waktu sesi sudah habis';
+  END IF;
+
+  IF v_session.status != 'playing' THEN
+    RAISE EXCEPTION 'SESSION_NOT_ACTIVE' USING DETAIL = 'Partner belum join sesi';
+  END IF;
+
+  v_gs := v_session.game_state;
+
+  IF v_gs->>'phase' != 'lobby' THEN
+    RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Game sudah dimulai';
+  END IF;
+
+  IF v_session.host_user_id = p_user_id THEN
+    v_my_role := 'host';
+  ELSIF v_session.partner_user_id = p_user_id THEN
+    v_my_role := 'partner';
+  ELSE
+    RAISE EXCEPTION 'NOT_IN_SESSION' USING DETAIL = 'Kamu bukan peserta sesi ini';
+  END IF;
+
+  v_new_gs := v_gs || jsonb_build_object(
+    'ready', (v_gs->'ready') || jsonb_build_object(v_my_role, true)
+  );
+
+  v_host_ready    := COALESCE((v_new_gs->'ready'->>'host')::boolean, false);
+  v_partner_ready := COALESCE((v_new_gs->'ready'->>'partner')::boolean, false);
+
+  IF v_host_ready AND v_partner_ready THEN
+    v_new_gs := v_new_gs || jsonb_build_object('phase', 'playing');
+  END IF;
+
+  UPDATE public.game_sessions SET game_state = v_new_gs, updated_at = now()
+  WHERE id = v_session.id;
+
+  RETURN v_new_gs;
+END;
+$$;
+
+-- ============================================================
+-- FUNCTION: submit_dare_derby_round (migration 015)
+-- Submit skor mini-game. Kedua submit → hitung loser → assign dare.
+-- Draw → replay. Draw pada replay → tiebreaker by time_taken.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.submit_dare_derby_round(
+  p_session_code VARCHAR(12),
+  p_user_id      UUID,
+  p_score        INTEGER,
+  p_time_taken   INTEGER,
+  p_metadata     JSONB DEFAULT '{}'::jsonb
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_session       public.game_sessions;
+  v_gs            JSONB;
+  v_bc            JSONB;
+  v_my_role       TEXT;
+  v_current_round INTEGER;
+  v_total_rounds  INTEGER;
+  v_dare_level    TEXT;
+  v_minigame_id   TEXT;
+  v_host_sub      JSONB;
+  v_partner_sub   JSONB;
+  v_host_score    INTEGER;
+  v_partner_score INTEGER;
+  v_host_time     INTEGER;
+  v_partner_time  INTEGER;
+  v_loser         TEXT;
+  v_is_replay     BOOLEAN;
+  v_dare_id       BIGINT;
+  v_dare_content  TEXT;
+  v_dare_category TEXT;
+  v_round_result  JSONB;
+  v_new_gs        JSONB;
+  v_new_questions JSONB;
+BEGIN
+  SELECT * INTO v_session
+  FROM public.game_sessions
+  WHERE session_code = p_session_code AND game_type = 'dare_derby'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'SESSION_NOT_FOUND' USING DETAIL = 'Sesi tidak ditemukan';
+  END IF;
+
+  IF v_session.expires_at IS NOT NULL AND v_session.expires_at < NOW() THEN
+    IF v_session.status IN ('playing', 'waiting') THEN
+      UPDATE public.game_sessions SET status = 'expired', updated_at = NOW()
+      WHERE id = v_session.id;
+    END IF;
+    RAISE EXCEPTION 'SESSION_EXPIRED' USING DETAIL = 'Waktu sesi sudah habis';
+  END IF;
+
+  IF v_session.status != 'playing' THEN
+    RAISE EXCEPTION 'SESSION_NOT_ACTIVE' USING DETAIL = 'Sesi tidak dalam status playing';
+  END IF;
+
+  v_gs := v_session.game_state;
+  v_bc := v_session.board_config;
+
+  IF v_gs->>'phase' != 'playing' THEN
+    RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Bukan fase mini-game saat ini';
+  END IF;
+
+  IF v_session.host_user_id = p_user_id THEN
+    v_my_role := 'host';
+  ELSIF v_session.partner_user_id = p_user_id THEN
+    v_my_role := 'partner';
+  ELSE
+    RAISE EXCEPTION 'NOT_IN_SESSION' USING DETAIL = 'Kamu bukan peserta sesi ini';
+  END IF;
+
+  IF v_gs->'round_submissions'->v_my_role IS NOT NULL
+     AND v_gs->'round_submissions'->v_my_role != 'null'::jsonb THEN
+    RAISE EXCEPTION 'ALREADY_SUBMITTED' USING DETAIL = 'Kamu sudah mengirim skor untuk ronde ini';
+  END IF;
+
+  v_new_gs := v_gs || jsonb_build_object(
+    'round_submissions',
+    (v_gs->'round_submissions') || jsonb_build_object(
+      v_my_role,
+      jsonb_build_object('score', p_score, 'time_taken', p_time_taken,
+                         'submitted_at', now()::text, 'metadata', p_metadata)
+    )
+  );
+
+  v_host_sub    := v_new_gs->'round_submissions'->'host';
+  v_partner_sub := v_new_gs->'round_submissions'->'partner';
+
+  IF v_host_sub IS NULL OR v_host_sub = 'null'::jsonb
+     OR v_partner_sub IS NULL OR v_partner_sub = 'null'::jsonb THEN
+    UPDATE public.game_sessions SET game_state = v_new_gs, updated_at = now()
+    WHERE id = v_session.id;
+    RETURN jsonb_build_object('waiting_for_partner', true, 'game_state', v_new_gs);
+  END IF;
+
+  v_host_score    := (v_host_sub->>'score')::int;
+  v_partner_score := (v_partner_sub->>'score')::int;
+  v_host_time     := (v_host_sub->>'time_taken')::int;
+  v_partner_time  := (v_partner_sub->>'time_taken')::int;
+  v_current_round := (v_gs->>'current_round')::int;
+  v_total_rounds  := (v_bc->>'total_rounds')::int;
+  v_dare_level    := v_bc->>'dare_level';
+  v_minigame_id   := v_bc->'minigame_sequence'->>(v_current_round - 1);
+  v_is_replay     := COALESCE((v_gs->>'is_replay_round')::boolean, false);
+
+  IF v_host_score > v_partner_score THEN
+    v_loser := 'partner';
+  ELSIF v_partner_score > v_host_score THEN
+    v_loser := 'host';
+  ELSIF v_is_replay THEN
+    IF v_host_time < v_partner_time THEN
+      v_loser := 'partner';
+    ELSIF v_partner_time < v_host_time THEN
+      v_loser := 'host';
+    ELSE
+      v_loser := CASE WHEN random() > 0.5 THEN 'host' ELSE 'partner' END;
+    END IF;
+  ELSE
+    v_loser := 'draw';
+  END IF;
+
+  IF v_loser != 'draw' THEN
+    SELECT dq.id, dq.content, dq.category
+    INTO v_dare_id, v_dare_content, v_dare_category
+    FROM public.game_dare_questions dq
+    WHERE dq.is_active = true
+      AND CASE v_dare_level
+            WHEN 'sweet_only' THEN dq.category = 'sweet'
+            WHEN 'full_chaos' THEN true
+            ELSE dq.category IN ('sweet', 'funny', 'bold')
+          END
+      AND dq.id NOT IN (
+        SELECT (r->>'dare_id')::bigint
+        FROM jsonb_array_elements(v_session.questions) r
+        WHERE r->>'dare_id' IS NOT NULL
+      )
+    ORDER BY random() LIMIT 1;
+
+    IF NOT FOUND THEN
+      SELECT dq.id, dq.content, dq.category
+      INTO v_dare_id, v_dare_content, v_dare_category
+      FROM public.game_dare_questions dq
+      WHERE dq.is_active = true
+        AND CASE v_dare_level
+              WHEN 'sweet_only' THEN dq.category = 'sweet'
+              WHEN 'full_chaos' THEN true
+              ELSE dq.category IN ('sweet', 'funny', 'bold')
+            END
+      ORDER BY random() LIMIT 1;
+    END IF;
+
+    v_new_gs := v_new_gs || jsonb_build_object(
+      'dare_counts',
+      (v_gs->'dare_counts') || jsonb_build_object(
+        v_loser, ((v_gs->'dare_counts'->>v_loser)::int + 1)
+      )
+    );
+  END IF;
+
+  v_round_result := jsonb_build_object(
+    'round_number',  v_current_round,
+    'minigame_id',   v_minigame_id,
+    'host_score',    v_host_score,
+    'partner_score', v_partner_score,
+    'loser',         v_loser,
+    'dare_id',       v_dare_id,
+    'dare_content',  v_dare_content,
+    'dare_category', v_dare_category,
+    'dare_status',   CASE WHEN v_loser != 'draw' THEN 'pending' ELSE NULL END,
+    'confirmed_at',  NULL
+  );
+
+  v_new_questions := v_session.questions || jsonb_build_array(v_round_result);
+
+  IF v_loser = 'draw' THEN
+    v_new_gs := v_new_gs || jsonb_build_object(
+      'phase', 'playing', 'is_replay_round', true,
+      'round_submissions', jsonb_build_object('host', NULL, 'partner', NULL),
+      'last_round_result', v_round_result, 'pending_bonus_for', NULL
+    );
+  ELSE
+    v_new_gs := v_new_gs || jsonb_build_object(
+      'phase', 'result', 'is_replay_round', false,
+      'last_round_result', v_round_result, 'pending_bonus_for', NULL
+    );
+  END IF;
+
+  UPDATE public.game_sessions
+  SET game_state = v_new_gs, questions = v_new_questions, updated_at = now()
+  WHERE id = v_session.id;
+
+  RETURN jsonb_build_object('waiting_for_partner', false,
+                            'round_result', v_round_result, 'game_state', v_new_gs);
+END;
+$$;
+
+-- ============================================================
+-- FUNCTION: complete_dare_derby_dare (migration 015)
+-- Loser tandai dare selesai → dare_status: pending → awaiting_confirm
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.complete_dare_derby_dare(
+  p_session_code VARCHAR(12),
+  p_user_id      UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_session       public.game_sessions;
+  v_gs            JSONB;
+  v_my_role       TEXT;
+  v_last_result   JSONB;
+  v_loser         TEXT;
+  v_current_round INTEGER;
+  v_new_gs        JSONB;
+  v_new_questions JSONB;
+BEGIN
+  SELECT * INTO v_session
+  FROM public.game_sessions
+  WHERE session_code = p_session_code AND game_type = 'dare_derby'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN RAISE EXCEPTION 'SESSION_NOT_FOUND'; END IF;
+  IF v_session.expires_at IS NOT NULL AND v_session.expires_at < NOW() THEN
+    RAISE EXCEPTION 'SESSION_EXPIRED';
+  END IF;
+  IF v_session.status != 'playing' THEN RAISE EXCEPTION 'SESSION_NOT_ACTIVE'; END IF;
+
+  v_gs := v_session.game_state;
+  IF v_gs->>'phase' != 'result' THEN
+    RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Bukan fase dare saat ini';
+  END IF;
+
+  IF v_session.host_user_id = p_user_id THEN v_my_role := 'host';
+  ELSIF v_session.partner_user_id = p_user_id THEN v_my_role := 'partner';
+  ELSE RAISE EXCEPTION 'NOT_IN_SESSION'; END IF;
+
+  v_last_result   := v_gs->'last_round_result';
+  v_loser         := v_last_result->>'loser';
+  v_current_round := (v_gs->>'current_round')::int;
+
+  IF v_my_role != v_loser THEN
+    RAISE EXCEPTION 'NOT_THE_LOSER' USING DETAIL = 'Hanya yang kalah yang bisa menyelesaikan dare';
+  END IF;
+  IF v_last_result->>'dare_status' != 'pending' THEN
+    RAISE EXCEPTION 'DARE_NOT_PENDING' USING DETAIL = 'Dare bukan dalam status pending';
+  END IF;
+
+  v_new_questions := (
+    SELECT jsonb_agg(
+      CASE WHEN (q->>'round_number')::int = v_current_round AND q->>'loser' = v_loser
+               AND q->>'dare_status' = 'pending'
+           THEN q || jsonb_build_object('dare_status', 'awaiting_confirm')
+           ELSE q END
+    )
+    FROM jsonb_array_elements(v_session.questions) q
+  );
+
+  v_new_gs := v_gs || jsonb_build_object(
+    'last_round_result',
+    v_last_result || jsonb_build_object('dare_status', 'awaiting_confirm')
+  );
+
+  UPDATE public.game_sessions
+  SET game_state = v_new_gs, questions = v_new_questions, updated_at = now()
+  WHERE id = v_session.id;
+
+  RETURN v_new_gs;
+END;
+$$;
+
+-- ============================================================
+-- FUNCTION: confirm_dare_derby_dare (latest: migration 018)
+-- Partner konfirmasi dare. Setelah confirm, masuk 'lobby' dulu
+-- agar ready_up meng-update updated_at saat mini-game dimulai.
+-- p_confirmed=false → dare dikembalikan ke 'pending'.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.confirm_dare_derby_dare(
+  p_session_code VARCHAR(12),
+  p_user_id      UUID,
+  p_confirmed    BOOLEAN
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_session       public.game_sessions;
+  v_gs            JSONB;
+  v_bc            JSONB;
+  v_my_role       TEXT;
+  v_last_result   JSONB;
+  v_loser         TEXT;
+  v_current_round INTEGER;
+  v_total_rounds  INTEGER;
+  v_new_gs        JSONB;
+  v_new_questions JSONB;
+BEGIN
+  SELECT * INTO v_session
+  FROM public.game_sessions
+  WHERE session_code = p_session_code AND game_type = 'dare_derby'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN RAISE EXCEPTION 'SESSION_NOT_FOUND'; END IF;
+  IF v_session.expires_at IS NOT NULL AND v_session.expires_at < NOW() THEN
+    RAISE EXCEPTION 'SESSION_EXPIRED';
+  END IF;
+  IF v_session.status != 'playing' THEN RAISE EXCEPTION 'SESSION_NOT_ACTIVE'; END IF;
+
+  v_gs := v_session.game_state;
+  v_bc := v_session.board_config;
+
+  IF v_gs->>'phase' != 'result' THEN
+    RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Bukan fase konfirmasi dare';
+  END IF;
+
+  v_last_result := v_gs->'last_round_result';
+  IF v_last_result->>'dare_status' != 'awaiting_confirm' THEN
+    RAISE EXCEPTION 'DARE_NOT_AWAITING'
+      USING DETAIL = 'Dare belum ditandai selesai oleh yang kalah';
+  END IF;
+
+  IF v_session.host_user_id = p_user_id THEN v_my_role := 'host';
+  ELSIF v_session.partner_user_id = p_user_id THEN v_my_role := 'partner';
+  ELSE RAISE EXCEPTION 'NOT_IN_SESSION'; END IF;
+
+  v_loser         := v_last_result->>'loser';
+  v_current_round := (v_gs->>'current_round')::int;
+  v_total_rounds  := (v_bc->>'total_rounds')::int;
+
+  IF v_my_role = v_loser THEN
+    RAISE EXCEPTION 'CANNOT_CONFIRM_OWN'
+      USING DETAIL = 'Kamu tidak bisa konfirmasi dare milikmu sendiri';
+  END IF;
+
+  IF p_confirmed THEN
+    v_new_questions := (
+      SELECT jsonb_agg(
+        CASE WHEN (q->>'round_number')::int = v_current_round AND q->>'loser' = v_loser
+             THEN q || jsonb_build_object('dare_status', 'completed', 'confirmed_at', now()::text)
+             ELSE q END
+      )
+      FROM jsonb_array_elements(v_session.questions) q
+    );
+
+    IF v_current_round >= v_total_rounds THEN
+      v_new_gs := v_gs || jsonb_build_object(
+        'phase', 'game_over',
+        'last_round_result',
+        v_last_result || jsonb_build_object('dare_status', 'completed', 'confirmed_at', now()::text)
+      );
+      UPDATE public.game_sessions
+      SET game_state = v_new_gs, questions = v_new_questions,
+          status = 'completed', updated_at = now()
+      WHERE id = v_session.id;
+    ELSE
+      -- Masuk lobby agar ready_up menjadi acuan startedAt mini-game
+      v_new_gs := v_gs || jsonb_build_object(
+        'phase', 'lobby',
+        'current_round', v_current_round + 1,
+        'is_replay_round', false,
+        'ready', jsonb_build_object('host', false, 'partner', false),
+        'round_submissions', jsonb_build_object('host', NULL, 'partner', NULL),
+        'last_round_result',
+        v_last_result || jsonb_build_object('dare_status', 'completed', 'confirmed_at', now()::text)
+      );
+      UPDATE public.game_sessions
+      SET game_state = v_new_gs, questions = v_new_questions, updated_at = now()
+      WHERE id = v_session.id;
+    END IF;
+  ELSE
+    v_new_questions := (
+      SELECT jsonb_agg(
+        CASE WHEN (q->>'round_number')::int = v_current_round AND q->>'loser' = v_loser
+             THEN q || jsonb_build_object('dare_status', 'pending')
+             ELSE q END
+      )
+      FROM jsonb_array_elements(v_session.questions) q
+    );
+    v_new_gs := v_gs || jsonb_build_object(
+      'last_round_result', v_last_result || jsonb_build_object('dare_status', 'pending')
+    );
+    UPDATE public.game_sessions
+    SET game_state = v_new_gs, questions = v_new_questions, updated_at = now()
+    WHERE id = v_session.id;
+  END IF;
+
+  RETURN v_new_gs;
+END;
+$$;
+
+-- ============================================================
+-- FUNCTION: skip_dare_derby_dare (migration 015)
+-- Loser skip dare. Skip ke-2 → lawan bonus. Skip ke-3 → forfeit.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.skip_dare_derby_dare(
+  p_session_code VARCHAR(12),
+  p_user_id      UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_session       public.game_sessions;
+  v_gs            JSONB;
+  v_bc            JSONB;
+  v_my_role       TEXT;
+  v_opponent_role TEXT;
+  v_last_result   JSONB;
+  v_loser         TEXT;
+  v_current_round INTEGER;
+  v_total_rounds  INTEGER;
+  v_skip_count    INTEGER;
+  v_new_gs        JSONB;
+  v_new_questions JSONB;
+  v_is_last_round BOOLEAN;
+BEGIN
+  SELECT * INTO v_session
+  FROM public.game_sessions
+  WHERE session_code = p_session_code AND game_type = 'dare_derby'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN RAISE EXCEPTION 'SESSION_NOT_FOUND'; END IF;
+  IF v_session.expires_at IS NOT NULL AND v_session.expires_at < NOW() THEN
+    RAISE EXCEPTION 'SESSION_EXPIRED';
+  END IF;
+  IF v_session.status != 'playing' THEN RAISE EXCEPTION 'SESSION_NOT_ACTIVE'; END IF;
+
+  v_gs := v_session.game_state;
+  v_bc := v_session.board_config;
+
+  IF v_gs->>'phase' != 'result' THEN
+    RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Bukan fase dare saat ini';
+  END IF;
+
+  IF v_session.host_user_id = p_user_id THEN v_my_role := 'host';
+  ELSIF v_session.partner_user_id = p_user_id THEN v_my_role := 'partner';
+  ELSE RAISE EXCEPTION 'NOT_IN_SESSION'; END IF;
+
+  v_last_result   := v_gs->'last_round_result';
+  v_loser         := v_last_result->>'loser';
+  v_current_round := (v_gs->>'current_round')::int;
+  v_total_rounds  := (v_bc->>'total_rounds')::int;
+  v_opponent_role := CASE WHEN v_my_role = 'host' THEN 'partner' ELSE 'host' END;
+  v_is_last_round := v_current_round >= v_total_rounds;
+
+  IF v_my_role != v_loser THEN
+    RAISE EXCEPTION 'NOT_THE_LOSER' USING DETAIL = 'Hanya yang kalah yang bisa skip dare';
+  END IF;
+  IF v_last_result->>'dare_status' NOT IN ('pending', 'awaiting_confirm') THEN
+    RAISE EXCEPTION 'DARE_NOT_SKIPPABLE';
+  END IF;
+
+  v_skip_count := (v_gs->'skip_counts'->>v_my_role)::int + 1;
+
+  v_new_questions := (
+    SELECT jsonb_agg(
+      CASE WHEN (q->>'round_number')::int = v_current_round AND q->>'loser' = v_loser
+           THEN q || jsonb_build_object('dare_status', 'skipped')
+           ELSE q END
+    )
+    FROM jsonb_array_elements(v_session.questions) q
+  );
+
+  v_new_gs := v_gs || jsonb_build_object(
+    'skip_counts',
+    (v_gs->'skip_counts') || jsonb_build_object(v_my_role, v_skip_count)
+  );
+
+  IF v_skip_count >= 3 THEN
+    v_new_gs := v_new_gs || jsonb_build_object(
+      'phase', 'game_over', 'forfeit_by', v_my_role,
+      'last_round_result', v_last_result || jsonb_build_object('dare_status', 'skipped')
+    );
+    UPDATE public.game_sessions
+    SET game_state = v_new_gs, questions = v_new_questions,
+        status = 'completed', updated_at = now()
+    WHERE id = v_session.id;
+  ELSIF v_is_last_round THEN
+    v_new_gs := v_new_gs || jsonb_build_object(
+      'phase', 'game_over', 'pending_bonus_for', NULL,
+      'last_round_result', v_last_result || jsonb_build_object('dare_status', 'skipped')
+    );
+    UPDATE public.game_sessions
+    SET game_state = v_new_gs, questions = v_new_questions,
+        status = 'completed', updated_at = now()
+    WHERE id = v_session.id;
+  ELSE
+    v_new_gs := v_new_gs || jsonb_build_object(
+      'phase', 'playing',
+      'current_round', v_current_round + 1,
+      'is_replay_round', false,
+      'round_submissions', jsonb_build_object('host', NULL, 'partner', NULL),
+      'pending_bonus_for', CASE WHEN v_skip_count = 2 THEN v_opponent_role ELSE NULL END,
+      'last_round_result', v_last_result || jsonb_build_object('dare_status', 'skipped')
+    );
+    UPDATE public.game_sessions
+    SET game_state = v_new_gs, questions = v_new_questions, updated_at = now()
+    WHERE id = v_session.id;
+  END IF;
+
+  RETURN v_new_gs;
+END;
+$$;
+
+-- ============================================================
+-- VOUCHER FUNCTIONS (migration 020+021)
+-- ============================================================
+
+-- ============================================================
+-- FUNCTION: redeem_voucher (latest: migration 021)
+-- Redeem voucher coin_credit → langsung kredit ke wallet.
+-- Tolak voucher topup_discount (harus lewat apply_topup_discount).
+-- Race condition protection: SELECT FOR UPDATE pada baris voucher.
+-- Double-use protection: UNIQUE(voucher_id, user_id) sebagai safety net.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.redeem_voucher(p_user_id UUID, p_code TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_voucher public.vouchers%ROWTYPE;
+  v_tx_id   BIGINT;
+BEGIN
+  p_code := UPPER(TRIM(p_code));
+
+  SELECT * INTO v_voucher FROM public.vouchers WHERE code = p_code FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher tidak ditemukan');
+  END IF;
+
+  IF v_voucher.type = 'topup_discount' THEN
+    RETURN jsonb_build_object('success', false,
+      'message', 'Voucher ini hanya berlaku saat pembelian paket coin');
+  END IF;
+
+  IF NOT v_voucher.is_active THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher tidak aktif');
+  END IF;
+  IF v_voucher.valid_from IS NOT NULL AND NOW() < v_voucher.valid_from THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher belum berlaku');
+  END IF;
+  IF v_voucher.valid_until IS NOT NULL AND NOW() > v_voucher.valid_until THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher sudah kadaluarsa');
+  END IF;
+  IF v_voucher.uses_remaining <= 0 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher sudah habis digunakan');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.voucher_redemptions
+    WHERE voucher_id = v_voucher.id AND user_id = p_user_id
+  ) THEN
+    RETURN jsonb_build_object('success', false,
+      'message', 'Kamu sudah pernah menggunakan voucher ini');
+  END IF;
+
+  UPDATE public.vouchers SET uses_remaining = uses_remaining - 1 WHERE id = v_voucher.id;
+  UPDATE public.wallets SET balance = balance + v_voucher.coin_value WHERE user_id = p_user_id;
+
+  INSERT INTO public.coin_transactions (
+    user_id, type, amount, payment_status, payment_reference, paid_at, metadata
+  ) VALUES (
+    p_user_id, 'topup', v_voucher.coin_value, 'paid',
+    'VOUCHER-' || v_voucher.code, NOW(),
+    jsonb_build_object('reason', 'voucher_redemption',
+                       'voucher_code', v_voucher.code, 'voucher_id', v_voucher.id)
+  )
+  RETURNING id INTO v_tx_id;
+
+  INSERT INTO public.voucher_redemptions (voucher_id, user_id, coin_transaction_id)
+  VALUES (v_voucher.id, p_user_id, v_tx_id);
+
+  RETURN jsonb_build_object(
+    'success', true, 'message', 'Voucher berhasil digunakan!',
+    'coin_value', v_voucher.coin_value
+  );
+
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object('success', false,
+      'message', 'Kamu sudah pernah menggunakan voucher ini');
+END;
+$$;
+
+-- ============================================================
+-- FUNCTION: apply_topup_discount (migration 021)
+-- Atomic apply voucher diskon saat checkout. FOR UPDATE mencegah
+-- race condition banyak user berebut slot voucher terbatas.
+-- Menyimpan redemption dengan coin_transaction_id NULL dulu
+-- (diupdate setelah coin_transaction dibuat di API route).
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.apply_topup_discount(
+  p_user_id         UUID,
+  p_code            TEXT,
+  p_purchase_amount INTEGER
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_voucher       public.vouchers%ROWTYPE;
+  v_discount      INTEGER;
+  v_redemption_id BIGINT;
+BEGIN
+  p_code := UPPER(TRIM(p_code));
+
+  SELECT * INTO v_voucher FROM public.vouchers WHERE code = p_code FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher tidak ditemukan');
+  END IF;
+  IF v_voucher.type != 'topup_discount' THEN
+    RETURN jsonb_build_object('success', false,
+      'message', 'Voucher ini bukan voucher diskon pembelian');
+  END IF;
+  IF NOT v_voucher.is_active THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher tidak aktif');
+  END IF;
+  IF v_voucher.valid_from IS NOT NULL AND NOW() < v_voucher.valid_from THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher belum berlaku');
+  END IF;
+  IF v_voucher.valid_until IS NOT NULL AND NOW() > v_voucher.valid_until THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher sudah kadaluarsa');
+  END IF;
+  IF v_voucher.uses_remaining <= 0 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Voucher sudah habis digunakan');
+  END IF;
+  IF v_voucher.min_purchase IS NOT NULL AND p_purchase_amount < v_voucher.min_purchase THEN
+    RETURN jsonb_build_object('success', false, 'message',
+      'Minimum pembelian Rp' || to_char(v_voucher.min_purchase, 'FM999,999,999') ||
+      ' untuk voucher ini');
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.voucher_redemptions
+    WHERE voucher_id = v_voucher.id AND user_id = p_user_id
+  ) THEN
+    RETURN jsonb_build_object('success', false,
+      'message', 'Kamu sudah pernah menggunakan voucher ini');
+  END IF;
+
+  IF v_voucher.discount_type = 'percentage' THEN
+    v_discount := FLOOR(p_purchase_amount * v_voucher.discount_value / 100.0);
+    IF v_voucher.max_discount IS NOT NULL THEN
+      v_discount := LEAST(v_discount, v_voucher.max_discount);
+    END IF;
+  ELSE
+    v_discount := LEAST(v_voucher.discount_value, p_purchase_amount);
+  END IF;
+
+  UPDATE public.vouchers SET uses_remaining = uses_remaining - 1 WHERE id = v_voucher.id;
+
+  INSERT INTO public.voucher_redemptions (voucher_id, user_id)
+  VALUES (v_voucher.id, p_user_id)
+  RETURNING id INTO v_redemption_id;
+
+  RETURN jsonb_build_object(
+    'success', true, 'message', 'Voucher diskon berhasil diterapkan',
+    'discount_amount', v_discount,
+    'final_amount',    p_purchase_amount - v_discount,
+    'redemption_id',   v_redemption_id
+  );
+
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object('success', false,
+      'message', 'Kamu sudah pernah menggunakan voucher ini');
+END;
+$$;

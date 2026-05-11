@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Parse body
-  let body: { coin_package_id?: number };
+  let body: { coin_package_id?: number; voucher_code?: string };
   try {
     body = await request.json();
   } catch {
@@ -43,6 +43,10 @@ export async function POST(request: NextRequest) {
       { status: 422 }
     );
   }
+
+  const rawVoucherCode = typeof body.voucher_code === "string"
+    ? body.voucher_code.trim().toUpperCase()
+    : null;
 
   // Ambil paket yang dipilih
   const { data: pkg, error: pkgError } = await supabase
@@ -78,19 +82,66 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
+  // Terapkan voucher diskon jika ada
+  let discountAmount = 0;
+  let discountRedemptionId: number | null = null;
+  if (rawVoucherCode) {
+    const { data: discountData, error: discountError } = await serviceClient.rpc(
+      "apply_topup_discount",
+      { p_user_id: user.id, p_code: rawVoucherCode, p_purchase_amount: pkg.price }
+    );
+
+    if (discountError) {
+      console.error("[topup] apply_topup_discount error:", discountError.message);
+      return NextResponse.json(
+        { success: false, message: "Gagal memproses voucher diskon", data: null },
+        { status: 500 }
+      );
+    }
+
+    const discountResult = discountData as {
+      success: boolean;
+      message: string;
+      discount_amount?: number;
+      redemption_id?: number;
+    };
+
+    if (!discountResult.success) {
+      return NextResponse.json(
+        { success: false, message: discountResult.message, data: null },
+        { status: 400 }
+      );
+    }
+
+    discountAmount      = discountResult.discount_amount ?? 0;
+    discountRedemptionId = discountResult.redemption_id ?? null;
+  }
+
+  const finalPrice = Math.max(pkg.price - discountAmount, 1000); // minimum Rp1.000 (Midtrans limit)
+
   // Generate order ID pakai CSPRNG — Math.random() tidak aman untuk payment reference
   const orderId = `TOPUP-${Date.now()}-${randomBytes(4).toString("hex").toUpperCase()}`;
 
   // Insert coin_transaction (pending) dengan service client untuk bypass RLS
+  const txMetadata = discountAmount > 0
+    ? {
+        voucher_code:    rawVoucherCode,
+        discount_amount: discountAmount,
+        original_price:  pkg.price,
+        final_price:     finalPrice,
+      }
+    : null;
+
   const { data: tx, error: txError } = await serviceClient
     .from("coin_transactions")
     .insert({
-      user_id: user.id,
-      coin_package_id: pkg.id,
-      type: "topup",
-      amount: pkg.coin_amount,
-      payment_status: "pending",
+      user_id:           user.id,
+      coin_package_id:   pkg.id,
+      type:              "topup",
+      amount:            pkg.coin_amount,
+      payment_status:    "pending",
       payment_reference: orderId,
+      metadata:          txMetadata,
     })
     .select()
     .single();
@@ -103,23 +154,46 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Hubungkan voucher_redemption dengan coin_transaction yang baru dibuat
+  if (discountRedemptionId) {
+    await serviceClient
+      .from("voucher_redemptions")
+      .update({ coin_transaction_id: tx.id })
+      .eq("id", discountRedemptionId);
+  }
+
   // Buat Midtrans Snap token
   const serverKey = process.env.MIDTRANS_SERVER_KEY!;
   const authHeader = "Basic " + Buffer.from(serverKey + ":").toString("base64");
 
   const snapBody = {
     transaction_details: {
-      order_id: orderId,
-      gross_amount: pkg.price,
+      order_id:     orderId,
+      gross_amount: finalPrice,
     },
-    item_details: [
-      {
-        id: String(pkg.id),
-        price: pkg.price,
-        quantity: 1,
-        name: `${pkg.coin_amount} Coin — ${pkg.name}`,
-      },
-    ],
+    item_details: discountAmount > 0
+      ? [
+          {
+            id:       String(pkg.id),
+            price:    pkg.price,
+            quantity: 1,
+            name:     `${pkg.coin_amount} Coin — ${pkg.name}`,
+          },
+          {
+            id:       `VOUCHER-${rawVoucherCode}`,
+            price:    -discountAmount,
+            quantity: 1,
+            name:     `Diskon Voucher (${rawVoucherCode})`,
+          },
+        ]
+      : [
+          {
+            id:       String(pkg.id),
+            price:    pkg.price,
+            quantity: 1,
+            name:     `${pkg.coin_amount} Coin — ${pkg.name}`,
+          },
+        ],
     customer_details: {
       first_name: profile?.name ?? "User",
       email: profile?.email ?? user.email,
@@ -165,18 +239,20 @@ export async function POST(request: NextRequest) {
     success: true,
     message: "Transaksi berhasil dibuat. Lanjutkan ke pembayaran.",
     data: {
-      payment_url: paymentUrl,
-      snap_token: snapToken,
+      payment_url:     paymentUrl,
+      snap_token:      snapToken,
+      discount_amount: discountAmount > 0 ? discountAmount : null,
+      final_price:     finalPrice,
       transaction: {
-        id: tx.id,
-        type: tx.type,
-        amount: tx.amount,
-        payment_status: tx.payment_status,
+        id:                tx.id,
+        type:              tx.type,
+        amount:            tx.amount,
+        payment_status:    tx.payment_status,
         payment_reference: tx.payment_reference,
-        coin_package: pkg,
-        metadata: tx.metadata,
-        paid_at: tx.paid_at,
-        created_at: tx.created_at,
+        coin_package:      pkg,
+        metadata:          tx.metadata,
+        paid_at:           tx.paid_at,
+        created_at:        tx.created_at,
       },
     },
   });

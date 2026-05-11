@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/auth-store";
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore();
   const [name, setName] = useState(user?.name ?? "");
+  const [lastSignIn, setLastSignIn] = useState<string | null>(null);
 
   // Name update state
   const [nameLoading, setNameLoading] = useState(false);
@@ -23,6 +24,19 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user?.name) setName(user.name);
   }, [user?.name]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+      if (authUser?.last_sign_in_at) {
+        setLastSignIn(
+          new Date(authUser.last_sign_in_at).toLocaleDateString("id-ID", {
+            day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+          })
+        );
+      }
+    });
+  }, []);
 
   // ── Update name ──────────────────────────────────────────────────────────
 
@@ -147,6 +161,15 @@ export default function ProfilePage() {
                   <span className={`h-1.5 w-1.5 rounded-full ${user?.status === "linked" ? "bg-[#34D399] shadow-[0_0_6px_#34D399]" : "bg-[#5C5470]"}`} />
                   {user?.status === "linked" ? "Terhubung dengan partner" : "Belum ada partner"}
                 </span>
+                {lastSignIn && (
+                  <span className="flex items-center gap-1.5 text-xs text-[#5C5470]">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" strokeLinecap="round" />
+                    </svg>
+                    Login terakhir: {lastSignIn}
+                  </span>
+                )}
               </div>
             </div>
           </div>
