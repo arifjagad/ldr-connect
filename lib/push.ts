@@ -51,7 +51,7 @@ export async function sendPushToUser(
     body: payload.body,
     url: payload.url ?? "/dashboard",
     tag: payload.tag ?? "ldr-notif",
-    icon: payload.icon ?? "/icon-192.png",
+    icon: payload.icon ?? "/favicon.ico",
   });
 
   const staleIds: number[] = [];

@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       body: "Dare Derby siap dimulai. Tap untuk main!",
       url: "/dashboard/games/dare-derby",
       tag: `game-join-${code}`,
-    }).catch(() => {});
+    }).catch((e) => console.error("[push] dare-derby join failed:", e));
   }
 
   return NextResponse.json({ success: true, message: "Berhasil bergabung!", data: { session: updatedSession ?? session } });

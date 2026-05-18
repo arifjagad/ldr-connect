@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Kode sesi diperlukan", data: null }, { status: 400 });
   }
 
-  const serviceClient = await createServiceClient();
+  const serviceClient = createServiceClient();
 
   const { data: settings } = await serviceClient
     .from("game_settings")
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       body: "Ular Tangga siap dimulai. Tap untuk main!",
       url: "/dashboard/games/snake-ladder",
       tag: `game-join-${code}`,
-    }).catch(() => {});
+    }).catch((e) => console.error("[push] snake-ladder join failed:", e));
   }
 
   return NextResponse.json({ success: true, message: "Berhasil bergabung!", data: { session: updatedSession ?? session } });

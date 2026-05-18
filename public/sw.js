@@ -21,8 +21,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "LDR-Connect 💕";
   const options = {
     body: data.body || "",
-    icon: "/icon-192.png",
-    badge: "/badge-72.png",
+    icon: data.icon || "/favicon.ico",   // fallback ke favicon yang sudah ada
+    badge: "/favicon.ico",               // badge 72px idealnya tersedia, sementara pakai favicon
     data: { url: data.url || "/dashboard" },
     tag: data.tag || "ldr-notif",
     renotify: true,

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const serviceClient = await createServiceClient();
+  const serviceClient = createServiceClient();
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("join_game_session", {
     p_partner_user_id: user.id,
     p_session_code: session_code.trim().toUpperCase(),
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       body: "Truth or Dare siap dimulai. Tap untuk main!",
       url: "/dashboard/games/tod",
       tag: `game-join-${session_code}`,
-    }).catch(() => {}); // fire-and-forget, jangan block response
+    }).catch((e) => console.error("[push] tod join failed:", e)); // fire-and-forget
   }
 
   return NextResponse.json({

@@ -43,7 +43,10 @@ export function PushPromptBanner() {
 
   async function handleActivate() {
     const ok = await subscribe();
-    if (ok) setVisible(false);
+    if (ok) {
+      localStorage.removeItem(DISMISSED_KEY); // bersihkan flag agar tidak blocking di sesi berikutnya
+      setVisible(false);
+    }
   }
 
   if (!visible) return null;
