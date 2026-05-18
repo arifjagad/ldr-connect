@@ -230,6 +230,15 @@ export default function GamesHubPage() {
           Riwayat Game
         </Link>
         <Link
+          href="/dashboard/games/stats"
+          className="flex items-center gap-2 rounded-xl border border-[#818CF8]/25 bg-[#818CF8]/8 px-5 py-2.5 text-sm font-medium text-[#818CF8] transition hover:border-[#818CF8]/50 hover:bg-[#818CF8]/15"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M18 20V10M12 20V4M6 20v-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Statistik & Leaderboard
+        </Link>
+        <Link
           href="/dashboard/games/tod/questions"
           className="flex items-center gap-2 rounded-xl border border-[#FF3D7F]/20 bg-[#FF3D7F]/5 px-5 py-2.5 text-sm font-medium text-[#FF6B9D] transition hover:border-[#FF3D7F]/40 hover:bg-[#FF3D7F]/10"
         >
