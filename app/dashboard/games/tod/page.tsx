@@ -10,6 +10,10 @@ import { SearchableSelect } from "@/components/SearchableSelect";
 import { VideoCall } from "@/components/VideoCall";
 import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
 import { RealtimeBanner } from "@/components/games/RealtimeBanner";
+import { toast } from "@/components/ui/Toast";
+import { Konfetti } from "@/components/ui/Konfetti";
+import { ShareResult } from "@/components/ui/ShareResult";
+import { sendBrowserNotification, requestNotificationPermission } from "@/lib/notifications";
 
 type RealtimeSubscription = { unsubscribe: () => void };
 
@@ -107,6 +111,13 @@ function TodContent() {
       return;
     }
     if (s.status === "playing") {
+      // Notif browser jika transisi dari waiting ke playing (partner baru join)
+      if (phaseRef.current === "waiting") {
+        sendBrowserNotification("Partner sudah bergabung! 🔥", {
+          body: "Truth or Dare siap dimulai!",
+          tag: "partner-join",
+        });
+      }
       phaseRef.current = "playing";
       setPhase("playing");
       const active = s.questions.find((q) => !q.is_completed) ?? null;
@@ -255,8 +266,12 @@ function TodContent() {
       setIsHost(true);
       applySession(json.data.session);
       startRealtime(json.data.session.session_code, user?.id);
+      toast.success("Sesi berhasil dibuat!", "Bagikan kode ke partner dan tunggu mereka bergabung.");
+      requestNotificationPermission();
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      toast.error("Gagal membuat sesi", msg);
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -275,8 +290,11 @@ function TodContent() {
       setIsHost(false);
       applySession(json.data.session);
       startRealtime(json.data.session.session_code, user?.id);
+      toast.success("Berhasil bergabung!", "Menunggu host memulai game...");
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      setError(msg);
+      toast.error("Gagal bergabung", msg);
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -719,7 +737,9 @@ function TodContent() {
 
       {/* ─── FINISHED ────────────────────────────────────────────────────────── */}
       {phase === "finished" && (
-        <div className="overflow-hidden rounded-2xl border bg-[#111113]"
+        <>
+          <Konfetti active={finishReason !== "time_up"} />
+          <div className="overflow-hidden rounded-2xl border bg-[#111113]"
           style={{ borderColor: finishReason === "time_up" ? "rgba(251,191,36,0.25)" : "rgba(52,211,153,0.20)" }}
         >
           <div
@@ -804,6 +824,12 @@ function TodContent() {
             </div>
 
             <div className="mt-8 flex flex-col gap-3">
+              <ShareResult
+                gameName="Truth or Dare"
+                gameEmoji="🔥"
+                result={finishReason === "time_up" ? "complete" : "complete"}
+                summary={`${completedQ}/${totalQ} pertanyaan dijawab`}
+              />
               <button
                 type="button"
                 onClick={handleLeave}
@@ -834,6 +860,7 @@ function TodContent() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* ─── VIDEO CALL (floating panel, saat game berlangsung) ───────────────── */}

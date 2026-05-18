@@ -79,6 +79,10 @@ import { ChallengeModal } from "@/components/games/snake-ladder/ChallengeModal";
 import { VideoCall } from "@/components/VideoCall";
 import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
 import { RealtimeBanner } from "@/components/games/RealtimeBanner";
+import { toast } from "@/components/ui/Toast";
+import { Konfetti } from "@/components/ui/Konfetti";
+import { ShareResult } from "@/components/ui/ShareResult";
+import { sendBrowserNotification, requestNotificationPermission } from "@/lib/notifications";
 import type { SnakeSession, SnakeGameState } from "@/lib/types";
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
@@ -137,6 +141,7 @@ function SnakeGameContent() {
   // Realtime
   const supabaseRef = useRef(createClient());
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const prevStatusRef = useRef<string | null>(null);
 
   const myRole = session
     ? session.host_user_id === user?.id ? "host" : "partner"
@@ -183,7 +188,17 @@ function SnakeGameContent() {
     setSession(s);
     setGameState(s.game_state as SnakeGameState);
     if (s.status === "waiting") setPhase("waiting");
-    else if (s.status === "playing") setPhase("playing");
+    else if (s.status === "playing") {
+      // Partner baru join — kirim browser notif jika transisi dari waiting ke playing
+      if (prevStatusRef.current === "waiting") {
+        sendBrowserNotification("Partner sudah bergabung! 🎲", {
+          body: "Game Snake & Ladder siap dimulai!",
+          tag: "partner-join",
+        });
+      }
+      setPhase("playing");
+    }
+    prevStatusRef.current = s.status;
   }, []);
 
   // ── Load sesi aktif on mount ──────────────────────────────────────────────
@@ -324,8 +339,13 @@ function SnakeGameContent() {
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       applySession(data.data.session);
+      toast.success("Board siap!", "Bagikan kode sesi ke partner dan tunggu mereka bergabung.");
+      // Minta permission notifikasi agar bisa notif saat partner join
+      requestNotificationPermission();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal membuat sesi");
+      const msg = e instanceof Error ? e.message : "Gagal membuat sesi";
+      setError(msg);
+      toast.error("Gagal membuat sesi", msg);
     } finally {
       setLoadingCreate(false);
     }
@@ -344,8 +364,11 @@ function SnakeGameContent() {
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
       applySession(data.data.session);
+      toast.success("Berhasil bergabung!", "Game akan segera dimulai.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal bergabung");
+      const msg = e instanceof Error ? e.message : "Gagal bergabung";
+      setError(msg);
+      toast.error("Gagal bergabung", msg);
     } finally {
       setLoadingJoin(false);
     }
@@ -719,7 +742,9 @@ function SnakeGameContent() {
       : "linear-gradient(90deg,#818CF8,#A78BFA)";
 
     return (
-      <main className="relative mx-auto w-full max-w-md px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+      <>
+        <Konfetti active={winnerIsMe && finishReason !== "time_up"} />
+        <main className="relative mx-auto w-full max-w-md px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
         <div className="overflow-hidden rounded-2xl border bg-[#111113]" style={{ borderColor: accentColor }}>
           <div className="h-1 w-full" style={{ background: barBg }} />
           <div className="p-6 sm:p-8 text-center">
@@ -765,6 +790,13 @@ function SnakeGameContent() {
             </div>
 
             <div className="mt-6 flex flex-col gap-3">
+              {/* Share Result */}
+              <ShareResult
+                gameName="Ular Tangga"
+                gameEmoji="🎲"
+                result={finishReason === "time_up" ? "complete" : winnerIsMe ? "win" : partnerWon ? "lose" : "draw"}
+                summary={`Posisi akhir: ${gs.host_position} vs ${gs.partner_position}`}
+              />
               <button
                 type="button"
                 onClick={handleNewGame}
@@ -796,6 +828,7 @@ function SnakeGameContent() {
           </div>
         </div>
       </main>
+      </>
     );
   }
 

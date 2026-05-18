@@ -351,6 +351,109 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
+      {/* ── Onboarding Checklist (untuk user baru) ── */}
+      {(() => {
+        const steps = [
+          {
+            id: "partner",
+            done: isLinked,
+            label: "Hubungkan partner",
+            desc: "Masukkan couple code pasanganmu",
+            href: "/dashboard/couple",
+            icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            ),
+          },
+          {
+            id: "coin",
+            done: (wallet?.balance ?? 0) >= 3,
+            label: "Top up coin",
+            desc: "Minimal 3 coin untuk mulai game",
+            href: "/dashboard/coin",
+            icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v2M12 16v2M9 9h4a1 1 0 0 1 0 2H9M9 13h5a1 1 0 0 1 0 2H9" strokeLinecap="round" />
+              </svg>
+            ),
+          },
+          {
+            id: "game",
+            done: false, // always a CTA — we don't track "first game played" here
+            label: "Main game pertama",
+            desc: "Coba Truth or Dare bersama pasangan",
+            href: "/dashboard/games",
+            icon: (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="6" width="20" height="12" rx="3" />
+                <path d="M6 12h4M8 10v4M15 11h2M15 13h2" strokeLinecap="round" />
+              </svg>
+            ),
+          },
+        ];
+        const doneCount = steps.filter((s) => s.done).length;
+        // Sembunyikan checklist jika semua sudah done
+        if (doneCount === steps.length) return null;
+        return (
+          <div className="mb-6 overflow-hidden rounded-2xl border border-[#818CF8]/20 bg-[#818CF8]/5">
+            <div className="flex items-center justify-between border-b border-white/[0.05] px-5 py-3.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-[#FFF5F8]">Mulai perjalananmu 🚀</span>
+                <span className="rounded-full bg-[#818CF8]/20 px-2 py-0.5 text-[10px] font-bold text-[#818CF8]">
+                  {doneCount}/{steps.length}
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-[#818CF8] transition-all duration-500"
+                  style={{ width: `${(doneCount / steps.length) * 100}%` }}
+                />
+              </div>
+            </div>
+            <div className="divide-y divide-white/[0.04]">
+              {steps.map((step) => (
+                <Link
+                  key={step.id}
+                  href={step.href}
+                  className={`flex items-center gap-3 px-5 py-3 transition hover:bg-white/[0.03] ${step.done ? "opacity-50" : ""}`}
+                >
+                  {/* Checkbox */}
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                    step.done
+                      ? "border-[#34D399] bg-[#34D399]/20 text-[#34D399]"
+                      : "border-white/20 bg-white/5 text-[#5C5470]"
+                  }`}>
+                    {step.done ? (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : (
+                      step.icon
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-medium ${step.done ? "text-[#5C5470] line-through" : "text-[#FFF5F8]"}`}>
+                      {step.label}
+                    </p>
+                    {!step.done && (
+                      <p className="text-[11px] text-[#5C5470]">{step.desc}</p>
+                    )}
+                  </div>
+                  {!step.done && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C5470" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Stats Row ── */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         {/* Coin Balance */}

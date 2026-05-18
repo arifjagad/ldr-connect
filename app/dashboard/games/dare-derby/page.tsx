@@ -9,6 +9,10 @@ import { useAuthStore } from "@/stores/auth-store";
 import { VideoCall } from "@/components/VideoCall";
 import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
 import { RealtimeBanner } from "@/components/games/RealtimeBanner";
+import { toast } from "@/components/ui/Toast";
+import { Konfetti } from "@/components/ui/Konfetti";
+import { ShareResult } from "@/components/ui/ShareResult";
+import { sendBrowserNotification, requestNotificationPermission } from "@/lib/notifications";
 import { TapTimingGame } from "@/components/games/dare-derby/mini-games/TapTimingGame";
 import { ReactionButtonGame } from "@/components/games/dare-derby/mini-games/ReactionButtonGame";
 import { MemorySequenceGame } from "@/components/games/dare-derby/mini-games/MemorySequenceGame";
@@ -151,6 +155,7 @@ function DareDerbyContent() {
   );
 
   // ── Apply session ──────────────────────────────────────────────────────────
+  const prevDDStatusRef = useRef<string | null>(null);
   const applySession = useCallback((s: DareDerbySession | null) => {
     if (!s) { setSession(null); setPhase("idle"); return; }
 
@@ -174,6 +179,13 @@ function DareDerbyContent() {
     if (s.status === "waiting") {
       setPhase("waiting");
     } else if (s.status === "playing") {
+      // Notif browser saat partner join
+      if (prevDDStatusRef.current === "waiting") {
+        sendBrowserNotification("Partner sudah bergabung! 🎲", {
+          body: "Dare Derby siap dimulai!",
+          tag: "partner-join",
+        });
+      }
       setPhase("game");
       // Catat kapan ronde mini-game mulai (pakai updated_at server agar sinkron)
       // Hanya update saat masuk ronde baru yang bersih (kedua submission null)
@@ -197,6 +209,7 @@ function DareDerbyContent() {
       }
       if (s.game_state?.phase !== "playing") setSubmitted(false);
     }
+    prevDDStatusRef.current = s.status;
   }, []);
 
   // ── Load active session on mount ───────────────────────────────────────────
@@ -319,9 +332,9 @@ function DareDerbyContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ total_rounds: totalRounds, dare_level: dareLevel }),
       }).then(r => r.json());
-      if (!res.success) setError(res.message);
-      else applySession(res.data.session);
-    } catch { setError("Terjadi kesalahan"); }
+      if (!res.success) { setError(res.message); toast.error("Gagal membuat sesi", res.message); }
+      else { applySession(res.data.session); toast.success("Sesi berhasil dibuat!", "Bagikan kode ke partner dan tunggu mereka bergabung."); requestNotificationPermission(); }
+    } catch { setError("Terjadi kesalahan"); toast.error("Terjadi kesalahan"); }
     finally { setLoadingCreate(false); }
   };
 
@@ -335,9 +348,9 @@ function DareDerbyContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: joinCodeInput.trim() }),
       }).then(r => r.json());
-      if (!res.success) setError(res.message);
-      else applySession(res.data.session);
-    } catch { setError("Terjadi kesalahan"); }
+      if (!res.success) { setError(res.message); toast.error("Gagal bergabung", res.message); }
+      else { applySession(res.data.session); toast.success("Berhasil bergabung!", "Game akan segera dimulai."); }
+    } catch { setError("Terjadi kesalahan"); toast.error("Terjadi kesalahan"); }
     finally { setLoadingJoin(false); }
   };
 
@@ -992,7 +1005,9 @@ function DareDerbyContent() {
     const rounds = session.questions ?? [];
 
     return (
-      <div className="mx-auto w-full max-w-md px-4 py-10 flex flex-col gap-6">
+      <>
+        <Konfetti active={winner === "me" && finishReason === "completed"} />
+        <div className="mx-auto w-full max-w-md px-4 py-10 flex flex-col gap-6">
         <div className="text-center">
           {finishReason === "completed" ? (
             <>
@@ -1045,6 +1060,12 @@ function DareDerbyContent() {
         )}
 
         <div className="flex flex-col gap-2">
+          <ShareResult
+            gameName="Dare Derby"
+            gameEmoji="🎲"
+            result={winner === "me" ? "win" : winner === "partner" ? "lose" : "draw"}
+            summary={`${myDares} dare vs ${partnerDaresCount} dare · ${rounds.length} ronde`}
+          />
           <button
             onClick={() => { setPhase("idle"); setSession(null); setGameState(null); setFinishReason(null); }}
             className="w-full py-3 rounded-xl bg-[#FF3D7F] hover:bg-[#FF6B9D] text-white font-semibold transition"
@@ -1059,6 +1080,7 @@ function DareDerbyContent() {
           </Link>
         </div>
       </div>
+      </>
     );
   }
 

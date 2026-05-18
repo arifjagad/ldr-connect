@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { Navbar } from "@/components/landing/Navbar";
 import { GameInviteNotification } from "@/components/GameInviteNotification";
+import { ToastContainer } from "@/components/ui/Toast";
 
 const dashboardNavItems = [
   { href: "/dashboard", label: "Overview" },
@@ -213,6 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {isPublicPage ? <Navbar /> : null}
 
       {children}
+      <ToastContainer />
     </>
   );
 }
