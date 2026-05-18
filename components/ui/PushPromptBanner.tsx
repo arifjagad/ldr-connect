@@ -52,7 +52,7 @@ export function PushPromptBanner() {
     <div
       role="alertdialog"
       aria-label="Aktifkan notifikasi push"
-      className="fixed top-20 left-4 right-4 z-50 mx-auto max-w-sm animate-slide-in-right sm:left-auto sm:right-4 sm:max-w-xs"
+      className="fixed top-20 left-4 right-4 z-50 animate-slide-in-right sm:left-auto sm:right-4 sm:w-80"
     >
       <div className="overflow-hidden rounded-2xl border border-[#818CF8]/25 bg-[#0E0E12]/95 shadow-2xl shadow-[#818CF8]/10 backdrop-blur-md">
         {/* Top accent */}

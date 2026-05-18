@@ -91,7 +91,7 @@ export function GameInviteNotification() {
   if (!invite || dismissed) return null;
 
   return (
-    <div className="fixed top-20 left-4 right-4 z-50 mx-auto w-full max-w-sm animate-slide-in-right sm:left-auto sm:right-4 sm:w-80">
+    <div className="fixed top-20 left-4 right-4 z-50 animate-slide-in-right sm:left-auto sm:right-4 sm:w-80">
       <div className="overflow-hidden rounded-2xl border border-[#FF3D7F]/30 bg-[#0E0E12]/95 shadow-2xl shadow-[#FF3D7F]/10 backdrop-blur-md">
         <div className="h-0.5 bg-linear-to-r from-[#FF3D7F] to-[#818CF8]" />
 
