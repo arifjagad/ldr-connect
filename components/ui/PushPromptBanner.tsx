@@ -1,32 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
 const DISMISSED_KEY = "ldr-push-prompt-dismissed";
 
-/**
- * Banner prompt notifikasi — muncul otomatis di dashboard jika user belum subscribe.
- * Disimpan di localStorage agar tidak muncul lagi setelah user pilih "Nanti".
- * Menghilang sendiri setelah user aktifkan atau dismiss.
- */
 export function PushPromptBanner() {
   const { status, loading, subscribe } = usePushSubscription();
   const [visible, setVisible] = useState(false);
+  const initialized = useRef(false);
 
+  // Jalankan SEKALI saja setelah mount (bukan reaktif ke status)
+  // Cek permission langsung dari browser agar tidak terpengaruh async SW init
   useEffect(() => {
-    // Tampilkan hanya jika:
-    // 1. Browser support push
-    // 2. Permission belum diminta (bukan denied, bukan granted)
-    // 3. User belum pernah dismiss banner ini
-    if (status === "unsupported" || status === "subscribed" || status === "denied") return;
+    if (initialized.current) return;
+    initialized.current = true;
+
     if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (!("Notification" in window)) return;
     if (localStorage.getItem(DISMISSED_KEY)) return;
 
-    // Delay sedikit agar tidak langsung muncul saat page load
-    const t = setTimeout(() => setVisible(true), 1500);
+    // Delay agar tidak interrupt loading awal, dan cek permission saat itu
+    const t = setTimeout(() => {
+      // Jika sudah granted atau denied, tidak perlu prompt
+      if (Notification.permission !== "default") return;
+      setVisible(true);
+    }, 2500); // Lebih lama dari skeleton loading (~1-2 detik)
+
     return () => clearTimeout(t);
-  }, [status]);
+  }, []); // <- empty deps: jalan sekali, tidak terpengaruh perubahan status
 
   // Sembunyikan jika berhasil subscribe
   useEffect(() => {
@@ -40,9 +43,7 @@ export function PushPromptBanner() {
 
   async function handleActivate() {
     const ok = await subscribe();
-    if (ok) {
-      setVisible(false);
-    }
+    if (ok) setVisible(false);
   }
 
   if (!visible) return null;
@@ -51,7 +52,7 @@ export function PushPromptBanner() {
     <div
       role="alertdialog"
       aria-label="Aktifkan notifikasi push"
-      className="fixed bottom-6 left-4 right-4 z-50 mx-auto max-w-sm animate-fade-in-up sm:left-auto sm:right-6 sm:max-w-xs"
+      className="fixed top-20 left-4 right-4 z-50 mx-auto max-w-sm animate-slide-in-right sm:left-auto sm:right-4 sm:max-w-xs"
     >
       <div className="overflow-hidden rounded-2xl border border-[#818CF8]/25 bg-[#0E0E12]/95 shadow-2xl shadow-[#818CF8]/10 backdrop-blur-md">
         {/* Top accent */}
