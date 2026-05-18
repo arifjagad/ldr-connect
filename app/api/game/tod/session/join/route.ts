@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { sendPushToUser } from "@/lib/push";
 
 /**
  * POST /api/game/tod/session/join
@@ -83,6 +84,17 @@ export async function POST(request: NextRequest) {
       { success: false, message: msg || "Gagal join sesi", data: null },
       { status: 500 }
     );
+  }
+
+  // Kirim push notification ke host
+  const hostId = session?.host_user_id;
+  if (hostId) {
+    sendPushToUser(hostId, {
+      title: "Partner sudah bergabung! 🔥",
+      body: "Truth or Dare siap dimulai. Tap untuk main!",
+      url: "/dashboard/games/tod",
+      tag: `game-join-${session_code}`,
+    }).catch(() => {}); // fire-and-forget, jangan block response
   }
 
   return NextResponse.json({

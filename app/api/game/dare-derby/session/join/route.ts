@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { sendPushToUser } from "@/lib/push";
 
 /**
  * POST /api/game/dare-derby/session/join
@@ -56,6 +57,17 @@ export async function POST(request: NextRequest) {
     .select("*")
     .eq("session_code", code)
     .single();
+
+  // Kirim push notification ke host
+  const hostId = (updatedSession ?? session)?.host_user_id;
+  if (hostId) {
+    sendPushToUser(hostId, {
+      title: "Partner sudah bergabung! 🏁",
+      body: "Dare Derby siap dimulai. Tap untuk main!",
+      url: "/dashboard/games/dare-derby",
+      tag: `game-join-${code}`,
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ success: true, message: "Berhasil bergabung!", data: { session: updatedSession ?? session } });
 }

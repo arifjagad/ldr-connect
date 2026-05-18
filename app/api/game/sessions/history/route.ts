@@ -4,7 +4,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 /**
  * GET /api/game/sessions/history
  * Ambil riwayat sesi game yang sudah selesai untuk user (sebagai host maupun partner)
- * Returns: { sessions: GameSession[] }
+ * Returns: { sessions: GameSession[], profiles: Record<string, string> }
+ * profiles = map dari user_id → name (untuk host & partner)
  */
 export async function GET() {
   const supabase = await createClient();
@@ -25,8 +26,6 @@ export async function GET() {
 
   const now = new Date().toISOString();
 
-  // Sertakan sesi yang sudah selesai/dibatalkan, PLUS sesi 'playing' yang expires_at-nya
-  // sudah lewat (timer habis tapi status belum sempat diupdate ke 'expired')
   const { data: sessions, error } = await serviceClient
     .from("game_sessions")
     .select(
@@ -44,9 +43,33 @@ export async function GET() {
     );
   }
 
+  // Kumpulkan semua unique user IDs (host + partner) untuk ambil nama
+  const userIds = new Set<string>();
+  for (const s of sessions ?? []) {
+    if (s.host_user_id) userIds.add(s.host_user_id);
+    if (s.partner_user_id) userIds.add(s.partner_user_id);
+  }
+
+  // Fetch nama dari profiles
+  const profiles: Record<string, string> = {};
+  if (userIds.size > 0) {
+    const { data: profileRows } = await serviceClient
+      .from("users")
+      .select("id, name")
+      .in("id", [...userIds]);
+
+    for (const row of profileRows ?? []) {
+      profiles[row.id] = row.name ?? "";
+    }
+  }
+
   return NextResponse.json({
     success: true,
     message: "Riwayat permainan",
-    data: { sessions: sessions ?? [] },
+    data: {
+      sessions: sessions ?? [],
+      profiles,
+      currentUserId: user.id,
+    },
   });
 }

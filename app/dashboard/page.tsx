@@ -152,6 +152,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState<Anniversary[]>([]);
   const [activeSession, setActiveSession] = useState<ActiveSession>(null);
+  const [hasPlayedGame, setHasPlayedGame] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -224,6 +225,16 @@ export default function DashboardPage() {
           const sessionRes = await fetch("/api/game/session/any-active");
           const sessionJson = await sessionRes.json();
           setActiveSession(sessionJson?.data?.session ?? null);
+        } catch { /* ignore */ }
+
+        // Cek apakah user sudah pernah main game (onboarding step)
+        try {
+          const { count } = await supabase
+            .from("game_sessions")
+            .select("id", { count: "exact", head: true })
+            .or(`host_user_id.eq.${authUser.id},partner_user_id.eq.${authUser.id}`)
+            .in("status", ["completed", "expired", "cancelled"]);
+          setHasPlayedGame((count ?? 0) > 0);
         } catch { /* ignore */ }
 
         // Ambil data partner jika linked
@@ -381,7 +392,7 @@ export default function DashboardPage() {
           },
           {
             id: "game",
-            done: false, // always a CTA — we don't track "first game played" here
+            done: hasPlayedGame,
             label: "Main game pertama",
             desc: "Coba Truth or Dare bersama pasangan",
             href: "/dashboard/games",

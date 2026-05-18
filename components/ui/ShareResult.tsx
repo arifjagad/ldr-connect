@@ -8,6 +8,8 @@ interface ShareResultProps {
   result: "win" | "lose" | "draw" | "complete";
   summary?: string;
   partnerName?: string;
+  myName?: string;
+  playedAt?: string; // ISO date string
 }
 
 const RESULT_CONFIG = {
@@ -51,6 +53,8 @@ export function ShareResult({
   result,
   summary,
   partnerName,
+  myName,
+  playedAt,
 }: ShareResultProps) {
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -81,125 +85,298 @@ export function ShareResult({
   async function handleDownloadImage() {
     setGenerating(true);
     try {
-      const W = 1080, H = 1080;
+      // 9:16 — rasio WA/IG Story
+      const W = 1080, H = 1920;
       const canvas = document.createElement("canvas");
       canvas.width = W;
       canvas.height = H;
       const ctx = canvas.getContext("2d")!;
+      const cx = W / 2;
+      const SF = `'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',system-ui,sans-serif`;
 
-      // ── Background ──────────────────────────────────────────
-      ctx.fillStyle = "#0A0A0B";
+      // ── BG ───────────────────────────────────────────────────
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+      bgGrad.addColorStop(0, "#0A0A0F");
+      bgGrad.addColorStop(0.5, "#0D0D15");
+      bgGrad.addColorStop(1, "#0A0A0B");
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, W, H);
 
-      // Ambient glow
-      const glow = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 480);
-      glow.addColorStop(0, config.color + "22");
+      // Ambient glow (result color)
+      const glow = ctx.createRadialGradient(cx, 780, 0, cx, 780, 600);
+      glow.addColorStop(0, config.color + "30");
       glow.addColorStop(1, "transparent");
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, W, H);
 
-      // ── Card ────────────────────────────────────────────────
-      const pad = 64;
-      const r = 28;
-      ctx.fillStyle = "#111113";
-      ctx.beginPath();
-      ctx.roundRect(pad, pad, W - pad * 2, H - pad * 2, r);
-      ctx.fill();
+      // Secondary purple glow bottom
+      const glow2 = ctx.createRadialGradient(cx, H - 200, 0, cx, H - 200, 400);
+      glow2.addColorStop(0, "#818CF820");
+      glow2.addColorStop(1, "transparent");
+      ctx.fillStyle = glow2;
+      ctx.fillRect(0, 0, W, H);
 
-      // Card border
-      ctx.strokeStyle = "rgba(255,255,255,0.07)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.roundRect(pad, pad, W - pad * 2, H - pad * 2, r);
-      ctx.stroke();
+      // ── Star particles ───────────────────────────────────────
+      const stars = [
+        [120,200,2],[320,140,1.5],[680,180,2],[900,120,1.5],[980,300,2],
+        [60,450,1],[200,380,1.5],[820,420,1],[960,500,2],[140,650,1.5],
+        [880,680,1],[50,900,2],[970,850,1.5],[200,1100,1],[900,1050,2],
+        [120,1300,1.5],[950,1250,1],[300,1500,2],[800,1480,1.5],[60,1700,1],
+        [980,1650,2],[400,1750,1.5],[700,1780,1],[200,1850,2],[850,1820,1.5],
+      ];
+      for (const [sx, sy, sr] of stars) {
+        ctx.beginPath();
+        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.fill();
+      }
 
-      // Top gradient accent line
-      const topGrad = ctx.createLinearGradient(pad, pad, W - pad, pad);
+      // Small hearts scattered
+      const hearts = [[180,350],[860,400],[100,800],[950,750],[200,1200],[850,1150],[140,1600],[900,1550]];
+      ctx.font = `24px ${SF}`;
+      ctx.globalAlpha = 0.15;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const [hx, hy] of hearts) {
+        ctx.fillText("💕", hx, hy);
+      }
+      ctx.globalAlpha = 1;
+
+      // ── Top header bar ───────────────────────────────────────
+      const topGrad = ctx.createLinearGradient(0, 0, W, 0);
       topGrad.addColorStop(0, "#FF3D7F");
       topGrad.addColorStop(1, "#818CF8");
       ctx.fillStyle = topGrad;
-      ctx.beginPath();
-      ctx.roundRect(pad, pad, W - pad * 2, 5, [r, r, 0, 0]);
-      ctx.fill();
+      ctx.fillRect(0, 0, W, 6);
 
-      // ── Content ─────────────────────────────────────────────
-      const cx = W / 2;
-      ctx.textAlign = "center";
+      // LDR-Connect logo area
       ctx.textBaseline = "alphabetic";
+      ctx.font = `bold 40px ${SF}`;
+      ctx.fillStyle = "#FF3D7F";
+      ctx.textAlign = "center";
+      ctx.fillText("LDR-Connect", cx, 110);
+      ctx.font = `26px ${SF}`;
+      ctx.fillStyle = "#5C5470";
+      ctx.fillText("Game Platform Pasangan LDR 💕", cx, 148);
 
-      // Result emoji (large)
-      ctx.font = `100px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
-      ctx.fillStyle = "#FFF5F8";
-      ctx.fillText(config.emoji, cx, 340);
-
-      // Result label
-      ctx.font = `bold 72px system-ui, -apple-system, sans-serif`;
-      ctx.fillStyle = config.color;
-      ctx.fillText(config.label, cx, 450);
-
-      // Game name
-      ctx.font = `44px 'Segoe UI Emoji', system-ui, -apple-system, sans-serif`;
-      ctx.fillStyle = "#9B93B0";
-      ctx.fillText(`${gameEmoji}  ${gameName}`, cx, 530);
-
-      // Summary
-      if (summary) {
-        ctx.font = `36px system-ui, -apple-system, sans-serif`;
-        ctx.fillStyle = "#5C5470";
-        ctx.fillText(summary, cx, 596);
-      }
-
-      // Partner
-      if (partnerName) {
-        ctx.font = `32px 'Segoe UI Emoji', system-ui, -apple-system, sans-serif`;
-        ctx.fillStyle = "#5C5470";
-        const partnerY = summary ? 648 : 596;
-        ctx.fillText(`bersama ${partnerName} 💕`, cx, partnerY);
-      }
-
-      // ── Decorative dots row ──────────────────────────────────
-      const dotY = 790;
-      const dotColors = ["#FF3D7F", "#818CF8", "#34D399", "#FBBF24", "#F87171"];
-      const dotCount = 5;
-      const dotSpacing = 18;
-      const dotsStartX = cx - ((dotCount - 1) * dotSpacing) / 2;
-      for (let i = 0; i < dotCount; i++) {
-        ctx.beginPath();
-        ctx.arc(dotsStartX + i * dotSpacing, dotY, 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = dotColors[i];
-        ctx.globalAlpha = 0.6;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-
-      // ── Divider ──────────────────────────────────────────────
-      const divY = 840;
-      const divGrad = ctx.createLinearGradient(pad + 100, divY, W - pad - 100, divY);
-      divGrad.addColorStop(0, "transparent");
-      divGrad.addColorStop(0.5, "rgba(255,255,255,0.10)");
-      divGrad.addColorStop(1, "transparent");
-      ctx.strokeStyle = divGrad;
+      // ── Game badge pill ───────────────────────────────────────
+      const badgeY = 220;
+      const badgeText = `${gameEmoji}  ${gameName}`;
+      ctx.font = `32px ${SF}`;
+      const badgeW = ctx.measureText(badgeText).width + 60;
+      const badgeX = cx - badgeW / 2;
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      ctx.beginPath();
+      ctx.roundRect(badgeX, badgeY, badgeW, 54, 27);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(pad + 100, divY);
-      ctx.lineTo(W - pad - 100, divY);
+      ctx.roundRect(badgeX, badgeY, badgeW, 54, 27);
+      ctx.stroke();
+      ctx.fillStyle = "#9B93B0";
+      ctx.fillText(badgeText, cx, badgeY + 37);
+
+      // ── Result glow circle ────────────────────────────────────
+      const glowCircle = ctx.createRadialGradient(cx, 580, 0, cx, 580, 180);
+      glowCircle.addColorStop(0, config.color + "40");
+      glowCircle.addColorStop(0.6, config.color + "10");
+      glowCircle.addColorStop(1, "transparent");
+      ctx.fillStyle = glowCircle;
+      ctx.beginPath();
+      ctx.arc(cx, 580, 180, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Result emoji
+      ctx.font = `160px ${SF}`;
+      ctx.fillStyle = "#FFF5F8";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(config.emoji, cx, 570);
+
+      // Result label
+      ctx.font = `bold 100px ${SF}`;
+      ctx.fillStyle = config.color;
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(config.label, cx, 760);
+
+      // ── Divider with hearts ───────────────────────────────────
+      const d1Y = 810;
+      const dGrad = ctx.createLinearGradient(80, d1Y, W - 80, d1Y);
+      dGrad.addColorStop(0, "transparent");
+      dGrad.addColorStop(0.3, "rgba(255,61,127,0.3)");
+      dGrad.addColorStop(0.7, "rgba(129,140,248,0.3)");
+      dGrad.addColorStop(1, "transparent");
+      ctx.strokeStyle = dGrad;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(80, d1Y); ctx.lineTo(W - 80, d1Y); ctx.stroke();
+
+      // ── Player avatars section ────────────────────────────────
+      const avatarY = 960;
+      const avatarR = 80;
+      const leftX = W / 2 - 220;
+      const rightX = W / 2 + 220;
+
+      function drawAvatar(x: number, name: string, isWinner: boolean) {
+        // Outer ring
+        const ringGrad = ctx.createLinearGradient(x - avatarR, avatarY - avatarR, x + avatarR, avatarY + avatarR);
+        ringGrad.addColorStop(0, isWinner ? config.color : "rgba(255,255,255,0.15)");
+        ringGrad.addColorStop(1, isWinner ? "#818CF8" : "rgba(255,255,255,0.05)");
+        ctx.strokeStyle = ringGrad;
+        ctx.lineWidth = isWinner ? 3 : 1.5;
+        ctx.beginPath();
+        ctx.arc(x, avatarY, avatarR + 4, 0, Math.PI * 2);
+        ctx.stroke();
+        // BG circle
+        ctx.fillStyle = isWinner ? config.color + "30" : "rgba(255,255,255,0.06)";
+        ctx.beginPath();
+        ctx.arc(x, avatarY, avatarR, 0, Math.PI * 2);
+        ctx.fill();
+        // Initial letter
+        ctx.font = `bold 64px ${SF}`;
+        ctx.fillStyle = isWinner ? config.color : "#9B93B0";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText((name?.[0] ?? "?").toUpperCase(), x, avatarY);
+        // Name below
+        ctx.font = `34px ${SF}`;
+        ctx.fillStyle = isWinner ? "#FFF5F8" : "#9B93B0";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(name || "—", x, avatarY + avatarR + 50);
+        // Winner crown
+        if (isWinner) {
+          ctx.font = `40px ${SF}`;
+          ctx.textBaseline = "alphabetic";
+          ctx.fillText("👑", x, avatarY - avatarR - 10);
+        }
+      }
+
+      const iAmWinner = result === "win";
+      const isPartnerWinner = result === "lose";
+      const isDraw = result === "draw";
+
+      drawAvatar(leftX, myName || "", iAmWinner);
+      drawAvatar(rightX, partnerName || "", isPartnerWinner);
+
+      // VS or heart in center
+      if (isDraw) {
+        ctx.font = `56px ${SF}`;
+        ctx.fillStyle = "#9B93B0";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("🤝", cx, avatarY);
+      } else if (result === "complete") {
+        ctx.font = `56px ${SF}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("❤️", cx, avatarY);
+      } else {
+        ctx.font = `bold 48px ${SF}`;
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("VS", cx, avatarY);
+      }
+
+      // ── Stats card ────────────────────────────────────────────
+      const cardY = 1180;
+      const cardH2 = summary ? 200 : 150;
+      const cardPad = 80;
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      ctx.beginPath();
+      ctx.roundRect(cardPad, cardY, W - cardPad * 2, cardH2, 24);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.07)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(cardPad, cardY, W - cardPad * 2, cardH2, 24);
       ctx.stroke();
 
-      // ── Branding ─────────────────────────────────────────────
-      ctx.font = `bold 30px system-ui, -apple-system, sans-serif`;
+      // Left accent on card
+      ctx.fillStyle = config.color;
+      ctx.beginPath();
+      ctx.roundRect(cardPad, cardY, 4, cardH2, [0, 2, 2, 0]);
+      ctx.fill();
+
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      const statX = cardPad + 40;
+
+      if (summary) {
+        ctx.font = `bold 36px ${SF}`;
+        ctx.fillStyle = config.color;
+        ctx.fillText("📊 Statistik", statX, cardY + 54);
+        ctx.font = `32px ${SF}`;
+        ctx.fillStyle = "#9B93B0";
+        ctx.fillText(summary, statX, cardY + 100);
+        if (playedAt) {
+          const d = new Date(playedAt);
+          const label = d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+          ctx.font = `28px ${SF}`;
+          ctx.fillStyle = "#5C5470";
+          ctx.fillText(`🗓️  ${label}`, statX, cardY + 148);
+        }
+      } else {
+        ctx.font = `bold 34px ${SF}`;
+        ctx.fillStyle = "#9B93B0";
+        ctx.fillText(`${gameEmoji}  ${gameName}`, statX, cardY + 80);
+      }
+
+      // ── Tagline ───────────────────────────────────────────────
+      const tagY = 1480;
+      const taglines: Record<string, string> = {
+        win:  "Kemenangan manis buat pasangan LDR! 🏆💕",
+        lose: "Kalah hari ini, menang besok bersama! 💪❤️",
+        draw: "Seri? Berarti kalian memang serasi! 🤝💕",
+        complete: "Seru main bareng, jarak bukan halangan! 🎉❤️",
+      };
+      ctx.font = `italic 36px ${SF}`;
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.textAlign = "center";
+      ctx.fillText(taglines[result] ?? "", cx, tagY);
+
+      // ── Bottom divider ────────────────────────────────────────
+      const botDivY = 1580;
+      const bdGrad = ctx.createLinearGradient(80, botDivY, W - 80, botDivY);
+      bdGrad.addColorStop(0, "transparent");
+      bdGrad.addColorStop(0.5, "rgba(255,255,255,0.08)");
+      bdGrad.addColorStop(1, "transparent");
+      ctx.strokeStyle = bdGrad;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(80, botDivY); ctx.lineTo(W - 80, botDivY); ctx.stroke();
+
+      // ── Bottom branding ───────────────────────────────────────
+      // Pink dot
+      ctx.beginPath();
+      ctx.arc(cx - 120, 1660, 6, 0, Math.PI * 2);
       ctx.fillStyle = "#FF3D7F";
-      ctx.fillText("LDR-Connect", cx, 900);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + 120, 1660, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#818CF8";
+      ctx.fill();
 
-      ctx.font = `26px system-ui, -apple-system, sans-serif`;
+      ctx.font = `bold 44px ${SF}`;
+      ctx.fillStyle = "#FFF5F8";
+      ctx.textAlign = "center";
+      ctx.fillText("LDR-Connect", cx, 1730);
+      ctx.font = `30px ${SF}`;
       ctx.fillStyle = "#5C5470";
-      ctx.fillText("ldr-connect.netlify.app", cx, 940);
+      ctx.fillText("ldr-connect.netlify.app", cx, 1780);
 
-      // ── Download ─────────────────────────────────────────────
+      // Bottom gradient bar
+      const botBar = ctx.createLinearGradient(0, H - 6, W, H - 6);
+      botBar.addColorStop(0, "#818CF8");
+      botBar.addColorStop(1, "#FF3D7F");
+      ctx.fillStyle = botBar;
+      ctx.fillRect(0, H - 6, W, 6);
+
+      // ── Download ──────────────────────────────────────────────
       canvas.toBlob((blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.download = `ldr-connect-${gameName.toLowerCase().replace(/\s+/g, "-")}-result.png`;
+        a.download = `ldr-connect-${gameName.toLowerCase().replace(/\s+/g, "-")}.png`;
         a.href = url;
         a.click();
         URL.revokeObjectURL(url);

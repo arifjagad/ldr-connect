@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { PushNotificationToggle } from "@/components/ui/PushNotificationToggle";
 
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore();
@@ -318,6 +319,15 @@ export default function ProfilePage() {
               </div>
             )}
           </form>
+        </div>
+
+        {/* ── Notifikasi Push ────────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
+          <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#5C5470]">Notifikasi</p>
+          <PushNotificationToggle />
+          <p className="mt-3 text-[11px] text-[#5C5470]">
+            Aktifkan agar kamu dapat notifikasi saat partner join game — bahkan saat tab ditutup.
+          </p>
         </div>
 
         {/* ── Couple Code ───────────────────────────────────────────────── */}

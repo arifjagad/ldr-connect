@@ -23,6 +23,8 @@ type GameSession = {
   partner_user_id: string | null;
 };
 
+type Profiles = Record<string, string>; // user_id → name
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const GAME_META: Record<string, { label: string; icon: string; color: string }> = {
@@ -152,10 +154,24 @@ function getResultInfo(
 
 // ─── Session Card ─────────────────────────────────────────────────────────────
 
-function SessionCard({ session, currentUserId }: { session: GameSession; currentUserId: string }) {
+function SessionCard({
+  session,
+  currentUserId,
+  profiles,
+}: {
+  session: GameSession;
+  currentUserId: string;
+  profiles: Profiles;
+}) {
   const [showShare, setShowShare] = useState(false);
   const meta = GAME_META[session.game_type] ?? { label: session.game_type, icon: "🎮", color: "#9B93B0" };
   const { result, resultLabel, summary } = getResultInfo(session, currentUserId);
+
+  const myName = profiles[currentUserId] ?? "Kamu";
+  const partnerUserId = session.host_user_id === currentUserId
+    ? session.partner_user_id
+    : session.host_user_id;
+  const partnerName = partnerUserId ? (profiles[partnerUserId] ?? "Partner") : "Partner";
 
   // Progress: untuk ToD pakai questions, dare_derby pakai rounds selesai
   const totalQ = session.game_type === "tod" ? (session.questions?.length ?? 0) : 0;
@@ -277,6 +293,9 @@ function SessionCard({ session, currentUserId }: { session: GameSession; current
                 gameEmoji={meta.icon}
                 result={result}
                 summary={summary || undefined}
+                myName={myName}
+                partnerName={partnerName}
+                playedAt={session.created_at}
               />
             </div>
           )}
@@ -291,6 +310,8 @@ function SessionCard({ session, currentUserId }: { session: GameSession; current
 export default function GameHistoryPage() {
   const { user } = useAuthStore();
   const [sessions, setSessions] = useState<GameSession[]>([]);
+  const [profiles, setProfiles] = useState<Profiles>({});
+  const [currentUserId, setCurrentUserId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -302,6 +323,8 @@ export default function GameHistoryPage() {
         const json = await res.json();
         if (!res.ok) throw new Error(json.message ?? "Gagal memuat riwayat");
         setSessions(json.data.sessions ?? []);
+        setProfiles(json.data.profiles ?? {});
+        setCurrentUserId(json.data.currentUserId ?? user?.id ?? "");
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -384,7 +407,8 @@ export default function GameHistoryPage() {
             <SessionCard
               key={s.id}
               session={s}
-              currentUserId={user?.id ?? ""}
+              currentUserId={currentUserId || user?.id || ""}
+              profiles={profiles}
             />
           ))}
         </div>
