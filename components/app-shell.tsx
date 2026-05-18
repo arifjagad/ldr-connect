@@ -8,6 +8,9 @@ import { useAuthStore } from "@/stores/auth-store";
 import { Navbar } from "@/components/landing/Navbar";
 import { GameInviteNotification } from "@/components/GameInviteNotification";
 import { ToastContainer } from "@/components/ui/Toast";
+import { PushPromptBanner } from "@/components/ui/PushPromptBanner";
+
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
 const dashboardNavItems = [
   { href: "/dashboard", label: "Overview" },
@@ -27,6 +30,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname.startsWith("/auth");
   const isDashboardPage = pathname.startsWith("/dashboard");
   const isPublicPage = !isAuthPage && !isDashboardPage;
+
+  // Register service worker & resync subscription jika user sudah pernah subscribe
+  useEffect(() => {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !VAPID_PUBLIC_KEY) return;
+
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).then(async (reg) => {
+      const existing = await reg.pushManager.getSubscription();
+      if (!existing) return; // belum subscribe — tidak perlu sync
+
+      // Sudah ada subscription — pastikan tersimpan di server (misal setelah clear cookies)
+      const sub = existing.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
+      if (!sub.keys) return;
+      fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth }),
+      }).catch(() => {});
+    }).catch(() => {});
+  }, []);
 
   // Validasi sesi Supabase setiap kali user membuka halaman dashboard
   // Menghindari stale cache di localStorage yang seolah "masuk sendiri" tanpa check
@@ -222,6 +244,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </header>
           <GameInviteNotification />
+          <PushPromptBanner />
         </>
       ) : null}
 
