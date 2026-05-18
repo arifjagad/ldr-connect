@@ -23,7 +23,8 @@ type GameSession = {
   partner_user_id: string | null;
 };
 
-type Profiles = Record<string, string>; // user_id → name
+type Profile = { name: string; avatar_url: string | null };
+type Profiles = Record<string, Profile>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -167,11 +168,13 @@ function SessionCard({
   const meta = GAME_META[session.game_type] ?? { label: session.game_type, icon: "🎮", color: "#9B93B0" };
   const { result, resultLabel, summary } = getResultInfo(session, currentUserId);
 
-  const myName = profiles[currentUserId] ?? "Kamu";
+  const myName = profiles[currentUserId]?.name ?? "Kamu";
   const partnerUserId = session.host_user_id === currentUserId
     ? session.partner_user_id
     : session.host_user_id;
-  const partnerName = partnerUserId ? (profiles[partnerUserId] ?? "Partner") : "Partner";
+  const partnerName = partnerUserId ? (profiles[partnerUserId]?.name ?? "Partner") : "Partner";
+  const myAvatarUrl = profiles[currentUserId]?.avatar_url ?? null;
+  const partnerAvatarUrl = partnerUserId ? (profiles[partnerUserId]?.avatar_url ?? null) : null;
 
   // Progress: untuk ToD pakai questions, dare_derby pakai rounds selesai
   const totalQ = session.game_type === "tod" ? (session.questions?.length ?? 0) : 0;
@@ -295,6 +298,8 @@ function SessionCard({
                 summary={summary || undefined}
                 myName={myName}
                 partnerName={partnerName}
+                myAvatarUrl={myAvatarUrl}
+                partnerAvatarUrl={partnerAvatarUrl}
                 playedAt={session.created_at}
               />
             </div>

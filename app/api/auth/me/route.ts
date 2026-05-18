@@ -29,6 +29,7 @@ export async function GET() {
       partner_id,
       status,
       is_admin,
+      avatar_url,
       created_at,
       wallets (balance)
     `)
@@ -61,6 +62,7 @@ export async function GET() {
       is_admin: profile.is_admin ?? false,
       wallet_balance: walletBalance,
       created_at: profile.created_at,
+      avatar_url: (profile as any).avatar_url ?? null,
     },
   });
 }

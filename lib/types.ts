@@ -4,15 +4,16 @@
 // ============================================================
 
 export type AuthUser = {
-  id: string;           // UUID dari auth.users
+  id: string;
   name: string;
   email: string;
   couple_code: string | null;
-  partner_id: string | null;  // UUID
+  partner_id: string | null;
   status: "single" | "linked";
   is_admin: boolean;
   wallet_balance: number;
   created_at: string;
+  avatar_url: string | null;
 };
 
 export type CoinPackage = {

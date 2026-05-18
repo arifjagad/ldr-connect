@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { PushNotificationToggle } from "@/components/ui/PushNotificationToggle";
@@ -9,6 +10,12 @@ export default function ProfilePage() {
   const { user, setUser } = useAuthStore();
   const [name, setName] = useState(user?.name ?? "");
   const [lastSignIn, setLastSignIn] = useState<string | null>(null);
+
+  // Avatar state
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar_url ?? null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Name update state
   const [nameLoading, setNameLoading] = useState(false);
@@ -24,7 +31,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user?.name) setName(user.name);
-  }, [user?.name]);
+    if (user?.avatar_url) setAvatarPreview(user.avatar_url);
+  }, [user?.name, user?.avatar_url]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -38,6 +46,48 @@ export default function ProfilePage() {
       }
     });
   }, []);
+
+  // ── Upload avatar ────────────────────────────────────────────────────────
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Instant preview
+    const reader = new FileReader();
+    reader.onload = (ev) => setAvatarPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    setAvatarLoading(true);
+    setAvatarMsg(null);
+
+    const form = new FormData();
+    form.append("file", file);
+
+    const res = await fetch("/api/user/avatar", { method: "POST", body: form });
+    const json = await res.json();
+
+    if (json.success) {
+      setUser({ ...user!, avatar_url: json.data.avatar_url });
+      setAvatarMsg({ ok: true, text: "Foto profil diperbarui!" });
+    } else {
+      setAvatarPreview(user?.avatar_url ?? null); // revert preview
+      setAvatarMsg({ ok: false, text: json.message });
+    }
+    setAvatarLoading(false);
+  }
+
+  async function handleRemoveAvatar() {
+    setAvatarLoading(true);
+    const res = await fetch("/api/user/avatar", { method: "DELETE" });
+    const json = await res.json();
+    if (json.success) {
+      setAvatarPreview(null);
+      setUser({ ...user!, avatar_url: null });
+      setAvatarMsg({ ok: true, text: "Foto profil dihapus" });
+    }
+    setAvatarLoading(false);
+  }
 
   // ── Update name ──────────────────────────────────────────────────────────
 
@@ -139,11 +189,72 @@ export default function ProfilePage() {
         {/* ── Account Info Card ─────────────────────────────────────────── */}
         <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
           <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#5C5470]">Info Akun</p>
-          <div className="flex items-center gap-5">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-[#FF3D7F]/30 to-[#818CF8]/30 text-3xl font-bold text-[#FFF5F8]">
-              {user?.name?.[0]?.toUpperCase()}
+          <div className="flex items-start gap-5">
+
+            {/* Clickable Avatar */}
+            <div className="relative shrink-0 group">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarLoading}
+                className="relative h-16 w-16 overflow-hidden rounded-2xl ring-2 ring-white/10 transition hover:ring-[#FF3D7F]/40 focus:outline-none"
+                title="Ganti foto profil"
+              >
+                {avatarPreview ? (
+                  <Image
+                    src={avatarPreview}
+                    alt="Avatar"
+                    width={64}
+                    height={64}
+                    className="h-full w-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#FF3D7F]/30 to-[#818CF8]/30 text-2xl font-bold text-[#FFF5F8]">
+                    {user?.name?.[0]?.toUpperCase()}
+                  </div>
+                )}
+                {/* Camera overlay on hover */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition group-hover:opacity-100">
+                  {avatarLoading ? (
+                    <svg className="animate-spin text-white" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                  )}
+                </div>
+              </button>
+
+              {/* Remove button (only show if has avatar) */}
+              {avatarPreview && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  disabled={avatarLoading}
+                  title="Hapus foto profil"
+                  className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0E0E12] border border-white/20 text-[#5C5470] transition hover:border-red-500/40 hover:text-red-400"
+                >
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
-            <div className="space-y-1.5">
+
+            <div className="flex-1 space-y-1.5">
               <div className="flex items-center gap-2">
                 <p className="text-base font-semibold text-[#FFF5F8]">{user?.name}</p>
                 {user?.is_admin && (
@@ -172,6 +283,13 @@ export default function ProfilePage() {
                   </span>
                 )}
               </div>
+              {/* Avatar message */}
+              {avatarMsg && (
+                <p className={`text-xs pt-0.5 ${avatarMsg.ok ? "text-[#34D399]" : "text-red-400"}`}>
+                  {avatarMsg.text}
+                </p>
+              )}
+              <p className="text-[10px] text-[#3a3650] pt-0.5">Klik foto untuk menggantinya · Maks. 3MB</p>
             </div>
           </div>
         </div>

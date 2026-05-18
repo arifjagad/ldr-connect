@@ -55,11 +55,11 @@ export async function GET() {
   if (userIds.size > 0) {
     const { data: profileRows } = await serviceClient
       .from("users")
-      .select("id, name")
+      .select("id, name, avatar_url")
       .in("id", [...userIds]);
 
     for (const row of profileRows ?? []) {
-      profiles[row.id] = row.name ?? "";
+      profiles[row.id] = { name: row.name ?? "", avatar_url: row.avatar_url ?? null };
     }
   }
 

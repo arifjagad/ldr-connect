@@ -9,7 +9,9 @@ interface ShareResultProps {
   summary?: string;
   partnerName?: string;
   myName?: string;
-  playedAt?: string; // ISO date string
+  myAvatarUrl?: string | null;
+  partnerAvatarUrl?: string | null;
+  playedAt?: string;
 }
 
 const RESULT_CONFIG = {
@@ -54,6 +56,8 @@ export function ShareResult({
   summary,
   partnerName,
   myName,
+  myAvatarUrl,
+  partnerAvatarUrl,
   playedAt,
 }: ShareResultProps) {
   const [copied, setCopied] = useState(false);
@@ -217,7 +221,19 @@ export function ShareResult({
       const leftX = W / 2 - 220;
       const rightX = W / 2 + 220;
 
-      function drawAvatar(x: number, name: string, isWinner: boolean) {
+      // helper: load image as HTMLImageElement (returns null on failure)
+      async function loadImg(url: string): Promise<HTMLImageElement | null> {
+        return new Promise((resolve) => {
+          const img = new window.Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          // Cache bust agar tidak kena CORS cache
+          img.src = url.includes("?") ? url : `${url}?t=${Date.now()}`;
+        });
+      }
+
+      async function drawAvatar(x: number, name: string, isWinner: boolean, photoUrl?: string | null) {
         // Outer ring
         const ringGrad = ctx.createLinearGradient(x - avatarR, avatarY - avatarR, x + avatarR, avatarY + avatarR);
         ringGrad.addColorStop(0, isWinner ? config.color : "rgba(255,255,255,0.15)");
@@ -227,20 +243,49 @@ export function ShareResult({
         ctx.beginPath();
         ctx.arc(x, avatarY, avatarR + 4, 0, Math.PI * 2);
         ctx.stroke();
-        // BG circle
-        ctx.fillStyle = isWinner ? config.color + "30" : "rgba(255,255,255,0.06)";
+
+        // Clip circle for photo
+        ctx.save();
         ctx.beginPath();
         ctx.arc(x, avatarY, avatarR, 0, Math.PI * 2);
-        ctx.fill();
-        // Initial letter
-        ctx.font = `bold 64px ${SF}`;
-        ctx.fillStyle = isWinner ? config.color : "#9B93B0";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText((name?.[0] ?? "?").toUpperCase(), x, avatarY);
+        ctx.clip();
+
+        if (photoUrl) {
+          const img = await loadImg(photoUrl);
+          if (img) {
+            // Fill bg first
+            ctx.fillStyle = "#111113";
+            ctx.fillRect(x - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
+            // Draw image centered & cropped
+            const size = avatarR * 2;
+            ctx.drawImage(img, x - avatarR, avatarY - avatarR, size, size);
+          } else {
+            // Fallback initials
+            ctx.fillStyle = isWinner ? config.color + "30" : "rgba(255,255,255,0.06)";
+            ctx.fillRect(x - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
+            ctx.font = `bold 64px ${SF}`;
+            ctx.fillStyle = isWinner ? config.color : "#9B93B0";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText((name?.[0] ?? "?").toUpperCase(), x, avatarY);
+          }
+        } else {
+          // No photo — draw initials bg + letter
+          ctx.fillStyle = isWinner ? config.color + "30" : "rgba(255,255,255,0.06)";
+          ctx.fillRect(x - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
+          ctx.font = `bold 64px ${SF}`;
+          ctx.fillStyle = isWinner ? config.color : "#9B93B0";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText((name?.[0] ?? "?").toUpperCase(), x, avatarY);
+        }
+
+        ctx.restore();
+
         // Name below
         ctx.font = `34px ${SF}`;
         ctx.fillStyle = isWinner ? "#FFF5F8" : "#9B93B0";
+        ctx.textAlign = "center";
         ctx.textBaseline = "alphabetic";
         ctx.fillText(name || "—", x, avatarY + avatarR + 50);
         // Winner crown
@@ -255,8 +300,8 @@ export function ShareResult({
       const isPartnerWinner = result === "lose";
       const isDraw = result === "draw";
 
-      drawAvatar(leftX, myName || "", iAmWinner);
-      drawAvatar(rightX, partnerName || "", isPartnerWinner);
+      await drawAvatar(leftX, myName || "", iAmWinner, myAvatarUrl);
+      await drawAvatar(rightX, partnerName || "", isPartnerWinner, partnerAvatarUrl);
 
       // VS or heart in center
       if (isDraw) {

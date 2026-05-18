@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -150,13 +151,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   href="/dashboard/profile"
                   title="Profil & Pengaturan"
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition ${
+                  className={`relative flex h-8 w-8 overflow-hidden items-center justify-center rounded-full text-sm font-bold transition ring-2 ${
                     pathname.startsWith("/dashboard/profile")
-                      ? "bg-[#FF3D7F] text-white"
-                      : "bg-white/10 text-[#9B93B0] hover:bg-white/20 hover:text-[#F5F0FF]"
+                      ? "ring-[#FF3D7F] text-white"
+                      : "ring-white/10 bg-white/10 text-[#9B93B0] hover:ring-white/30"
                   }`}
                 >
-                  {user?.name?.[0]?.toUpperCase() ?? "?"}
+                  {user?.avatar_url ? (
+                    <Image
+                      src={user.avatar_url}
+                      alt={user.name}
+                      width={32}
+                      height={32}
+                      className="h-full w-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <span>{user?.name?.[0]?.toUpperCase() ?? "?"}</span>
+                  )}
                 </Link>
                 <button
                   type="button"
@@ -180,13 +192,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
                 <Link
                   href="/dashboard/profile"
-                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${
+                  className={`relative flex h-7 w-7 overflow-hidden items-center justify-center rounded-full text-xs font-bold ring-2 transition ${
                     pathname.startsWith("/dashboard/profile")
-                      ? "bg-[#FF3D7F] text-white"
-                      : "bg-white/10 text-[#9B93B0]"
+                      ? "ring-[#FF3D7F]"
+                      : "ring-white/10 bg-white/10 text-[#9B93B0]"
                   }`}
                 >
-                  {user?.name?.[0]?.toUpperCase() ?? "?"}
+                  {user?.avatar_url ? (
+                    <Image
+                      src={user.avatar_url}
+                      alt={user?.name ?? ""}
+                      width={28}
+                      height={28}
+                      className="h-full w-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <span>{user?.name?.[0]?.toUpperCase() ?? "?"}</span>
+                  )}
                 </Link>
                 <button
                   type="button"
