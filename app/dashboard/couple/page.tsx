@@ -85,6 +85,7 @@ export default function CouplePage() {
             is_admin: partnerData.is_admin ?? false,
             wallet_balance: pw?.balance ?? 0,
             created_at: partnerData.created_at,
+            avatar_url: partnerData.avatar_url ?? null,
           });
         }
       }
@@ -130,6 +131,7 @@ export default function CouplePage() {
         couple_code: partnerData.couple_code, partner_id: partnerData.partner_id,
         status: partnerData.status, is_admin: partnerData.is_admin ?? false,
         wallet_balance: pw?.balance ?? 0, created_at: partnerData.created_at,
+        avatar_url: partnerData.avatar_url ?? null,
       });
     }
 

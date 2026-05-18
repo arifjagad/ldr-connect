@@ -5,7 +5,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
  * GET /api/game/sessions/history
  * Ambil riwayat sesi game yang sudah selesai untuk user (sebagai host maupun partner)
  * Returns: { sessions: GameSession[], profiles: Record<string, string> }
- * profiles = map dari user_id → name (untuk host & partner)
+ * profiles = map dari user_id → { name, avatar_url }
  */
 export async function GET() {
   const supabase = await createClient();
@@ -51,7 +51,7 @@ export async function GET() {
   }
 
   // Fetch nama dari profiles
-  const profiles: Record<string, string> = {};
+  const profiles: Record<string, { name: string; avatar_url: string | null }> = {};
   if (userIds.size > 0) {
     const { data: profileRows } = await serviceClient
       .from("users")

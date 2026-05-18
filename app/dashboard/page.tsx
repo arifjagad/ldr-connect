@@ -196,6 +196,7 @@ export default function DashboardPage() {
           is_admin: profile.is_admin ?? false,
           wallet_balance: walletBalance,
           created_at: profile.created_at,
+          avatar_url: profile.avatar_url ?? null,
         };
 
         setUser(profileData);
@@ -257,6 +258,7 @@ export default function DashboardPage() {
               is_admin: partnerData.is_admin ?? false,
               wallet_balance: pw?.balance ?? 0,
               created_at: partnerData.created_at,
+              avatar_url: partnerData.avatar_url ?? null,
             });
           }
         }
