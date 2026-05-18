@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth-store";
+import { ShareResult } from "@/components/ui/ShareResult";
 import type { TodQuestion } from "@/lib/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -10,7 +11,7 @@ import type { TodQuestion } from "@/lib/types";
 type GameSession = {
   id: number;
   session_code: string;
-  game_type: "tod" | "snake_ladder" | "quiz";
+  game_type: "tod" | "snake_ladder" | "dare_derby" | "quiz";
   status: "completed" | "expired" | "cancelled";
   questions: TodQuestion[];
   game_state: Record<string, any> | null;
@@ -27,6 +28,7 @@ type GameSession = {
 const GAME_META: Record<string, { label: string; icon: string; color: string }> = {
   tod:          { label: "Truth or Dare", icon: "🔥", color: "#FF3D7F" },
   snake_ladder: { label: "Ular Tangga",   icon: "🎲", color: "#34D399" },
+  dare_derby:   { label: "Dare Derby",    icon: "🏁", color: "#F97316" },
   quiz:         { label: "Quiz Pasangan", icon: "🧠", color: "#818CF8" },
 };
 
@@ -68,21 +70,220 @@ function StatusBadge({ status }: { status: GameSession["status"] }) {
   );
 }
 
-function ResultBadge({ session, currentUserId }: { session: GameSession; currentUserId: string }) {
-  if (session.game_type === "snake_ladder" && session.game_state) {
-    const winner: string | null = session.game_state.winner ?? null;
-    if (!winner) return <span className="text-xs text-[#5C5470]">—</span>;
+/** Hitung result (win/lose/draw/complete) dan summary text berdasarkan game_type */
+function getResultInfo(
+  session: GameSession,
+  currentUserId: string
+): {
+  result: "win" | "lose" | "draw" | "complete" | null;
+  resultLabel: React.ReactNode;
+  summary: string;
+} {
+  const myRole = session.host_user_id === currentUserId ? "host" : "partner";
 
-    const myRole = session.host_user_id === currentUserId ? "host" : "partner";
+  // ── Snake Ladder ──────────────────────────────────────────────────────────
+  if (session.game_type === "snake_ladder") {
+    const winner: string | null = session.game_state?.winner ?? null;
+    if (!winner) return { result: null, resultLabel: <span className="text-xs text-[#5C5470]">—</span>, summary: "" };
     const iWon = winner === myRole;
-
-    return (
-      <span className={`text-xs font-semibold ${iWon ? "text-[#34D399]" : "text-red-400"}`}>
-        {iWon ? "Menang" : "Kalah"}
-      </span>
-    );
+    return {
+      result: iWon ? "win" : "lose",
+      resultLabel: (
+        <span className={`text-xs font-semibold ${iWon ? "text-[#34D399]" : "text-red-400"}`}>
+          {iWon ? "Menang" : "Kalah"}
+        </span>
+      ),
+      summary: "Ular Tangga",
+    };
   }
-  return <span className="text-xs text-[#5C5470]">—</span>;
+
+  // ── Dare Derby ────────────────────────────────────────────────────────────
+  if (session.game_type === "dare_derby") {
+    const gs = session.game_state;
+    if (!gs) return { result: null, resultLabel: <span className="text-xs text-[#5C5470]">—</span>, summary: "" };
+
+    const hostDares: number = gs.dare_counts?.host ?? 0;
+    const partnerDares: number = gs.dare_counts?.partner ?? 0;
+    const myDares = myRole === "host" ? hostDares : partnerDares;
+    const oppDares = myRole === "host" ? partnerDares : hostDares;
+    const totalRounds = (session.questions ?? []).length;
+
+    let result: "win" | "lose" | "draw" = "draw";
+    if (gs.forfeit_by) {
+      result = gs.forfeit_by === myRole ? "lose" : "win";
+    } else if (myDares < oppDares) {
+      result = "win";
+    } else if (oppDares < myDares) {
+      result = "lose";
+    }
+
+    return {
+      result,
+      resultLabel: (
+        <span className={`text-xs font-semibold ${
+          result === "win" ? "text-[#34D399]" :
+          result === "lose" ? "text-red-400" : "text-[#9B93B0]"
+        }`}>
+          {result === "win" ? "Menang" : result === "lose" ? "Kalah" : "Seri"}
+        </span>
+      ),
+      summary: `${myDares} dare vs ${oppDares} dare · ${totalRounds} ronde`,
+    };
+  }
+
+  // ── Truth or Dare ─────────────────────────────────────────────────────────
+  if (session.game_type === "tod") {
+    const total = session.questions?.length ?? 0;
+    const done = session.questions?.filter((q) => q.is_completed).length ?? 0;
+    if (total === 0) return { result: null, resultLabel: <span className="text-xs text-[#5C5470]">—</span>, summary: "" };
+    return {
+      result: "complete",
+      resultLabel: (
+        <span className="text-xs font-semibold text-[#34D399]">
+          {done}/{total} pertanyaan
+        </span>
+      ),
+      summary: `${done}/${total} pertanyaan dijawab`,
+    };
+  }
+
+  return { result: null, resultLabel: <span className="text-xs text-[#5C5470]">—</span>, summary: "" };
+}
+
+// ─── Session Card ─────────────────────────────────────────────────────────────
+
+function SessionCard({ session, currentUserId }: { session: GameSession; currentUserId: string }) {
+  const [showShare, setShowShare] = useState(false);
+  const meta = GAME_META[session.game_type] ?? { label: session.game_type, icon: "🎮", color: "#9B93B0" };
+  const { result, resultLabel, summary } = getResultInfo(session, currentUserId);
+
+  // Progress: untuk ToD pakai questions, dare_derby pakai rounds selesai
+  const totalQ = session.game_type === "tod" ? (session.questions?.length ?? 0) : 0;
+  const completedQ = session.game_type === "tod" ? (session.questions?.filter((q) => q.is_completed).length ?? 0) : 0;
+  const progressPct = totalQ > 0 ? Math.round((completedQ / totalQ) * 100) : 0;
+
+  // Dare derby: progress = ronde selesai / total ronde (dari questions)
+  const dareRounds = session.game_type === "dare_derby" ? (session.questions ?? []).length : 0;
+  const dareConfig = session.game_state?.total_rounds ?? dareRounds;
+
+  const canShare = result !== null && session.status === "completed";
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] transition hover:border-white/15">
+      {/* Top color strip */}
+      <div
+        className="h-0.5 w-full"
+        style={{ background: `linear-gradient(90deg, ${meta.color}80, transparent)` }}
+      />
+
+      <div className="flex items-start gap-4 p-5">
+        {/* Game icon */}
+        <div
+          className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
+          style={{ background: `${meta.color}20` }}
+        >
+          {meta.icon}
+        </div>
+
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-[#FFF5F8]">{meta.label}</span>
+              <StatusBadge status={session.status} />
+            </div>
+            <span className="text-xs text-[#5C5470]">{formatDate(session.created_at)}</span>
+          </div>
+
+          {/* Progress bar — ToD */}
+          {session.game_type === "tod" && totalQ > 0 && (
+            <div className="mt-3">
+              <div className="flex justify-between text-[10px] text-[#5C5470] mb-1">
+                <span>Pertanyaan dijawab</span>
+                <span>{completedQ}/{totalQ}</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${progressPct}%`,
+                    background: session.status === "completed"
+                      ? "linear-gradient(90deg, #34D399, #6EE7B7)"
+                      : "linear-gradient(90deg, #FBBF24, #F59E0B)",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Progress bar — Dare Derby */}
+          {session.game_type === "dare_derby" && dareRounds > 0 && (
+            <div className="mt-3">
+              <div className="flex justify-between text-[10px] text-[#5C5470] mb-1">
+                <span>Ronde dimainkan</span>
+                <span>{dareRounds}{dareConfig ? `/${dareConfig}` : ""}</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: dareConfig > 0 ? `${Math.round((dareRounds / dareConfig) * 100)}%` : "100%",
+                    background: session.status === "completed"
+                      ? "linear-gradient(90deg, #F97316, #FBBF24)"
+                      : "linear-gradient(90deg, #FBBF24, #F59E0B)",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Meta row */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-[#5C5470]">
+              <span className="font-mono tracking-wider">{session.session_code}</span>
+              <span>•</span>
+              <span>{session.coin_deducted} coin</span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                Hasil: {resultLabel}
+              </span>
+            </div>
+
+            {/* Share toggle button */}
+            {canShare && (
+              <button
+                type="button"
+                onClick={() => setShowShare((v) => !v)}
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-semibold ring-1 transition ${
+                  showShare
+                    ? "bg-[#FF3D7F]/15 text-[#FF6B9D] ring-[#FF3D7F]/30"
+                    : "bg-white/5 text-[#5C5470] ring-white/[0.07] hover:bg-white/10 hover:text-[#9B93B0]"
+                }`}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+                {showShare ? "Tutup" : "Bagikan"}
+              </button>
+            )}
+          </div>
+
+          {/* ShareResult panel */}
+          {showShare && canShare && result && (
+            <div className="mt-3">
+              <ShareResult
+                gameName={meta.label}
+                gameEmoji={meta.icon}
+                result={result}
+                summary={summary || undefined}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -179,79 +380,13 @@ export default function GameHistoryPage() {
       {/* Session list */}
       {!loading && !error && sessions.length > 0 && (
         <div className="space-y-3">
-          {sessions.map((s) => {
-            const meta = GAME_META[s.game_type] ?? { label: s.game_type, icon: "🎮", color: "#9B93B0" };
-            const totalQ = s.questions?.length ?? 0;
-            const completedQ = s.questions?.filter((q) => q.is_completed).length ?? 0;
-            const progressPct = totalQ > 0 ? Math.round((completedQ / totalQ) * 100) : 0;
-
-            return (
-              <div
-                key={s.id}
-                className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] transition hover:border-white/15"
-              >
-                {/* Top color strip */}
-                <div
-                  className="h-0.5 w-full"
-                  style={{ background: `linear-gradient(90deg, ${meta.color}80, transparent)` }}
-                />
-
-                <div className="flex items-start gap-4 p-5">
-                  {/* Game icon */}
-                  <div
-                    className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
-                    style={{ background: `${meta.color}20` }}
-                  >
-                    {meta.icon}
-                  </div>
-
-                  {/* Content */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-[#FFF5F8]">{meta.label}</span>
-                        <StatusBadge status={s.status} />
-                      </div>
-                      <span className="text-xs text-[#5C5470]">{formatDate(s.created_at)}</span>
-                    </div>
-
-                    {/* Progress bar (for question-based games) */}
-                    {totalQ > 0 && (
-                      <div className="mt-3">
-                        <div className="flex justify-between text-[10px] text-[#5C5470] mb-1">
-                          <span>Pertanyaan dijawab</span>
-                          <span>{completedQ}/{totalQ}</span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${progressPct}%`,
-                              background: s.status === "completed"
-                                ? "linear-gradient(90deg, #34D399, #6EE7B7)"
-                                : "linear-gradient(90deg, #FBBF24, #F59E0B)",
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Meta row */}
-                    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[#5C5470]">
-                      <span className="font-mono tracking-wider">{s.session_code}</span>
-                      <span>•</span>
-                      <span>{s.coin_deducted} coin</span>
-                      <span>•</span>
-                      {/* Hasil: menang/kalah untuk game future, — untuk ToD */}
-                      <span className="flex items-center gap-1">
-                        Hasil: <ResultBadge session={s} currentUserId={user?.id ?? ""} />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {sessions.map((s) => (
+            <SessionCard
+              key={s.id}
+              session={s}
+              currentUserId={user?.id ?? ""}
+            />
+          ))}
         </div>
       )}
 
