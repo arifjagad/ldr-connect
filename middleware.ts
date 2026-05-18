@@ -4,34 +4,16 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Middleware (Next.js) — berjalan di setiap request
  * Tugasnya:
- * 1. Inject nonce + Content-Security-Policy header (SEC-01)
- * 2. Refresh Supabase session agar cookie tidak expired
- * 3. Protect /dashboard/* dan /game/* — harus login
- * 4. Protect /admin/* — harus login (is_admin dicek di layout)
- * 5. Redirect auth pages jika sudah login
+ * 1. Refresh Supabase session agar cookie tidak expired
+ * 2. Protect /dashboard/* /game/* /admin/* — harus login
+ * 3. Redirect auth pages jika sudah login
  *
- * CATATAN: File ini harus bernama middleware.ts (bukan proxy.ts)
- * agar Next.js mengenali dan menjalankannya di setiap request.
+ * CSP diatur di next.config.ts (bukan di sini) karena nonce-based CSP
+ * membutuhkan layout membaca x-nonce header secara eksplisit — tanpa itu
+ * script tags tidak dapat nonce attribute sehingga semua JS diblokir.
  */
 export async function middleware(request: NextRequest) {
-  // SEC-01: Nonce-based CSP — setiap request dapat nonce unik
-  // 'unsafe-eval' dipertahankan karena Daily.co Web SDK membutuhkannya
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const csp = [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' https://cdn.jsdelivr.net https://*.daily.co`,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: https:",
-    "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://*.daily.co wss://*.daily.co",
-    "frame-src 'self' https://*.daily.co",
-    "media-src 'self' https://*.daily.co blob:",
-  ].join("; ");
-
-  // Inject nonce ke request header agar App Router bisa membacanya
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-
   let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
@@ -69,11 +51,8 @@ export async function middleware(request: NextRequest) {
   if (isProtected && !user) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/auth/login";
-    // Hapus query params lama agar tidak loop /auth/login?
     loginUrl.search = "";
-    const redirectResponse = NextResponse.redirect(loginUrl);
-    redirectResponse.headers.set("Content-Security-Policy", csp);
-    return redirectResponse;
+    return NextResponse.redirect(loginUrl);
   }
 
   // Redirect dari auth pages jika sudah login
@@ -84,12 +63,9 @@ export async function middleware(request: NextRequest) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     dashboardUrl.search = "";
-    const redirectResponse = NextResponse.redirect(dashboardUrl);
-    redirectResponse.headers.set("Content-Security-Policy", csp);
-    return redirectResponse;
+    return NextResponse.redirect(dashboardUrl);
   }
 
-  supabaseResponse.headers.set("Content-Security-Policy", csp);
   return supabaseResponse;
 }
 
