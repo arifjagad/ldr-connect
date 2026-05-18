@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createDailyRoom } from "@/lib/daily";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { broadcastGameInvite } from "@/lib/broadcast-invite";
+import { sendPushToUser } from "@/lib/push";
 import type { SnakeBoardConfig, ChallengeCell, SnakeGameState } from "@/lib/types";
 
 const customQuestionSchema = z.object({
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Kamu belum terhubung dengan partner", data: null }, { status: 400 });
   }
 
-  const serviceClient = await createServiceClient();
+  const serviceClient = createServiceClient();
 
   const { data: settings } = await serviceClient
     .from("game_settings")
@@ -191,6 +192,14 @@ export async function POST(request: NextRequest) {
     sessionCode,
     gameType: "snake_ladder",
   });
+
+  // Push notification ke partner — bahkan saat tab ditutup
+  sendPushToUser(profile.partner_id, {
+    title: "Kamu diajak main! 🎲",
+    body: "Partner mengajakmu bermain Ular Tangga. Tap untuk bergabung!",
+    url: `/dashboard/games/snake-ladder?join=${sessionCode}`,
+    tag: `game-invite-${sessionCode}`,
+  }).catch((e) => console.error("[push] snake-ladder invite failed:", e));
 
   return NextResponse.json({ success: true, message: "Sesi berhasil dibuat!", data: { session } });
 }

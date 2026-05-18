@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createDailyRoom } from "@/lib/daily";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { broadcastGameInvite } from "@/lib/broadcast-invite";
+import { sendPushToUser } from "@/lib/push";
 
 const bodySchema = z.object({
   categories:     z.array(z.string().min(1).max(50)).max(10).default([]),
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const serviceClient = await createServiceClient();
+  const serviceClient = createServiceClient();
   const { data: settings } = await serviceClient
     .from("game_settings")
     .select("coin_cost, expires_in_minutes")
@@ -172,6 +173,14 @@ export async function POST(request: NextRequest) {
     sessionCode,
     gameType: "tod",
   });
+
+  // Push notification ke partner — bahkan saat tab ditutup
+  sendPushToUser(profile.partner_id, {
+    title: "Kamu diajak main! 🎮",
+    body: "Partner mengajakmu bermain Truth or Dare. Tap untuk bergabung!",
+    url: `/dashboard/games/tod?join=${sessionCode}`,
+    tag: `game-invite-${sessionCode}`,
+  }).catch((e) => console.error("[push] tod invite failed:", e));
 
   return NextResponse.json({
     success: true,
