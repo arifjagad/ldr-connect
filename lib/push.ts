@@ -1,7 +1,6 @@
 import webpush from "web-push";
 import { createServiceClient } from "@/lib/supabase/server";
 
-// Konfigurasi VAPID sekali saja — dipanggil per request karena Next.js edge
 function setupVapid() {
   webpush.setVapidDetails(
     process.env.VAPID_EMAIL!,
@@ -18,10 +17,6 @@ export type PushPayload = {
   icon?: string;
 };
 
-/**
- * Kirim push notification ke semua subscription aktif milik satu user.
- * Subscription yang expired/invalid otomatis dihapus dari DB.
- */
 export async function sendPushToUser(
   userId: string,
   payload: PushPayload
@@ -44,7 +39,12 @@ export async function sendPushToUser(
     .select("id, endpoint, p256dh, auth")
     .eq("user_id", userId);
 
-  if (error || !subs || subs.length === 0) return;
+  console.log(`[push] userId=${userId} subs=${subs?.length ?? 0} dbError=${error?.message ?? "none"}`);
+
+  if (error || !subs || subs.length === 0) {
+    console.warn("[push] No subscriptions found — aborting");
+    return;
+  }
 
   const pushData = JSON.stringify({
     title: payload.title,
@@ -66,18 +66,18 @@ export async function sendPushToUser(
           },
           pushData
         );
+        console.log("[push] ✓ Sent to:", sub.endpoint.slice(0, 60) + "...");
       } catch (err: any) {
-        // 404/410 = subscription expired, hapus dari DB
+        console.error("[push] ✗ Failed:", err?.statusCode, err?.body ?? err?.message);
         if (err?.statusCode === 404 || err?.statusCode === 410) {
           staleIds.push(sub.id);
-        } else {
-          console.error("[push] send error:", err?.statusCode, err?.body);
         }
       }
     })
   );
 
   if (staleIds.length > 0) {
+    console.log("[push] Cleaning stale subs:", staleIds);
     await serviceClient
       .from("push_subscriptions")
       .delete()
