@@ -16,6 +16,24 @@ export type AuthUser = {
   avatar_url: string | null;
 };
 
+export type WishlistCategory = "virtual" | "offline" | "dream" | "gift" | "other";
+
+export type Wishlist = {
+  id: number;
+  couple_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  category: WishlistCategory;
+  is_done: boolean;
+  done_by: string | null;
+  done_at: string | null;
+  done_note: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CoinPackage = {
   id: number;           // BIGSERIAL, tetap number
   name: string;

@@ -19,6 +19,7 @@ const dashboardNavItems = [
   { href: "/dashboard/couple", label: "Couple" },
   { href: "/dashboard/coin", label: "Coin" },
   { href: "/dashboard/anniversaries", label: "Anniversary" },
+  { href: "/dashboard/wishlist", label: "Wishlist" },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
