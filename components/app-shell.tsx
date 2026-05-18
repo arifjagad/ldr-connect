@@ -33,15 +33,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isDashboardPage) { setSessionReady(true); return; }
 
+    let cancelled = false;
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (cancelled) return;
+      if (error) {
+        // Jika ada error (misal CSP/network), jangan redirect — biarkan middleware yg handle
+        console.warn("[AppShell] getSession error:", error.message);
+        setSessionReady(true);
+        return;
+      }
       if (!session) {
         clearAuth();
         router.replace("/auth/login");
       } else {
         setSessionReady(true);
       }
+    }).catch((err) => {
+      if (cancelled) return;
+      // Network error / script blocked — jangan loop redirect
+      console.warn("[AppShell] getSession threw:", err);
+      setSessionReady(true);
     });
+    return () => { cancelled = true; };
   }, [isDashboardPage, clearAuth, router]);
 
   async function handleLogout() {
