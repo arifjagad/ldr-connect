@@ -34,6 +34,23 @@ export type Wishlist = {
   updated_at: string;
 };
 
+export type CapsuleStatus = "locked" | "delivered" | "opened";
+
+export type Capsule = {
+  id: number;
+  sender_id: string;
+  receiver_id: string;
+  couple_id: string;
+  message: string;
+  opens_at: string;
+  status: CapsuleStatus;
+  delivered_at: string | null;
+  opened_at: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type CoinPackage = {
   id: number;           // BIGSERIAL, tetap number
   name: string;
