@@ -10,7 +10,7 @@ interface VideoCallProps {
   /** Session code, dipakai untuk fetch room URL dari server */
   sessionCode: string;
   /** Nama game, menentukan endpoint room yang dipakai */
-  game?: "tod" | "snake-ladder" | "dare-derby";
+  game?: "tod" | "snake-ladder" | "dare-derby" | "quoridor";
   onLeave?: () => void;
 }
 

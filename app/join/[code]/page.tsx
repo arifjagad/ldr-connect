@@ -7,6 +7,8 @@ const GAME_ROUTES: Record<string, string> = {
   tod:          "/dashboard/games/tod",
   snake_ladder: "/dashboard/games/snake-ladder",
   quiz:         "/dashboard/games/quiz",
+  dare_derby:   "/dashboard/games/dare-derby",
+  quoridor:     "/dashboard/games/quoridor",
 };
 
 export default function JoinPage() {

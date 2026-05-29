@@ -1,4 +1,16 @@
+"use client";
+
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+
+const GAME_ROUTES: Record<string, string> = {
+  tod:          "/dashboard/games/tod",
+  snake_ladder: "/dashboard/games/snake-ladder",
+  quiz:         "/dashboard/games/quiz",
+  dare_derby:   "/dashboard/games/dare-derby",
+  quoridor:     "/dashboard/games/quoridor",
+};
 
 const games = [
   {
@@ -63,7 +75,62 @@ const games = [
   },
 ];
 
-export default function GamesHubPage() {
+// ── Join redirect handler ────────────────────────────────────────────────────
+// Jika ada ?join=CODE, fetch game_type dari server lalu redirect ke halaman
+// game yang tepat dengan ?join=CODE
+function JoinRedirectHandler() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const joinCode = searchParams?.get("join")?.toUpperCase() ?? "";
+
+  useEffect(() => {
+    if (!joinCode) return;
+
+    async function handleJoinRedirect() {
+      try {
+        const res = await fetch(`/api/game/session/${joinCode}`);
+        if (res.status === 401) {
+          router.replace(`/auth/login?redirect=/dashboard/games?join=${joinCode}`);
+          return;
+        }
+        if (!res.ok) {
+          // Sesi tidak ada / sudah expired — cukup biarkan di halaman games
+          return;
+        }
+        const data = await res.json();
+        const gameType: string | undefined = data?.data?.game_type;
+        const gamePath = gameType ? (GAME_ROUTES[gameType] ?? null) : null;
+        if (gamePath) {
+          router.replace(`${gamePath}?join=${joinCode}`);
+        }
+      } catch {
+        // Jika gagal fetch, abaikan — user tetap di halaman games
+      }
+    }
+
+    handleJoinRedirect();
+  }, [joinCode, router]);
+
+  // Tampilkan loading state minimalis saat sedang memeriksa kode join
+  if (joinCode) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0A0A0B]/80 backdrop-blur-sm">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#10B981]/15">
+            <span className="text-3xl">🎮</span>
+          </div>
+          <p className="text-sm font-medium text-[#9B93B0]">Mengarahkan ke game…</p>
+          <p className="mt-1 font-mono text-xs text-[#5C5470]">{joinCode}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// ── Games Hub Page ───────────────────────────────────────────────────────────
+function GamesHubContent() {
   return (
     <main className="relative mx-auto w-full max-w-6xl px-6 py-12 lg:px-8">
       {/* Ambient glow */}
@@ -161,57 +228,71 @@ export default function GamesHubPage() {
           </div>
         ))}
 
-        {/* Coming Soon — mysterious teaser, no game name */}
-        <div className="group relative flex flex-col overflow-hidden rounded-3xl border border-white/[0.07] bg-linear-to-br from-white/[0.03] to-transparent p-6">
+        {/* Quoridor */}
+        <div
+          className="group relative flex flex-col overflow-hidden rounded-3xl border bg-linear-to-br from-[#10B981]/20 via-[#34D399]/10 to-transparent border-[#10B981]/25 hover:border-[#10B981]/60 p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
+        >
           <div
             aria-hidden
             className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full blur-3xl"
-            style={{ background: "rgba(255,255,255,0.02)" }}
+            style={{ background: "rgba(16,185,129,0.15)" }}
           />
 
-          {/* Top row */}
+          {/* Top row: icon + badge */}
           <div className="flex items-start justify-between">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.07] bg-white/[0.03]">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3a3650" strokeWidth="1.5">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" strokeLinecap="round" />
-                <circle cx="12" cy="17" r="0.5" fill="#3a3650" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="1.5">
+                <rect x="2" y="2" width="20" height="20" rx="2" />
+                <circle cx="8" cy="8" r="1.5" fill="#10B981" />
+                <circle cx="12" cy="12" r="1.5" fill="#10B981" />
+                <circle cx="16" cy="16" r="1.5" fill="#10B981" />
+                <path d="M8 12h8M12 8v8" strokeLinecap="round" strokeOpacity="0.4" />
               </svg>
             </div>
-            <span className="flex items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#3a3650]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5C5470]" />
-              Coming Soon
+            <span className="flex items-center gap-1.5 rounded-full border border-[#10B981]/25 bg-[#10B981]/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#34D399]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#10B981] shadow-[0_0_8px_#10B981]" />
+              Available Now
             </span>
           </div>
 
           {/* Content */}
           <div className="mt-5 flex flex-1 flex-col">
-            <h2 className="text-xl font-bold text-[#3a3650]">???</h2>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-[#2e2b3e]">
-              Ada sesuatu yang sedang dimasak... Game baru eksklusif buat pasangan LDR. Sabar ya! 🤫
+            <h2 className="text-xl font-bold text-[#FFF5F8]">Quoridor</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-[#9B93B0]">
+              Game strategi papan 9×9. Gerakkan pion atau pasang tembok — yang pertama mencapai garis lawan menang!
             </p>
 
-            {/* Teaser tags */}
+            {/* Tags */}
             <div className="mt-4 flex flex-wrap gap-1.5">
-              {["???", "2 Pemain", "Surprise"].map((tag) => (
+              {["Strategi", "2 Pemain", "Turn-based"].map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full border border-white/[0.05] bg-white/[0.02] px-2.5 py-0.5 text-[10px] font-medium text-[#2e2b3e]"
+                  className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium text-[#5C5470]"
                 >
                   {tag}
                 </span>
               ))}
             </div>
 
-            {/* Locked CTA */}
+            {/* CTA */}
             <div className="mt-6">
-              <span className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 text-sm font-semibold text-[#3a3650]">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              <Link
+                href="/dashboard/games/quoridor"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#10B981] hover:bg-[#34D399] text-white px-5 py-2.5 text-sm font-semibold shadow-[0_4px_20px_rgba(16,185,129,0.35)] transition-all duration-200"
+              >
+                Mulai Game
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  className="transition-transform group-hover:translate-x-0.5"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                Belum tersedia
-              </span>
+              </Link>
             </div>
           </div>
         </div>
@@ -236,7 +317,7 @@ export default function GamesHubPage() {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M18 20V10M12 20V4M6 20v-6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Statistik & Leaderboard
+          Statistik &amp; Leaderboard
         </Link>
         <Link
           href="/dashboard/games/tod/questions"
@@ -249,8 +330,20 @@ export default function GamesHubPage() {
         </Link>
       </div>
       <p className="mt-4 text-center text-xs text-[#3a3650]">
-        ✨ Game baru sedang dalam pengembangan. Nantikan kejutannya!
+        ✨ 4 game tersedia. Lebih banyak game dalam pengembangan!
       </p>
     </main>
+  );
+}
+
+export default function GamesHubPage() {
+  return (
+    <>
+      {/* Handler redirect join — hanya aktif jika ada ?join=CODE di URL */}
+      <Suspense>
+        <JoinRedirectHandler />
+      </Suspense>
+      <GamesHubContent />
+    </>
   );
 }

@@ -276,6 +276,53 @@ export type DareDerbySession = {
   updated_at: string;
 };
 
+// ── Quoridor ─────────────────────────────────────────────────────────────────
+
+export type QuoridorWall = {
+  orientation: "H" | "V"; // Horizontal atau Vertical
+  r: number;              // baris origin wall (0–7)
+  c: number;              // kolom origin wall (0–7)
+};
+
+export type QuoridorLastAction = {
+  player:  "host" | "partner";
+  type:    "move" | "wall";
+  payload: { r?: number; c?: number; orientation?: string };
+};
+
+export type QuoridorGameState = {
+  host_pos:     { r: number; c: number }; // posisi pion host
+  partner_pos:  { r: number; c: number }; // posisi pion partner
+  walls:        QuoridorWall[];           // semua tembok terpasang
+  walls_left:   { host: number; partner: number }; // sisa tembok (max 10 tiap)
+  current_turn: "host" | "partner";
+  winner:       "host" | "partner" | null;
+  last_action:  QuoridorLastAction | null;
+};
+
+/**
+ * QuoridorSession = baris dari game_sessions dengan game_type='quoridor'
+ * host menang dengan mencapai baris 8, partner menang dengan mencapai baris 0
+ */
+export type QuoridorSession = {
+  id:                number;
+  session_code:      string;
+  game_type:         "quoridor";
+  couple_id:         string;
+  host_user_id:      string;
+  partner_user_id:   string | null;
+  status:            "waiting" | "playing" | "completed" | "expired" | "cancelled";
+  questions:         [];                     // tidak dipakai, selalu []
+  board_config:      Record<string, never>;  // Quoridor tidak butuh board_config
+  game_state:        QuoridorGameState;
+  coin_deducted:     number;
+  partner_joined_at: string | null;
+  expires_at:        string | null;
+  coin_refunded_at:  string | null;
+  created_at:        string;
+  updated_at:        string;
+};
+
 // Response format standar dari API Routes
 export type ApiResponse<T = null> = {
   success: boolean;

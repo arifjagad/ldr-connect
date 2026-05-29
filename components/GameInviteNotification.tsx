@@ -16,12 +16,14 @@ const GAME_LABELS: Record<string, string> = {
   tod:          "Truth or Dare",
   snake_ladder: "Ular Tangga",
   dare_derby:   "Dare Derby",
+  quoridor:     "Quoridor",
 };
 
 const GAME_ROUTES: Record<string, string> = {
   tod:          "/dashboard/games/tod",
   snake_ladder: "/dashboard/games/snake-ladder",
   dare_derby:   "/dashboard/games/dare-derby",
+  quoridor:     "/dashboard/games/quoridor",
 };
 
 export function GameInviteNotification() {
