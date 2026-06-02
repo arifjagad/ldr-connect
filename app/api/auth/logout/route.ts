@@ -10,5 +10,7 @@ export async function POST() {
 
   await supabase.auth.signOut();
 
-  return NextResponse.json({ success: true, message: "Logged out", data: null });
+  const response = NextResponse.json({ success: true, message: "Logged out", data: null });
+  response.cookies.delete("ldr_session_age");
+  return response;
 }

@@ -11,29 +11,10 @@ const nextConfig: NextConfig = {
   compress: true,
   // Security headers
   async headers() {
-    // CSP tanpa nonce — 'unsafe-inline' dibutuhkan karena Next.js inject inline scripts
-    // untuk hydration. 'unsafe-eval' dibutuhkan oleh Daily.co Web SDK.
-    // Untuk nonce-based CSP, layout harus membaca x-nonce header secara eksplisit
-    // (butuh refactor besar). Pendekatan ini lebih aman dari tidak ada CSP sama sekali.
-    const csp = [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.daily.co",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: https:",
-      "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in https://*.daily.co wss://*.daily.co",
-      "frame-src 'self' https://*.daily.co",
-      "media-src 'self' https://*.daily.co blob:",
-    ].join("; ");
-
     return [
       {
         source: "/:path*",
         headers: [
-          {
-            key: "Content-Security-Policy",
-            value: csp,
-          },
           {
             key: "X-Content-Type-Options",
             value: "nosniff",

@@ -8,6 +8,12 @@ import type { AuthUser } from "@/lib/types";
  * Auth store — hanya menyimpan data user profile (bukan token)
  * Session/token dikelola sepenuhnya oleh Supabase (@supabase/ssr via cookies)
  * Store ini dipakai untuk akses cepat ke data profile di UI
+ * 
+ * ⚠️ SECURITY WARNING:
+ * Properti 'user.wallet_balance' di store ini hanya berfungsi untuk tampilan (display-only).
+ * Nilai ini disimpan di localStorage dan rentan dimanipulasi di sisi client.
+ * JANGAN PERNAH menggunakan saldo di store ini untuk validasi transaksi/game di client.
+ * Selalu fetch dari '/api/coin/balance' atau gunakan hook 'useServerBalance' untuk data yang valid.
  */
 type AuthState = {
   user: AuthUser | null;

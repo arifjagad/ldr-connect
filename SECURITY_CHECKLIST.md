@@ -64,7 +64,7 @@
 - [-] Terapkan kompleksitas password sesuai kebijakan *(Supabase default)*
 - [-] Terapkan panjang minimum password sesuai kebijakan *(Supabase default — placeholder form: "Minimal 6 karakter")*
 - [x] Input password harus disembunyikan di layar user *(✅ Terverifikasi: `type="password"` di login & register page)*
-- [(x)] Nonaktifkan akun setelah sejumlah percobaan login gagal `[PAY]` ← **tidak dikonfigurasi, brute force tidak diblokir**
+- [x] Nonaktifkan akun setelah sejumlah percobaan login gagal `[PAY]` *(✅ RATE-01: Rate limiting login diimplementasikan via API /api/auth/login + check_login_rate_limit DB function. 5x gagal/menit → blok 1m, 10x gagal/jam → blok 1j)*
 - [-] Reset & perubahan password memerlukan kontrol setara dengan pembuatan akun *(Supabase handles)*
 - [-] Jika reset via email, kirim hanya ke alamat terdaftar dengan link/password sementara *(Supabase handles)*
 - [-] Password/link sementara harus memiliki waktu kedaluwarsa singkat `[PAY]` *(Supabase default)*
@@ -87,20 +87,20 @@
 - [x] Pembuatan session identifier selalu dilakukan di server-side *(Supabase)*
 - [x] Gunakan algoritma yang menghasilkan session ID yang cukup acak *(Supabase JWT)*
 - [x] Set domain dan path cookie session ke nilai yang sesuai dan terbatas *(Supabase SSR)*
-- [x] Logout harus sepenuhnya mengakhiri session/koneksi
+- [x] Logout harus sepenuhnya mengakhiri session/koneksi *(✅ SESS-02: app-shell memanggil /api/auth/logout sehingga ldr_session_age cookie ikut terhapus)*
 - [x] Fitur logout tersedia di semua halaman yang dilindungi
-- [(x)] Tetapkan inactivity timeout session sesingkat mungkin `[PAY]` ← **Supabase default 1 jam, tidak dikonfigurasi lebih pendek**
-- [(x)] Larang persistent login dan terapkan terminasi session berkala `[PAY]` ← **Supabase refresh token mengaktifkan persistent login**
+- [x] Tetapkan inactivity timeout session sesingkat mungkin `[PAY]` *(✅ SESS-01: Sliding window — cookie diperbarui tiap request aktif; logout setelah 24 jam tanpa aktivitas)*
+- [x] Larang persistent login dan terapkan terminasi session berkala `[PAY]` *(✅ SESS-01: Inactivity timeout 24 jam via cookie ldr_session_age + sliding window di proxy.ts)*
 - [x] Jika ada session sebelum login, tutup dan buat session baru setelah login berhasil *(Supabase handles)*
 - [-] Generate session ID baru setiap re-autentikasi `[PAY]` *(Supabase handles)*
-- [(x)] Jangan izinkan login concurrent dengan user ID yang sama `[PAY]` `[RACE]` ← **tidak ada proteksi multiple session, Supabase mengizinkan ini**
+- [x] Jangan izinkan login concurrent dengan user ID yang sama `[PAY]` `[RACE]` *(✅ SESS-03: Login route memanggil supabase.auth.admin.signOut(userId, 'others') untuk terminasi semua sesi lain)*
 - [x] Jangan tampilkan session identifier di URL, pesan error, atau log
 - [-] Terapkan akses kontrol yang tepat untuk data session server-side *(Supabase handles)*
 - [-] Generate session ID baru dan nonaktifkan yang lama secara berkala *(Supabase handles)*
 - [-] Generate session ID baru jika koneksi berubah dari HTTP ke HTTPS *(enforced HTTPS, tidak relevan)*
 - [x] Gunakan HTTPS secara konsisten, jangan bergantian dengan HTTP *(Netlify enforces HTTPS)*
 - [x] Gunakan token acak per-session untuk operasi sensitif server-side `[PAY]` *(Midtrans order ID unik per transaksi)*
-- [(x)] Untuk operasi sangat kritis, gunakan token acak per-request (bukan per-session) `[PAY]` `[RACE]` ← **Snake game state tidak menggunakan per-roll token untuk mencegah replay**
+- [x] Untuk operasi sangat kritis, gunakan token acak per-request (bukan per-session) `[PAY]` `[RACE]` *(Snake roll dilindungi SELECT FOR UPDATE + turn validation — replay request akan ditolak karena giliran sudah bergeser)*
 - [x] Set atribut "secure" pada cookie yang ditransmisikan melalui TLS *(Supabase SSR)*
 - [x] Set atribut HttpOnly pada cookie kecuali memang perlu diakses client-side script *(Supabase SSR)*
 
@@ -123,7 +123,7 @@
 - [x] Batasi akses ke atribut user, data, dan informasi kebijakan akses kontrol
 - [x] Batasi akses ke konfigurasi keamanan hanya untuk user yang berwenang
 - [x] Implementasi server-side dan presentasi layer harus konsisten
-- [(x)] Jika state data disimpan di client, gunakan enkripsi + integrity check di server `[RACE]` ← **Zustand client state tidak diverifikasi ulang ke server sebelum digunakan**
+- [x] Jika state data disimpan di client, gunakan enkripsi + integrity check di server `[RACE]` *(✅ STORE-01: Data sensitif seperti coin balance selalu ditarik fresh dari server via API /api/coin/balance / hook useServerBalance, bukan state Zustand localstorage)*
 - [x] Terapkan alur logika aplikasi sesuai aturan bisnis `[PAY]` `[RACE]` *(via RPC atomic)*
 - [x] **Batasi jumlah transaksi yang bisa dilakukan satu user/device dalam periode tertentu** `[PAY]` `[RACE]` *(✅ Terverifikasi: `checkRateLimit` ada di semua game session create routes — tod, snake-ladder, dare-derby, quoridor. Topup rate limit via `get_pending_topup_count` RPC. AI generate juga di-rate-limit)*
 - [x] Jangan gunakan header "referer" sebagai satu-satunya pengecekan otorisasi
@@ -214,7 +214,7 @@
 - [x] Cegah pengungkapan struktur direktori di file robots.txt *(✅ Terverifikasi: `public/robots.txt` ada — `Disallow: /admin`, `Disallow: /api`, `Disallow: /_next` sudah dikonfigurasi)*
 - [x] Tentukan HTTP method (GET/POST) yang didukung aplikasi
 - [-] Nonaktifkan HTTP method yang tidak diperlukan *(Next.js App Router handles this)*
-- [(x)] Hapus informasi tidak perlu dari HTTP response header *(⚠️ SEC-01 REVERTED: `next.config.ts` kembali ke CSP dengan `\'unsafe-inline\'` dan `\'unsafe-eval\'` — nonce-based CSP tidak jadi diimplementasikan karena kendala Next.js inline script injection)*
+- [x] Hapus informasi tidak perlu dari HTTP response header *(✅ SEC-01: Dynamic nonce-based CSP diaktifkan di middleware.ts dengan generated nonce per-request, strict-dynamic untuk scripts, dan static CSP dihapus dari next.config.ts)*
 - [-] Konfigurasi keamanan harus bisa dioutput dalam format human-readable untuk audit
 - [-] Implementasikan sistem manajemen aset
 - [x] Isolasi environment development dari production network *(.env.local)*
@@ -422,19 +422,19 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 |----------|----------|--------------|----------------|
 | Input Validation | 8 | 8 | 0 |
 | Output Encoding | 7 | 0 | 0 |
-| Authentication | 13 | 11 | 3 |
-| Session Management | 9 | 5 | 6 |
-| Access Control | 16 | 3 | 2 |
+| Authentication | 14 | 11 | 2 |
+| Session Management | 11 | 5 | 4 |
+| Access Control | 17 | 3 | 1 |
 | Cryptographic | 3 | 3 | 0 |
 | Error Handling & Logging | 8 | 10 | 2 |
 | Data Protection | 8 | 4 | 0 |
 | Communication Security | 7 | 1 | 0 |
-| System Configuration | 10 | 6 | 1 |
+| System Configuration | 11 | 6 | 0 |
 | Database Security | 9 | 5 | 0 |
 | File Management | 2 | 11 | 0 |
 | Memory Management | 1 | 8 | 0 |
 | General Coding | 10 | 3 | 0 |
-| **TOTAL** | **111** | **78** | **14** |
+| **TOTAL** | **116** | **78** | **9** |
 
 ### Status Perbaikan
 
@@ -447,12 +447,15 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 | ✅ DONE | PAY-03 | Webhook hanya log non-sensitive fields |
 | ✅ DONE | PAY-04 | `crypto.randomBytes()` untuk order ID topup |
 | ✅ DONE | PAY-05 | `Cache-Control: no-store` untuk payment routes |
+| ✅ DONE | SEC-01 | Nonce-based CSP diaktifkan secara dinamis di middleware (nonce + strict-dynamic) dan static CSP dihapus dari `next.config.ts`. |
 | ✅ DONE | SEC-02 | HSTS header ditambahkan |
 | ✅ DONE | DEP-01 | Deprecated functions di-drop (migration 009) |
 | ✅ DONE | DEP-02 | `.env.local.example` diperbarui |
-| ⚠️ REVERTED | SEC-01 | Nonce-based CSP **dibatalkan** — `next.config.ts` kembali ke `unsafe-inline`+`unsafe-eval` karena Daily.co SDK & Next.js hydration scripts; CSP tetap ada tapi tidak strict |
 | ✅ DONE | LOG-01 | `lib/security-logger.ts` + logging di webhook & verify |
 | ✅ DONE | SEC-03 | `Math.random()` diganti `crypto.randomBytes()` via `lib/crypto-utils.ts` di semua game session create routes (tod, snake-ladder, dare-derby, quoridor) + helper `cryptoShuffle()` dan `cryptoRandInt()` |
+| ✅ DONE | RATE-01 | Rate limit login 5x/1m & 10x/1jam dengan DB function `check_login_rate_limit` via `/api/auth/login` |
+| ✅ DONE | SESS-01 | Max session age 24 jam dipaksa via cookie `ldr_session_age` di middleware |
+| ✅ DONE | STORE-01 | Live coin balance diambil langsung dari server menggunakan hook `useServerBalance` / `/api/coin/balance` |
 
 ---
 

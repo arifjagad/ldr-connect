@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { useServerBalance } from "@/lib/hooks/use-server-balance";
 import { Navbar } from "@/components/landing/Navbar";
 import { GameInviteNotification } from "@/components/GameInviteNotification";
 import { ToastContainer } from "@/components/ui/Toast";
@@ -27,6 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, clearAuth } = useAuthStore();
+  const { balance: serverBalance } = useServerBalance();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
 
@@ -84,8 +86,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [isDashboardPage, clearAuth, router]);
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    // Panggil API logout agar cookie ldr_session_age ikut dihapus (SESS-01)
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     clearAuth();
     router.push("/auth/login");
     router.refresh();
@@ -146,7 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     className="flex items-center gap-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 px-3 py-1.5 text-sm font-semibold text-[#FB923C] transition hover:border-[#F97316]/50 hover:bg-[#F97316]/20"
                   >
                     <span className="text-sm">🪙</span>
-                    {user.wallet_balance}
+                    {serverBalance !== null ? serverBalance : user.wallet_balance}
                   </Link>
                 )}
                 {/* Profile avatar button */}
@@ -189,7 +191,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     className="flex items-center gap-1 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 px-2.5 py-1 text-xs font-semibold text-[#FB923C]"
                   >
                     <span>🪙</span>
-                    {user.wallet_balance}
+                    {serverBalance !== null ? serverBalance : user.wallet_balance}
                   </Link>
                 )}
                 <Link

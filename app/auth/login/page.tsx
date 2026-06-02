@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type { AuthUser } from "@/lib/types";
 
@@ -20,20 +19,16 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-
-    // 1. Sign in via Supabase Auth
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    // 1. Login via server-side route (includes rate limiting + session age cookie)
+    const loginRes = await fetch("/api/auth/login", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ email, password }),
     });
 
-    if (signInError) {
-      setError(
-        signInError.message === "Invalid login credentials"
-          ? "Email atau password salah"
-          : signInError.message
-      );
+    if (!loginRes.ok) {
+      const json = await loginRes.json().catch(() => ({}));
+      setError(json.message || "Login gagal, coba lagi.");
       setLoading(false);
       return;
     }
