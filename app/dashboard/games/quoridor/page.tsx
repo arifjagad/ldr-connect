@@ -41,6 +41,9 @@ function QuoridorContent() {
   const [finishReason, setFinishReason] = useState<FinishReason>(null);
   const [gameState, setGameState]       = useState<QuoridorGameState | null>(null);
 
+  // Pre-join lobby: menyimpan kode sesi yang belum di-join (untuk tampilkan lobby dulu)
+  const [preJoinCode, setPreJoinCode]   = useState<string | null>(null);
+
   const [mode, setMode]           = useState<"move" | "wall">("move");
   const [wallOrient, setWallOrient] = useState<"H" | "V">("H");
   const [isActing, setIsActing]   = useState(false);
@@ -132,33 +135,12 @@ function QuoridorContent() {
     )?.toUpperCase() ?? "";
 
     if (urlCode) {
-      // Datang dari join link — langsung coba join (sama seperti snake-ladder)
-      fetch("/api/game/quoridor/session/join", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ code: urlCode }),
-      })
-        .then((r) => r.json())
-        .then((res) => {
-          if (res.success) {
-            applySession(res.data.session);
-            // Bersihkan URL agar tidak join ulang saat refresh
-            window.history.replaceState({}, "", window.location.pathname);
-          } else {
-            // Mungkin sudah tergabung sebelumnya — cek sesi aktif
-            fetch("/api/game/quoridor/session/active")
-              .then((r2) => r2.json())
-              .then((r2) => { if (r2.data?.session) applySession(r2.data.session); })
-              .catch(() => {});
-          }
-        })
-        .catch(() => {
-          // Gagal total — coba ambil sesi aktif sebagai fallback
-          fetch("/api/game/quoridor/session/active")
-            .then((r2) => r2.json())
-            .then((r2) => { if (r2.data?.session) applySession(r2.data.session); })
-            .catch(() => {});
-        });
+      // Datang dari join link — tampilkan pre-join lobby dulu (seperti ToD)
+      // Bersihkan URL agar tidak join ulang saat refresh
+      window.history.replaceState({}, "", window.location.pathname);
+      setJoinCodeInput(urlCode);
+      setPreJoinCode(urlCode);
+      setPhase("waiting");
       return;
     }
 
@@ -169,9 +151,11 @@ function QuoridorContent() {
         const s = res.data?.session;
         if (!s) return;
         // Jika sesi masih waiting tapi user bukan host (user = partner yang belum join)
-        // → pre-fill join code dan tetap di idle agar mereka bisa join
+        // → tampilkan pre-join lobby agar partner bisa klik "Join Sekarang"
         if (s.status === "waiting" && user?.id && s.host_user_id !== user.id) {
           setJoinCodeInput(s.session_code);
+          setPreJoinCode(s.session_code);
+          setPhase("waiting");
           return;
         }
         applySession(s);
@@ -269,17 +253,19 @@ function QuoridorContent() {
   }
 
   async function handleJoin() {
-    if (!joinCodeInput.trim()) return;
+    const code = (preJoinCode ?? joinCodeInput).trim();
+    if (!code) return;
     setLoadingJoin(true);
     setError(null);
     try {
       const res  = await fetch("/api/game/quoridor/session/join", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ code: joinCodeInput.trim() }),
+        body:    JSON.stringify({ code }),
       });
       const data = await res.json().catch(() => ({ success: false, message: `HTTP ${res.status}` }));
       if (!data.success) throw new Error(data.message);
+      setPreJoinCode(null);
       applySession(data.data.session);
       toast.success("Berhasil bergabung!", "Game akan segera dimulai.");
     } catch (e) {
@@ -379,7 +365,9 @@ function QuoridorContent() {
       }
       setGameState(data.data.game_state);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal memasang tembok");
+      const msg = e instanceof Error ? e.message : "Gagal memasang tembok";
+      setError(msg);
+      toast.error("Tembok tidak bisa dipasang", msg);
     } finally {
       setIsActing(false);
     }
@@ -394,6 +382,7 @@ function QuoridorContent() {
     setGameState(null);
     setPhase("idle");
     setFinishReason(null);
+    setPreJoinCode(null);
     setMode("move");
     setWallOrient("H");
     setShowVideo(false);
@@ -601,7 +590,12 @@ function QuoridorContent() {
   }
 
   // ── WAITING ───────────────────────────────────────────────────────────────
-  if (phase === "waiting" && session) {
+  // Tampilkan waiting lobby untuk host (session ada) ATAU partner pre-join (preJoinCode ada)
+  if (phase === "waiting" && (session || preJoinCode)) {
+    const isPartnerPreJoin = !!preJoinCode && !session;
+    const displayCode     = session?.session_code ?? preJoinCode ?? "";
+    const isHostUser      = session ? session.host_user_id === user?.id : false;
+
     return (
       <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
         <div className="mb-8">
@@ -620,13 +614,18 @@ function QuoridorContent() {
           </div>
         </div>
         <GameWaitingLobby
-          sessionCode={session.session_code}
+          sessionCode={displayCode}
           gameName="Quoridor"
           gameEmoji="♟️"
-          isHost={session.host_user_id === user?.id}
+          isHost={!isPartnerPreJoin && isHostUser}
           onCancel={handleNewGame}
+          onJoin={(!isHostUser || isPartnerPreJoin) ? handleJoin : undefined}
+          joinLoading={loadingJoin}
           expiryMinutes={10}
         />
+        {error && (
+          <p className="mt-3 text-center text-sm text-red-400">{error}</p>
+        )}
       </main>
     );
   }

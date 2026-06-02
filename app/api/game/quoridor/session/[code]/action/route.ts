@@ -130,6 +130,11 @@ export async function POST(
         { success: false, message: "Posisi tembok sudah terpakai", data: null },
         { status: 400 }
       );
+    if (msg.includes("WALL_BLOCKS_PATH"))
+      return NextResponse.json(
+        { success: false, message: "Tembok ini akan memblokir total jalur pemain — tidak diizinkan!", data: null },
+        { status: 400 }
+      );
     if (msg.includes("NO_WALLS_LEFT"))
       return NextResponse.json(
         { success: false, message: "Kamu sudah tidak punya tembok", data: null },
