@@ -1,17 +1,10 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState, useCallback } from "react";
-import { useCountdown } from "@/lib/hooks/useCountdown";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
-import { VideoCall } from "@/components/VideoCall";
-import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
-import { RealtimeBanner } from "@/components/games/RealtimeBanner";
 import { toast } from "@/components/ui/Toast";
-import { Konfetti } from "@/components/ui/Konfetti";
-import { ShareResult } from "@/components/ui/ShareResult";
 import { sendBrowserNotification, requestNotificationPermission } from "@/lib/notifications";
 import { TapTimingGame } from "@/components/games/dare-derby/mini-games/TapTimingGame";
 import { ReactionButtonGame } from "@/components/games/dare-derby/mini-games/ReactionButtonGame";
@@ -19,6 +12,12 @@ import { MemorySequenceGame } from "@/components/games/dare-derby/mini-games/Mem
 import { WordScrambleGame } from "@/components/games/dare-derby/mini-games/WordScrambleGame";
 import { TrueFalseGame } from "@/components/games/dare-derby/mini-games/TrueFalseGame";
 import { NumberOrderGame } from "@/components/games/dare-derby/mini-games/NumberOrderGame";
+import { GamePageLayout, GamePageSkeleton } from "@/components/games/GamePageLayout";
+import { GamePlayingHeader } from "@/components/games/GamePlayingHeader";
+import { GameFinishedCard } from "@/components/games/GameFinishedCard";
+import { GameIdleLayout, GameRulesList } from "@/components/games/GameIdleLayout";
+import { useCountdown } from "@/lib/hooks/useCountdown";
+import { GameSurrenderModal, GameSurrenderButton } from "@/components/games/GameSurrenderModal";
 import type {
   DareDerbySession,
   DareDerbyGameState,
@@ -45,7 +44,6 @@ const COIN_COSTS: Record<number, number> = { 5: 3, 7: 4, 10: 6 };
 
 type PagePhase = "idle" | "setup" | "waiting" | "game" | "finished";
 type FinishReason = "completed" | "time_up" | "cancelled" | null;
-
 
 function fmt(s: number | null) {
   if (s === null) return "--:--";
@@ -86,7 +84,6 @@ function DareDerbyContent() {
   const [joinCodeInput, setJoinCodeInput] = useState(
     searchParams?.get("join")?.toUpperCase() ?? ""
   );
-  const [error, setError] = useState<string | null>(null);
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingJoin, setLoadingJoin] = useState(false);
   const [readying, setReadying] = useState(false);
@@ -98,6 +95,8 @@ function DareDerbyContent() {
   const [realtimeOk, setRealtimeOk] = useState(true);
   const [showDrawToast, setShowDrawToast] = useState(false);
   const [myRoundResult, setMyRoundResult] = useState<{ score: number; metadata?: Record<string, unknown> } | null>(null);
+  const [preJoinCode, setPreJoinCode] = useState<string | null>(null);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
 
   // Realtime
   const supabaseRef = useRef(createClient());
@@ -115,29 +114,19 @@ function DareDerbyContent() {
 
   const bonusActive = !!(gameState?.pending_bonus_for && gameState.pending_bonus_for === myRole);
 
-  // Timestamp server saat ronde mini-game mulai — dipakai semua mini-game agar sinkron
+  // Timestamp server saat ronde mini-game mulai
   const roundStartedAtRef = useRef<number | null>(null);
-  // Guard: simpan updated_at terakhir yang sudah memicu roundKey increment,
-  // agar applySession yang dipanggil dua kali (initial fetch + Realtime) tidak
-  // double-increment dan menyebabkan mini-game remount dua kali → 2 submit dari 1 player.
   const lastRoundStartRef = useRef<string | null>(null);
 
-  // Key yang berubah setiap ronde baru (termasuk draw replay).
-  // Tanpa ini, draw replay tidak mengubah current_round → key prop mini-game sama → komponen
-  // tidak remount → state "timeout" lama tetap ada dan stuck.
   const [roundKey, setRoundKey] = useState(0);
 
-  // Refs untuk state volatile agar handleGameComplete tidak berubah referensi tiap render.
-  // Tanpa ini: setGameState → re-render → handleGameComplete baru → onComplete prop baru
-  // → finish di mini-game re-create → countdown useEffect re-run → calcRemaining(stale) = 0 → B timeout.
+  // Refs untuk state volatile
   const sessionRef     = useRef(session);
-  const submittingRef  = useRef(false);  // ← TIDAK sync via useEffect — diupdate langsung di handleGameComplete
+  const submittingRef  = useRef(false);
   const submittedRef   = useRef(submitted);
   const bonusActiveRef = useRef(bonusActive);
   const roundKeyRef    = useRef(roundKey);
   useEffect(() => { sessionRef.current     = session;     }, [session]);
-  // submittingRef diupdate LANGSUNG di handleGameComplete (sync) untuk mencegah race condition double-submit
-  // ketika timer expire + player tap terjadi hampir bersamaan sebelum React re-render
   useEffect(() => { submittedRef.current   = submitted;   }, [submitted]);
   useEffect(() => { bonusActiveRef.current = bonusActive; }, [bonusActive]);
   useEffect(() => { roundKeyRef.current    = roundKey;    }, [roundKey]);
@@ -179,7 +168,6 @@ function DareDerbyContent() {
     if (s.status === "waiting") {
       setPhase("waiting");
     } else if (s.status === "playing") {
-      // Notif browser saat partner join
       if (prevDDStatusRef.current === "waiting") {
         sendBrowserNotification("Partner sudah bergabung! 🎲", {
           body: "Dare Derby siap dimulai!",
@@ -187,8 +175,6 @@ function DareDerbyContent() {
         });
       }
       setPhase("game");
-      // Catat kapan ronde mini-game mulai (pakai updated_at server agar sinkron)
-      // Hanya update saat masuk ronde baru yang bersih (kedua submission null)
       if (
         s.game_state?.phase === "playing" &&
         !s.game_state.round_submissions?.host &&
@@ -200,7 +186,6 @@ function DareDerbyContent() {
         setSubmitted(false);
         submittedRef.current = false;
         setMyRoundResult(null);
-        setError(null); // ← clear error lama saat ronde baru dimulai (e.g. sisa 409 dari ronde sebelumnya)
         if (s.game_state.is_replay_round) {
           setShowDrawToast(true);
           setTimeout(() => setShowDrawToast(false), 3000);
@@ -219,22 +204,10 @@ function DareDerbyContent() {
       : null)?.toUpperCase() ?? "";
 
     if (urlCode) {
-      fetch("/api/game/dare-derby/session/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: urlCode }),
-      })
-        .then(r => r.json())
-        .then(res => {
-          if (res.success) { applySession(res.data.session); }
-          else {
-            fetch("/api/game/dare-derby/session/active")
-              .then(r => r.json())
-              .then(r2 => { if (r2.data?.session) applySession(r2.data.session); })
-              .catch(() => {});
-          }
-        })
-        .catch(() => {});
+      window.history.replaceState({}, "", window.location.pathname);
+      setJoinCodeInput(urlCode);
+      setPreJoinCode(urlCode);
+      setPhase("waiting");
       return;
     }
 
@@ -245,6 +218,8 @@ function DareDerbyContent() {
         if (!s) return;
         if (s.status === "waiting" && user?.id && s.host_user_id !== user.id) {
           setJoinCodeInput(s.session_code);
+          setPreJoinCode(s.session_code);
+          setPhase("waiting");
           return;
         }
         applySession(s);
@@ -272,9 +247,6 @@ function DareDerbyContent() {
         filter: `session_code=eq.${code}`,
       }, (payload) => {
         const updated = payload.new as DareDerbySession;
-        // Reset submitted setiap phase bukan "playing" (result, game_over, lobby).
-        // Juga reset jika phase "playing" tapi ronde baru (kedua submission null) —
-        // applySession akan handle increment roundKey dan reset submitted-nya.
         if (updated.game_state?.phase !== "playing") {
           setSubmitted(false);
           submittedRef.current = false;
@@ -315,64 +287,82 @@ function DareDerbyContent() {
     }
     setSession(null);
     setGameState(null);
+    setPreJoinCode(null);
+    setShowSurrenderConfirm(false);
     setPhase("idle");
     setFinishReason(null);
     setMyRoundResult(null);
     setSubmitted(false);
     setShowVideo(false);
-    setError(null);
   }
 
   const handleCreate = async () => {
     setLoadingCreate(true);
-    setError(null);
     try {
       const res = await fetch("/api/game/dare-derby/session/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ total_rounds: totalRounds, dare_level: dareLevel }),
       }).then(r => r.json());
-      if (!res.success) { setError(res.message); toast.error("Gagal membuat sesi", res.message); }
+      if (!res.success) { toast.error("Gagal membuat sesi", res.message); }
       else { applySession(res.data.session); toast.success("Sesi berhasil dibuat!", "Bagikan kode ke partner dan tunggu mereka bergabung."); requestNotificationPermission(); }
-    } catch { setError("Terjadi kesalahan"); toast.error("Terjadi kesalahan"); }
+    } catch { toast.error("Terjadi kesalahan"); }
     finally { setLoadingCreate(false); }
   };
 
   const handleJoin = async () => {
-    if (!joinCodeInput.trim()) return;
+    const code = (preJoinCode ?? joinCodeInput).trim();
+    if (!code) return;
     setLoadingJoin(true);
-    setError(null);
     try {
       const res = await fetch("/api/game/dare-derby/session/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: joinCodeInput.trim() }),
+        body: JSON.stringify({ code }),
       }).then(r => r.json());
-      if (!res.success) { setError(res.message); toast.error("Gagal bergabung", res.message); }
-      else { applySession(res.data.session); toast.success("Berhasil bergabung!", "Game akan segera dimulai."); }
-    } catch { setError("Terjadi kesalahan"); toast.error("Terjadi kesalahan"); }
+      if (!res.success) { toast.error("Gagal bergabung", res.message); }
+      else {
+        setPreJoinCode(null);
+        applySession(res.data.session);
+        toast.success("Berhasil bergabung!", "Game akan segera dimulai.");
+      }
+    } catch { toast.error("Terjadi kesalahan"); }
     finally { setLoadingJoin(false); }
+  };
+
+  const handleSurrender = async () => {
+    if (!session) return;
+    try {
+      const res = await fetch(`/api/game/dare-derby/session/${session.session_code}/surrender`, { method: "POST" }).then(r => r.json());
+      if (!res.success) {
+        toast.error("Gagal menyerah", res.message ?? "Terjadi kesalahan");
+        return;
+      }
+      if (res.data?.game_state) setGameState(res.data.game_state);
+      setFinishReason("completed");
+      setPhase("finished");
+    } catch (e) {
+      toast.error("Gagal menyerah", e instanceof Error ? e.message : "Terjadi kesalahan");
+    } finally {
+      setShowSurrenderConfirm(false);
+    }
   };
 
   const handleReadyUp = async () => {
     if (!session || readying) return;
     setReadying(true);
-    setError(null);
     try {
       const res = await fetch(`/api/game/dare-derby/session/${session.session_code}/ready`, {
         method: "POST",
       }).then(r => r.json());
-      if (!res.success) setError(res.message);
+      if (!res.success) toast.error("Gagal", res.message);
       else if (res.data?.game_state) setGameState(res.data.game_state);
-    } catch { setError("Terjadi kesalahan"); }
+    } catch { toast.error("Terjadi kesalahan"); }
     finally { setReadying(false); }
   };
 
   const handleGameComplete = useCallback(async (score: number, timeTaken: number, metadata?: Record<string, unknown>) => {
     if (!sessionRef.current || submittingRef.current || submittedRef.current) return;
-    // Update submittingRef SYNCHRONOUSLY sebelum await — mencegah double-submit
-    // jika handleGameComplete dipanggil 2x cepat (timer expire + tap bersamaan)
-    // sebelum React sempat re-render dan useEffect sync berjalan.
     submittingRef.current = true;
     setSubmitting(true);
     const finalScore = bonusActiveRef.current ? Math.min(150, score + 50) : score;
@@ -384,16 +374,13 @@ function DareDerbyContent() {
         body: JSON.stringify({ score: finalScore, time_taken: timeTaken, metadata: metadata ?? {} }),
       }).then(r => r.json());
       if (!res.success) {
-        // 409 ALREADY_SUBMITTED: submission ke-2 tiba di server (race condition).
-        // Submission pertama SUDAH diterima server — cukup set player ke waiting state
-        // tanpa menampilkan error (game lanjut normal).
         if (res.message?.includes("sudah mengirim")) {
           if (!submittedRef.current) {
             setMyRoundResult({ score: finalScore, metadata });
             setSubmitted(true);
           }
         } else {
-          setError(res.message);
+          toast.error("Gagal submit", res.message);
         }
       }
       else if (res.data?.waiting_for_partner) {
@@ -404,9 +391,9 @@ function DareDerbyContent() {
         }
       }
       else { setGameState(res.data.game_state); }
-    } catch { setError("Terjadi kesalahan"); }
+    } catch { toast.error("Terjadi kesalahan"); }
     finally {
-      submittingRef.current = false; // reset synchronous
+      submittingRef.current = false;
       setSubmitting(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -419,9 +406,9 @@ function DareDerbyContent() {
       const res = await fetch(`/api/game/dare-derby/session/${session.session_code}/dare/complete`, {
         method: "POST",
       }).then(r => r.json());
-      if (!res.success) setError(res.message);
+      if (!res.success) toast.error("Gagal", res.message);
       else setGameState(res.data.game_state);
-    } catch { setError("Terjadi kesalahan"); }
+    } catch { toast.error("Terjadi kesalahan"); }
     finally { setDaringAction(false); }
   };
 
@@ -434,9 +421,9 @@ function DareDerbyContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ confirmed }),
       }).then(r => r.json());
-      if (!res.success) setError(res.message);
+      if (!res.success) toast.error("Gagal", res.message);
       else setGameState(res.data.game_state);
-    } catch { setError("Terjadi kesalahan"); }
+    } catch { toast.error("Terjadi kesalahan"); }
     finally { setDaringAction(false); }
   };
 
@@ -447,46 +434,79 @@ function DareDerbyContent() {
       const res = await fetch(`/api/game/dare-derby/session/${session.session_code}/dare/skip`, {
         method: "POST",
       }).then(r => r.json());
-      if (!res.success) setError(res.message);
+      if (!res.success) toast.error("Gagal", res.message);
       else setGameState(res.data.game_state);
-    } catch { setError("Terjadi kesalahan"); }
+    } catch { toast.error("Terjadi kesalahan"); }
     finally { setDaringAction(false); }
   };
 
-  // ── RENDER ─────────────────────────────────────────────────────────────────
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const lastResult = gameState?.last_round_result;
+  const amLoser = lastResult?.loser === myRole;
+  const amWinner = lastResult?.loser !== myRole && lastResult?.loser !== "draw";
+  const dareStatus = lastResult?.dare_status;
+  const myReady = gameState?.ready[myRole as "host" | "partner"];
+  const partnerReady = gameState?.ready[myRole === "host" ? "partner" : "host"];
 
-  // ── IDLE + SETUP (merged premium layout) ──────────────────────────────────
-  if (phase === "idle" || phase === "setup") {
-    return (
-      <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full blur-[120px]"
-          style={{ background: "radial-gradient(ellipse, rgba(249,115,22,0.10) 0%, transparent 70%)" }}
-        />
+  // ── Map internal phase to GamePageLayout phase ─────────────────────────────
+  const layoutPhase = phase === "idle" || phase === "setup" ? "idle"
+    : phase === "waiting" ? "waiting"
+    : phase === "game" ? "playing"
+    : "finished";
 
-        {/* Header */}
-        <div className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
-            <Link href="/dashboard/games" className="transition hover:text-[#9B93B0]">Games</Link>
-            {" / "}Dare Derby
-          </p>
-          <div className="mt-2 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#F97316]/30 to-[#FB923C]/20 text-xl">
-              🎲
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">Dare Derby</h1>
-              <p className="text-sm text-[#5C5470]">Mini-game kompetitif — yang kalah dapat dare!</p>
-            </div>
-          </div>
-        </div>
+  // ── Finished derived ──────────────────────────────────────────────────────
+  const gs = gameState;
+  const hostDares = gs?.dare_counts.host ?? 0;
+  const partnerDares = gs?.dare_counts.partner ?? 0;
+  const myDares = myRole === "host" ? hostDares : partnerDares;
+  const partnerDaresCount = myRole === "host" ? partnerDares : hostDares;
+  let winner: "me" | "partner" | "draw" = "draw";
+  if (myDares < partnerDaresCount) winner = "me";
+  else if (partnerDaresCount < myDares) winner = "partner";
+  if (gs?.forfeit_by) {
+    winner = gs.forfeit_by === myRole ? "partner" : "me";
+  }
+  const rounds = session?.questions ?? [];
 
-        <div className="grid gap-5 md:grid-cols-2">
-          {/* Buat Game */}
-          <div className="overflow-hidden rounded-2xl border border-[#F97316]/20 bg-[#111113]">
-            <div className="h-0.5 w-full bg-linear-to-r from-[#F97316] to-[#FBBF24]" />
-            <div className="p-6">
+  const isHostUser = !!(session && user && session.host_user_id === user.id);
+  const isPartnerPreJoin = !!(preJoinCode && !session);
+  const displayCode = session?.session_code ?? preJoinCode ?? "";
+
+  return (
+    <GamePageLayout
+      gameName="Dare Derby"
+      gameEmoji="🎲"
+      gameSlug="dare-derby"
+      gameSubtitle="Mini-game kompetitif — yang kalah dapat dare!"
+      accentColor="#F97316"
+      accentColorLight="#FB923C"
+      phase={layoutPhase}
+      // Waiting
+      sessionCode={displayCode}
+      isHost={!isPartnerPreJoin && isHostUser}
+      onCancel={handleReset}
+      onJoin={(!isHostUser || isPartnerPreJoin) ? handleJoin : undefined}
+      joinLoading={loadingJoin}
+      expiryMinutes={20}
+      waitingTimerSeconds={timerSeconds}
+      waitingExtraInfo={session ? `${session.board_config.total_rounds} ronde · ${DARE_LEVEL_LABELS[session.board_config.dare_level]}` : undefined}
+      // Playing
+      realtimeOk={realtimeOk}
+      showVideo={showVideo}
+      videoSessionCode={session?.session_code}
+      videoGame="dare-derby"
+      onVideoLeave={() => setShowVideo(false)}
+      // Idle
+      idleContent={
+        <GameIdleLayout
+          accentColor="#F97316"
+          accentColorLight="#FB923C"
+          joinCodeInput={joinCodeInput}
+          onJoinCodeChange={setJoinCodeInput}
+          onJoin={handleJoin}
+          joinLoading={loadingJoin}
+          createContent={
+            <>
               <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#FB923C]">Buat Game Baru</p>
 
               <div className="mb-5 flex items-center gap-3">
@@ -542,8 +562,6 @@ function DareDerbyContent() {
                 </div>
               </div>
 
-              {error && <p className="mb-3 text-xs text-red-400">{error}</p>}
-
               <button
                 onClick={handleCreate}
                 disabled={loadingCreate}
@@ -561,539 +579,387 @@ function DareDerbyContent() {
                 {loadingCreate ? "Membuat sesi..." : `🎲 Buat Sesi — ${COIN_COSTS[totalRounds]} Coin`}
               </button>
               <p className="mt-2 text-center text-[10px] text-[#5C5470]">Memotong {COIN_COSTS[totalRounds]} coin dari saldo kamu</p>
-            </div>
-          </div>
-
-          {/* Join Game */}
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-            <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#5C5470]">Gabung Game</p>
-
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#818CF8]/15">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
-                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" strokeLinecap="round" />
-                  <polyline points="10 17 15 12 10 7" />
-                  <line x1="15" y1="12" x2="3" y2="12" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-[#FFF5F8]">Join Sesi Partner</p>
-                <p className="text-xs text-[#5C5470]">Masukkan session code dari partner</p>
-              </div>
-            </div>
-
-            <input
-              value={joinCodeInput}
-              onChange={e => setJoinCodeInput(e.target.value.toUpperCase())}
-              placeholder="Masukkan kode sesi"
-              maxLength={12}
-              className="w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-3 font-mono text-base font-bold tracking-widest text-[#FFF5F8] outline-none placeholder:text-[#5C5470] placeholder:font-normal placeholder:tracking-normal focus:border-[#F97316]/40 focus:ring-1 focus:ring-[#F97316]/20 transition"
-            />
-            <button
-              onClick={handleJoin}
-              disabled={loadingJoin || !joinCodeInput.trim()}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#F97316]/30 bg-[#F97316]/10 px-5 py-3 text-sm font-bold text-[#FB923C] transition hover:bg-[#F97316]/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loadingJoin ? (
-                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                </svg>
-              ) : null}
-              {loadingJoin ? "Bergabung..." : "Bergabung"}
-            </button>
-
-            {/* Info rules */}
-            <div className="mt-5 space-y-2 border-t border-white/[0.06] pt-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5C5470]">Cara Main</p>
-              {[
-                "Keduanya main mini-game yang sama serentak",
-                "Yang dapat skor lebih rendah = kalah ronde",
-                "Yang kalah harus lakukan dare dari partner!",
-                "Selesaikan semua ronde untuk game over",
-                "Banyak mini-game berbeda tiap rondenya",
-              ].map((rule, i) => (
-                <p key={i} className="flex items-start gap-2 text-[10px] text-[#9B93B0]">
-                  <span className="mt-0.5 text-[#5C5470]">•</span> {rule}
-                </p>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // ── WAITING ───────────────────────────────────────────────────────────────
-  if (phase === "waiting" && session) {
-    return (
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-        <div className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
-            <a href="/dashboard/games" className="transition hover:text-[#9B93B0]">Games</a>
-            {" / "}Dare Derby
-          </p>
-          <div className="mt-2 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#FF3D7F]/30 to-[#818CF8]/20 text-xl">
-              🏁
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">Dare Derby</h1>
-              <p className="text-sm text-[#5C5470]">Kompetisi mini-game, yang kalah dapat dare!</p>
-            </div>
-          </div>
-        </div>
-        <GameWaitingLobby
-          sessionCode={session.session_code}
-          gameName="Dare Derby"
-          gameEmoji="🏁"
-          isHost={session.host_user_id === user?.id}
-          onCancel={handleReset}
-          expiryMinutes={20}
-          timerSeconds={timerSeconds}
-          extraInfo={`${session.board_config.total_rounds} ronde · ${DARE_LEVEL_LABELS[session.board_config.dare_level]}`}
+            </>
+          }
+          joinContent={
+            <GameRulesList rules={[
+              "Keduanya main mini-game yang sama serentak",
+              "Yang dapat skor lebih rendah = kalah ronde",
+              "Yang kalah harus lakukan dare dari partner!",
+              "Selesaikan semua ronde untuk game over",
+              "Banyak mini-game berbeda tiap rondenya",
+            ]} />
+          }
         />
-      </div>
-    );
-  }
-
-  // ── GAME ──────────────────────────────────────────────────────────────────
-  if (phase === "game" && session && gameState) {
-    const lastResult = gameState.last_round_result;
-    const amLoser = lastResult?.loser === myRole;
-    const amWinner = lastResult?.loser !== myRole && lastResult?.loser !== "draw";
-    const dareStatus = lastResult?.dare_status;
-
-    const myReady = gameState.ready[myRole as "host" | "partner"];
-    const partnerReady = gameState.ready[myRole === "host" ? "partner" : "host"];
-
-    return (
-      <>
-        <RealtimeBanner realtimeOk={realtimeOk} />
-        <div className="mx-auto w-full max-w-md px-4 py-6 flex flex-col gap-4">
-        {/* Draw Toast — fixed overlay di tengah layar */}
-        {showDrawToast && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <div className="animate-bounce-in bg-yellow-500/20 backdrop-blur-md border border-yellow-500/40 rounded-2xl px-8 py-5 flex flex-col items-center gap-2 shadow-2xl">
-              <span className="text-4xl">🤝</span>
-              <p className="text-lg font-bold text-yellow-300">Draw!</p>
-              <p className="text-sm text-yellow-400/80">Ronde diulang sekarang...</p>
-            </div>
-          </div>
-        )}
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-[#5C5470]">Dare Derby</p>
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-[10px]" title={partnerOnline ? "Partner online" : "Partner offline"}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${partnerOnline ? "bg-[#34D399]" : "bg-[#5C5470]"}`} />
-                  <span className={partnerOnline ? "text-[#34D399]" : "text-[#5C5470]"}>
-                    {partnerOnline ? "Online" : "Offline"}
-                  </span>
-                </span>
-              </div>
-            </div>
-            <p className="text-sm font-medium text-[#FFF5F8]">
-              Ronde {gameState.current_round}/{session.board_config.total_rounds}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <p className="font-mono text-sm text-[#9B93B0]">{fmt(timerSeconds)}</p>
-            <button
-              type="button"
-              onClick={() => setShowVideo(v => !v)}
-              title={showVideo ? "Tutup video call" : "Buka video call"}
-              className={`flex h-7 w-7 items-center justify-center rounded-lg border transition ${
-                showVideo
-                  ? "border-[#34D399]/40 bg-[#34D399]/15 text-[#34D399]"
-                  : "border-white/10 bg-white/5 text-[#5C5470] hover:text-[#9B93B0]"
-              }`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path d="M3.25 4A2.25 2.25 0 001 6.25v7.5A2.25 2.25 0 003.25 16h7.5A2.25 2.25 0 0013 13.75v-7.5A2.25 2.25 0 0010.75 4h-7.5zM19 4.75a.75.75 0 00-1.28-.53l-3 3a.75.75 0 00-.22.53v4.5c0 .199.079.39.22.53l3 3a.75.75 0 001.28-.53V4.75z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Score tracker */}
-        <div className="grid grid-cols-2 gap-2">
-          {(["host", "partner"] as const).map(role => {
-            const label = role === myRole ? "Kamu" : "Partner";
-            const dares = gameState.dare_counts[role];
-            const skips = gameState.skip_counts[role];
-            return (
-              <div key={role} className={`rounded-xl border p-3 text-center ${role === myRole ? "border-[#FF3D7F]/30 bg-[#FF3D7F]/5" : "border-white/10 bg-white/5"}`}>
-                <p className="text-xs text-[#5C5470]">{label}</p>
-                <p className="text-lg font-bold text-[#FFF5F8]">{dares} dare</p>
-                {skips > 0 && <p className="text-[10px] text-[#5C5470]">{skips}x skip</p>}
-              </div>
-            );
-          })}
-        </div>
-
-        {error && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">{error}</div>
-        )}
-
-        {/* LOBBY phase */}
-        {gameState.phase === "lobby" && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col items-center gap-5">
-            <p className="text-base font-semibold text-[#FFF5F8]">Keduanya harus siap!</p>
-            <div className="flex gap-8">
-              <div className="flex flex-col items-center gap-1">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 transition ${gameState.ready.host ? "border-green-500 bg-green-500/20" : "border-white/20 bg-white/5"}`}>
-                  {gameState.ready.host ? "✓" : "⏳"}
+      }
+      // Playing content
+      playingContent={
+        session && gameState ? (
+          <div className="flex flex-col gap-4">
+            {/* Draw Toast */}
+            {showDrawToast && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+                <div className="animate-bounce-in bg-yellow-500/20 backdrop-blur-md border border-yellow-500/40 rounded-2xl px-8 py-5 flex flex-col items-center gap-2 shadow-2xl">
+                  <span className="text-4xl">🤝</span>
+                  <p className="text-lg font-bold text-yellow-300">Draw!</p>
+                  <p className="text-sm text-yellow-400/80">Ronde diulang sekarang...</p>
                 </div>
-                <p className="text-xs text-[#5C5470]">{myRole === "host" ? "Kamu" : "Partner"}</p>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 transition ${gameState.ready.partner ? "border-green-500 bg-green-500/20" : "border-white/20 bg-white/5"}`}>
-                  {gameState.ready.partner ? "✓" : "⏳"}
-                </div>
-                <p className="text-xs text-[#5C5470]">{myRole === "partner" ? "Kamu" : "Partner"}</p>
-              </div>
-            </div>
-            {!myReady ? (
-              <button
-                onClick={handleReadyUp}
-                disabled={readying}
-                className="w-full py-4 rounded-2xl bg-[#FF3D7F] hover:bg-[#FF6B9D] text-white font-bold text-lg transition disabled:opacity-50"
-              >
-                {readying ? "..." : "Siap! 🚀"}
-              </button>
-            ) : (
-              <div className="text-sm text-[#9B93B0] animate-pulse">
-                {partnerReady ? "Memulai..." : "Menunggu partner..."}
               </div>
             )}
-            {gameState.is_replay_round && (
-              <p className="text-xs text-yellow-400">🔁 Draw! Ronde diulang</p>
-            )}
-          </div>
-        )}
 
-        {/* PLAYING phase */}
-        {gameState.phase === "playing" && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            {submitted ? (
-              <div className="flex flex-col items-center gap-3 py-5">
-                {myRoundResult ? (
-                  <div className="flex flex-col items-center gap-2">
-                    <span className="text-5xl font-bold text-[#FFF5F8]">{myRoundResult.score}</span>
-                    <span className="text-xs text-[#5C5470] uppercase tracking-widest">poin</span>
-                    {bonusActive && (
-                      <span className="text-xs text-yellow-400">✨ +50 bonus sudah diterapkan</span>
+            {/* Playing header */}
+            <GamePlayingHeader
+              sessionCode={session.session_code}
+              statusText={`Ronde ${gameState.current_round}/${session.board_config.total_rounds}`}
+              statusColor="#FFF5F8"
+              timerSeconds={timerSeconds}
+              timerTotalSeconds={20 * 60}
+              partnerOnline={partnerOnline}
+              showVideo={showVideo}
+              onToggleVideo={() => setShowVideo(v => !v)}
+              onLeave={handleReset}
+              realtimeOk={realtimeOk}
+            />
+
+            {/* Score tracker */}
+            <div className="grid grid-cols-2 gap-2">
+              {(["host", "partner"] as const).map(role => {
+                const label = role === myRole ? "Kamu" : "Partner";
+                const dares = gameState.dare_counts[role];
+                const skips = gameState.skip_counts[role];
+                return (
+                  <div key={role} className={`rounded-xl border p-3 text-center ${role === myRole ? "border-[#FF3D7F]/30 bg-[#FF3D7F]/5" : "border-white/10 bg-white/5"}`}>
+                    <p className="text-xs text-[#5C5470]">{label}</p>
+                    <p className="text-lg font-bold text-[#FFF5F8]">{dares} dare</p>
+                    {skips > 0 && <p className="text-[10px] text-[#5C5470]">{skips}x skip</p>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* LOBBY phase */}
+            {gameState.phase === "lobby" && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col items-center gap-5">
+                <p className="text-base font-semibold text-[#FFF5F8]">Keduanya harus siap!</p>
+                <div className="flex gap-8">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 transition ${gameState.ready.host ? "border-green-500 bg-green-500/20" : "border-white/20 bg-white/5"}`}>
+                      {gameState.ready.host ? "✓" : "⏳"}
+                    </div>
+                    <p className="text-xs text-[#5C5470]">{myRole === "host" ? "Kamu" : "Partner"}</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 transition ${gameState.ready.partner ? "border-green-500 bg-green-500/20" : "border-white/20 bg-white/5"}`}>
+                      {gameState.ready.partner ? "✓" : "⏳"}
+                    </div>
+                    <p className="text-xs text-[#5C5470]">{myRole === "partner" ? "Kamu" : "Partner"}</p>
+                  </div>
+                </div>
+                {!myReady ? (
+                  <button
+                    onClick={handleReadyUp}
+                    disabled={readying}
+                    className="w-full py-4 rounded-2xl bg-[#FF3D7F] hover:bg-[#FF6B9D] text-white font-bold text-lg transition disabled:opacity-50"
+                  >
+                    {readying ? "..." : "Siap! 🚀"}
+                  </button>
+                ) : (
+                  <div className="text-sm text-[#9B93B0] animate-pulse">
+                    {partnerReady ? "Memulai..." : "Menunggu partner..."}
+                  </div>
+                )}
+                {gameState.is_replay_round && (
+                  <p className="text-xs text-yellow-400">🔁 Draw! Ronde diulang</p>
+                )}
+              </div>
+            )}
+
+            {/* PLAYING phase */}
+            {gameState.phase === "playing" && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                {submitted ? (
+                  <div className="flex flex-col items-center gap-3 py-5">
+                    {myRoundResult ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="text-5xl font-bold text-[#FFF5F8]">{myRoundResult.score}</span>
+                        <span className="text-xs text-[#5C5470] uppercase tracking-widest">poin</span>
+                        {bonusActive && (
+                          <span className="text-xs text-yellow-400">✨ +50 bonus sudah diterapkan</span>
+                        )}
+                        <p className="text-xs text-[#5C5470] animate-pulse mt-2">⏳ Menunggu partner selesai...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3">
+                        <span className="text-3xl animate-pulse">⏳</span>
+                        <p className="text-sm text-[#9B93B0]">Menunggu partner...</p>
+                      </div>
                     )}
-                    <p className="text-xs text-[#5C5470] animate-pulse mt-2">⏳ Menunggu partner selesai...</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <span className="text-3xl animate-pulse">⏳</span>
-                    <p className="text-sm text-[#9B93B0]">Menunggu partner...</p>
-                  </div>
+                  <>
+                    {currentMiniGameId && (
+                      <div className="mb-4 flex items-center gap-2">
+                        <span className="text-lg">{MINIGAME_META[currentMiniGameId]?.emoji ?? "🎮"}</span>
+                        <div>
+                          <p className="text-sm font-semibold text-[#FFF5F8]">{MINIGAME_META[currentMiniGameId]?.name ?? currentMiniGameId}</p>
+                          {bonusActive && <p className="text-xs text-yellow-400">+50 bonus aktif!</p>}
+                        </div>
+                      </div>
+                    )}
+                    {currentMiniGameId === "tap_timing" && (
+                      <TapTimingGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.tap_timing.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId === "reaction_btn" && (
+                      <ReactionButtonGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.reaction_btn.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId === "memory_seq" && (
+                      <MemorySequenceGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.memory_seq.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId === "word_scramble" && (
+                      <WordScrambleGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.word_scramble.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId === "true_false" && (
+                      <TrueFalseGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.true_false.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId === "number_order" && (
+                      <NumberOrderGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.number_order.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId && !MINIGAME_META[currentMiniGameId] && (
+                      <div className="text-center py-8 text-[#5C5470]">Mini-game belum tersedia</div>
+                    )}
+                  </>
                 )}
               </div>
-            ) : (
-              <>
-                {currentMiniGameId && (
-                  <div className="mb-4 flex items-center gap-2">
-                    <span className="text-lg">{MINIGAME_META[currentMiniGameId]?.emoji ?? "🎮"}</span>
-                    <div>
-                      <p className="text-sm font-semibold text-[#FFF5F8]">{MINIGAME_META[currentMiniGameId]?.name ?? currentMiniGameId}</p>
-                      {bonusActive && <p className="text-xs text-yellow-400">+50 bonus aktif!</p>}
-                    </div>
-                  </div>
-                )}
-                {currentMiniGameId === "tap_timing" && (
-                  <TapTimingGame
-                    key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
-                    duration={MINIGAME_META.tap_timing.duration}
-                    startedAt={roundStartedAtRef.current ?? undefined}
-                    bonusActive={bonusActive}
-                    onComplete={handleGameComplete}
-                  />
-                )}
-                {currentMiniGameId === "reaction_btn" && (
-                  <ReactionButtonGame
-                    key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
-                    duration={MINIGAME_META.reaction_btn.duration}
-                    startedAt={roundStartedAtRef.current ?? undefined}
-                    bonusActive={bonusActive}
-                    onComplete={handleGameComplete}
-                  />
-                )}
-                {currentMiniGameId === "memory_seq" && (
-                  <MemorySequenceGame
-                    key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
-                    duration={MINIGAME_META.memory_seq.duration}
-                    startedAt={roundStartedAtRef.current ?? undefined}
-                    bonusActive={bonusActive}
-                    onComplete={handleGameComplete}
-                  />
-                )}
-                {currentMiniGameId === "word_scramble" && (
-                  <WordScrambleGame
-                    key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
-                    duration={MINIGAME_META.word_scramble.duration}
-                    startedAt={roundStartedAtRef.current ?? undefined}
-                    bonusActive={bonusActive}
-                    onComplete={handleGameComplete}
-                  />
-                )}
-                {currentMiniGameId === "true_false" && (
-                  <TrueFalseGame
-                    key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
-                    duration={MINIGAME_META.true_false.duration}
-                    startedAt={roundStartedAtRef.current ?? undefined}
-                    bonusActive={bonusActive}
-                    onComplete={handleGameComplete}
-                  />
-                )}
-                {currentMiniGameId === "number_order" && (
-                  <NumberOrderGame
-                    key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
-                    duration={MINIGAME_META.number_order.duration}
-                    startedAt={roundStartedAtRef.current ?? undefined}
-                    bonusActive={bonusActive}
-                    onComplete={handleGameComplete}
-                  />
-                )}
-                {currentMiniGameId && !MINIGAME_META[currentMiniGameId] && (
-                  <div className="text-center py-8 text-[#5C5470]">Mini-game belum tersedia</div>
-                )}
-              </>
             )}
-          </div>
-        )}
 
-        {/* RESULT phase (dare) */}
-        {gameState.phase === "result" && lastResult && (
-          <div className="flex flex-col gap-4">
-            {/* Scores */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs text-[#5C5470] mb-3 uppercase tracking-wide">Hasil Ronde {lastResult.round_number}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {(["host", "partner"] as const).map(role => {
-                  const score = role === "host" ? lastResult.host_score : lastResult.partner_score;
-                  const isLoser = lastResult.loser === role;
-                  const isWinner = lastResult.loser !== role && lastResult.loser !== "draw";
-                  return (
-                    <div key={role} className={`rounded-xl p-3 text-center ${isLoser ? "bg-red-500/10 border border-red-500/20" : isWinner ? "bg-green-500/10 border border-green-500/20" : "bg-white/5 border border-white/10"}`}>
-                      <p className="text-xs text-[#5C5470]">{role === myRole ? "Kamu" : "Partner"}</p>
-                      <p className="text-2xl font-bold text-[#FFF5F8]">{score}</p>
-                      <p className="text-[10px] mt-1">{isLoser ? "😔 Kalah" : isWinner ? "🏆 Menang" : "🤝 Draw"}</p>
+            {/* RESULT phase (dare) */}
+            {gameState.phase === "result" && lastResult && (
+              <div className="flex flex-col gap-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs text-[#5C5470] mb-3 uppercase tracking-wide">Hasil Ronde {lastResult.round_number}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["host", "partner"] as const).map(role => {
+                      const score = role === "host" ? lastResult.host_score : lastResult.partner_score;
+                      const isLoser = lastResult.loser === role;
+                      const isWinner = lastResult.loser !== role && lastResult.loser !== "draw";
+                      return (
+                        <div key={role} className={`rounded-xl p-3 text-center ${isLoser ? "bg-red-500/10 border border-red-500/20" : isWinner ? "bg-green-500/10 border border-green-500/20" : "bg-white/5 border border-white/10"}`}>
+                          <p className="text-xs text-[#5C5470]">{role === myRole ? "Kamu" : "Partner"}</p>
+                          <p className="text-2xl font-bold text-[#FFF5F8]">{score}</p>
+                          <p className="text-[10px] mt-1">{isLoser ? "😔 Kalah" : isWinner ? "🏆 Menang" : "🤝 Draw"}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {lastResult.loser !== "draw" && lastResult.dare_content && (
+                  <div className="rounded-2xl border border-[#FF3D7F]/25 bg-[#FF3D7F]/5 p-5 flex flex-col gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🎯</span>
+                      <p className="text-sm font-semibold text-[#FFF5F8]">
+                        {amLoser ? "Dare untukmu!" : "Dare untuk partner!"}
+                      </p>
+                      <DareCategoryBadge category={lastResult.dare_category} />
                     </div>
-                  );
-                })}
+
+                    <p className="text-[#FFF5F8] leading-relaxed">{lastResult.dare_content}</p>
+
+                    {amLoser && dareStatus === "pending" && (
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={handleDareComplete}
+                          disabled={daringAction}
+                          className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-white font-bold transition disabled:opacity-50"
+                        >
+                          {daringAction ? "..." : "Sudah Selesai ✅"}
+                        </button>
+                        <button
+                          onClick={handleDareSkip}
+                          disabled={daringAction}
+                          className="w-full py-2 rounded-xl border border-white/10 text-[#5C5470] text-sm hover:text-[#9B93B0] transition disabled:opacity-50"
+                        >
+                          Skip ({gameState.skip_counts[myRole as "host" | "partner"] + 1}x)
+                        </button>
+                      </div>
+                    )}
+
+                    {amLoser && dareStatus === "awaiting_confirm" && (
+                      <div className="text-center text-sm text-[#9B93B0] animate-pulse py-2">
+                        Menunggu konfirmasi partner...
+                      </div>
+                    )}
+
+                    {amWinner && dareStatus === "awaiting_confirm" && (
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleDareConfirm(true)}
+                          disabled={daringAction}
+                          className="flex-1 py-3 rounded-xl bg-green-500 hover:bg-green-400 text-white font-bold transition disabled:opacity-50"
+                        >
+                          {daringAction ? "..." : "Ya, Sudah ✅"}
+                        </button>
+                        <button
+                          onClick={() => handleDareConfirm(false)}
+                          disabled={daringAction}
+                          className="flex-1 py-3 rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 font-bold transition disabled:opacity-50"
+                        >
+                          Belum 🔁
+                        </button>
+                      </div>
+                    )}
+
+                    {amWinner && dareStatus === "pending" && (
+                      <div className="text-center text-sm text-[#9B93B0] animate-pulse py-2">
+                        Menunggu partner menyelesaikan dare...
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {lastResult.loser === "draw" && (
+                  <div className="rounded-2xl border border-yellow-500/25 bg-yellow-500/5 p-4 text-center">
+                    <p className="text-yellow-400 font-semibold">🤝 Draw! Ronde diulang</p>
+                    <p className="text-xs text-[#5C5470] mt-1">Menunggu ronde berikutnya...</p>
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* GAME OVER phase */}
+            {gameState.phase === "game_over" && (
+              <div className="text-center py-4 text-sm text-[#9B93B0] animate-pulse">
+                Memuat hasil akhir...
+              </div>
+            )}
+
+            {/* Surrender button */}
+            <div className="mt-6">
+              <GameSurrenderButton onClick={() => setShowSurrenderConfirm(true)} />
             </div>
 
-            {/* Dare */}
-            {lastResult.loser !== "draw" && lastResult.dare_content && (
-              <div className="rounded-2xl border border-[#FF3D7F]/25 bg-[#FF3D7F]/5 p-5 flex flex-col gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🎯</span>
-                  <p className="text-sm font-semibold text-[#FFF5F8]">
-                    {amLoser ? "Dare untukmu!" : "Dare untuk partner!"}
-                  </p>
-                  <DareCategoryBadge category={lastResult.dare_category} />
-                </div>
-
-                <p className="text-[#FFF5F8] leading-relaxed">{lastResult.dare_content}</p>
-
-                {/* Loser actions */}
-                {amLoser && dareStatus === "pending" && (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={handleDareComplete}
-                      disabled={daringAction}
-                      className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-white font-bold transition disabled:opacity-50"
-                    >
-                      {daringAction ? "..." : "Sudah Selesai ✅"}
-                    </button>
-                    <button
-                      onClick={handleDareSkip}
-                      disabled={daringAction}
-                      className="w-full py-2 rounded-xl border border-white/10 text-[#5C5470] text-sm hover:text-[#9B93B0] transition disabled:opacity-50"
-                    >
-                      Skip ({gameState.skip_counts[myRole as "host" | "partner"] + 1}x)
-                    </button>
-                  </div>
-                )}
-
-                {amLoser && dareStatus === "awaiting_confirm" && (
-                  <div className="text-center text-sm text-[#9B93B0] animate-pulse py-2">
-                    Menunggu konfirmasi partner...
-                  </div>
-                )}
-
-                {/* Winner actions */}
-                {amWinner && dareStatus === "awaiting_confirm" && (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => handleDareConfirm(true)}
-                      disabled={daringAction}
-                      className="flex-1 py-3 rounded-xl bg-green-500 hover:bg-green-400 text-white font-bold transition disabled:opacity-50"
-                    >
-                      {daringAction ? "..." : "Ya, Sudah ✅"}
-                    </button>
-                    <button
-                      onClick={() => handleDareConfirm(false)}
-                      disabled={daringAction}
-                      className="flex-1 py-3 rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 font-bold transition disabled:opacity-50"
-                    >
-                      Belum 🔁
-                    </button>
-                  </div>
-                )}
-
-                {amWinner && dareStatus === "pending" && (
-                  <div className="text-center text-sm text-[#9B93B0] animate-pulse py-2">
-                    Menunggu partner menyelesaikan dare...
-                  </div>
-                )}
-              </div>
-            )}
-
-            {lastResult.loser === "draw" && (
-              <div className="rounded-2xl border border-yellow-500/25 bg-yellow-500/5 p-4 text-center">
-                <p className="text-yellow-400 font-semibold">🤝 Draw! Ronde diulang</p>
-                <p className="text-xs text-[#5C5470] mt-1">Menunggu ronde berikutnya...</p>
-              </div>
+            {/* Surrender confirm modal */}
+            {showSurrenderConfirm && (
+              <GameSurrenderModal
+                hasWinner={true}
+                warningText="Pasanganmu akan menang otomatis"
+                onConfirm={handleSurrender}
+                onCancel={() => setShowSurrenderConfirm(false)}
+              />
             )}
           </div>
-        )}
-
-        {/* GAME OVER phase (handled by finished) */}
-        {gameState.phase === "game_over" && (
-          <div className="text-center py-4 text-sm text-[#9B93B0] animate-pulse">
-            Memuat hasil akhir...
-          </div>
-        )}
-
-        {/* Video call */}
-        {showVideo && (
-          <VideoCall
-            sessionCode={session.session_code}
-            game="dare-derby"
-            onLeave={() => setShowVideo(false)}
-          />
-        )}
-      </div>
-      </>
-    );
-  }
-
-  // ── FINISHED ──────────────────────────────────────────────────────────────
-  if (phase === "finished" && session) {
-    const gs = gameState;
-    const hostDares = gs?.dare_counts.host ?? 0;
-    const partnerDares = gs?.dare_counts.partner ?? 0;
-    const myDares = myRole === "host" ? hostDares : partnerDares;
-    const partnerDaresCount = myRole === "host" ? partnerDares : hostDares;
-
-    let winner: "me" | "partner" | "draw" = "draw";
-    if (myDares < partnerDaresCount) winner = "me";
-    else if (partnerDaresCount < myDares) winner = "partner";
-
-    if (gs?.forfeit_by) {
-      winner = gs.forfeit_by === myRole ? "partner" : "me";
-    }
-
-    const rounds = session.questions ?? [];
-
-    return (
-      <>
-        <Konfetti active={winner === "me" && finishReason === "completed"} />
-        <div className="mx-auto w-full max-w-md px-4 py-10 flex flex-col gap-6">
-        <div className="text-center">
-          {finishReason === "completed" ? (
-            <>
-              <p className="text-5xl mb-2">{winner === "me" ? "🏆" : winner === "partner" ? "😔" : "🤝"}</p>
-              <h1 className="text-2xl font-bold text-[#FFF5F8]">
-                {winner === "me" ? "Kamu Menang!" : winner === "partner" ? "Partner Menang" : "Seri!"}
-              </h1>
-              <p className="text-sm text-[#9B93B0] mt-1">
-                Kamu {myDares} dare · Partner {partnerDaresCount} dare
-              </p>
-            </>
-          ) : finishReason === "time_up" ? (
-            <>
-              <p className="text-5xl mb-2">⏰</p>
-              <h1 className="text-2xl font-bold text-[#FFF5F8]">Waktu Habis</h1>
-              <p className="text-sm text-[#9B93B0] mt-1">Sesi berakhir karena waktu habis</p>
-            </>
-          ) : (
-            <>
-              <p className="text-5xl mb-2">❌</p>
-              <h1 className="text-2xl font-bold text-[#FFF5F8]">Sesi Berakhir</h1>
-            </>
-          )}
-        </div>
-
-        {/* Round history */}
-        {rounds.length > 0 && (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col gap-1">
-            <p className="text-xs text-[#5C5470] uppercase tracking-widest text-center mb-3">Rekap Ronde</p>
-            {rounds.map((r, i) => {
-              const status = r.loser === myRole ? "Kalah" : r.loser === "draw" ? "Draw" : "Menang";
-              const color   = r.loser === myRole ? "text-red-400" : r.loser === "draw" ? "text-yellow-400" : "text-green-400";
-              const icon    = r.loser === myRole ? "😔" : r.loser === "draw" ? "🤝" : "🏆";
-              return (
-                <div
-                  key={i}
-                  className={`grid grid-cols-[60px_1fr_72px] items-center gap-2 py-2 text-sm ${
-                    i < rounds.length - 1 ? "border-b border-white/5" : ""
-                  }`}
-                >
-                  <span className="text-[#5C5470] text-xs">Ronde {r.round_number}</span>
-                  <span className="text-[#9B93B0] text-xs text-center">{MINIGAME_META[r.minigame_id]?.name ?? r.minigame_id}</span>
-                  <span className={`${color} text-xs font-semibold text-right flex items-center justify-end gap-1`}>
-                    {icon} {status}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          <ShareResult
+        ) : null
+      }
+      // Finished
+      finishedContent={
+        session ? (
+          <GameFinishedCard
             gameName="Dare Derby"
             gameEmoji="🎲"
-            result={winner === "me" ? "win" : winner === "partner" ? "lose" : "draw"}
-            summary={`${myDares} dare vs ${partnerDaresCount} dare · ${rounds.length} ronde`}
-          />
-          <button
-            onClick={() => { setPhase("idle"); setSession(null); setGameState(null); setFinishReason(null); }}
-            className="w-full py-3 rounded-xl bg-[#FF3D7F] hover:bg-[#FF6B9D] text-white font-semibold transition"
-          >
-            Main Lagi
-          </button>
-          <Link
-            href="/dashboard/games"
-            className="w-full py-3 rounded-xl border border-white/10 bg-white/5 text-[#9B93B0] font-medium text-center transition hover:bg-white/10"
-          >
-            Kembali ke Games
-          </Link>
-        </div>
-      </div>
-      </>
-    );
-  }
+            finishType={
+              finishReason === "completed"
+                ? winner === "me" ? "win" : winner === "partner" ? "lose" : "draw"
+                : finishReason === "time_up" ? "time_up" : "cancelled"
+            }
+            title={
+              finishReason === "completed"
+                ? winner === "me" ? "Kamu Menang!" : winner === "partner" ? "Partner Menang" : "Seri!"
+                : finishReason === "time_up" ? "Waktu Habis" : "Sesi Berakhir"
+            }
+            subtitle={
+              finishReason === "completed"
+                ? `Kamu ${myDares} dare · Partner ${partnerDaresCount} dare`
+                : finishReason === "time_up"
+                ? "Sesi berakhir karena waktu habis"
+                : "Sesi dibatalkan"
+            }
+            shareSummary={`${myDares} dare vs ${partnerDaresCount} dare · ${rounds.length} ronde`}
+            onPlayAgain={handleReset}
+            showKonfetti={winner === "me" && finishReason === "completed"}
+            statsContent={
+              <>
+                {/* Round history */}
+                {rounds.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-xs text-[#5C5470] uppercase tracking-widest text-center mb-2">Rekap Ronde</p>
+                    {rounds.map((r, i) => {
+                      const status = r.loser === myRole ? "Kalah" : r.loser === "draw" ? "Draw" : "Menang";
+                      const color   = r.loser === myRole ? "text-red-400" : r.loser === "draw" ? "text-yellow-400" : "text-green-400";
+                      const icon    = r.loser === myRole ? "😔" : r.loser === "draw" ? "🤝" : "🏆";
+                      return (
+                        <div
+                          key={i}
+                          className={`grid grid-cols-[60px_1fr_72px] items-center gap-2 py-2 text-sm ${
+                            i < rounds.length - 1 ? "border-b border-white/5" : ""
+                          }`}
+                        >
+                          <span className="text-[#5C5470] text-xs">Ronde {r.round_number}</span>
+                          <span className="text-[#9B93B0] text-xs text-center">{MINIGAME_META[r.minigame_id]?.name ?? r.minigame_id}</span>
+                          <span className={`${color} text-xs font-semibold text-right flex items-center justify-end gap-1`}>
+                            {icon} {status}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-  return null;
+                <div className="flex justify-between text-xs text-[#5C5470]">
+                  <span>Dare kamu</span>
+                  <span className="font-bold text-[#FFF5F8]">{myDares}</span>
+                </div>
+                <div className="flex justify-between text-xs text-[#5C5470]">
+                  <span>Dare partner</span>
+                  <span className="font-bold text-[#FFF5F8]">{partnerDaresCount}</span>
+                </div>
+              </>
+            }
+          />
+        ) : null
+      }
+    />
+  );
 }
 
 export default function DareDerbyPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <span className="text-[#5C5470] text-sm animate-pulse">Memuat...</span>
-      </div>
-    }>
+    <Suspense fallback={<GamePageSkeleton />}>
       <DareDerbyContent />
     </Suspense>
   );

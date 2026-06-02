@@ -1,19 +1,18 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type { TodQuestion, TodSession } from "@/lib/types";
 import { SearchableSelect } from "@/components/SearchableSelect";
-import { VideoCall } from "@/components/VideoCall";
-import { GameWaitingLobby } from "@/components/games/GameWaitingLobby";
-import { RealtimeBanner } from "@/components/games/RealtimeBanner";
 import { toast } from "@/components/ui/Toast";
-import { Konfetti } from "@/components/ui/Konfetti";
-import { ShareResult } from "@/components/ui/ShareResult";
 import { sendBrowserNotification, requestNotificationPermission } from "@/lib/notifications";
+import { GamePageLayout, GamePageSkeleton } from "@/components/games/GamePageLayout";
+import { GamePlayingHeader } from "@/components/games/GamePlayingHeader";
+import { GameFinishedCard } from "@/components/games/GameFinishedCard";
+import { GameIdleLayout, GameRulesList } from "@/components/games/GameIdleLayout";
+import { GameSurrenderModal, GameSurrenderButton } from "@/components/games/GameSurrenderModal";
 
 type RealtimeSubscription = { unsubscribe: () => void };
 
@@ -27,7 +26,6 @@ type DoneResponse = { completed_question: TodQuestion | null; next_question: Tod
 type JoinResponse = { session: TodSession };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
 
 function QuestionTypeBadge({ type }: { type: "truth" | "dare" }) {
   if (type === "truth") {
@@ -76,6 +74,10 @@ function TodContent() {
   const [showVideo, setShowVideo] = useState(false);
   const [partnerOnline, setPartnerOnline] = useState(false);
   const [realtimeOk, setRealtimeOk] = useState(true);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+
+  // Pre-join lobby: menyimpan kode sesi yang belum di-join
+  const [preJoinCode, setPreJoinCode] = useState<string | null>(null);
 
   const [timeLeft, setTimeLeft] = useState<number>(0);
 
@@ -238,13 +240,37 @@ function TodContent() {
         setCategories(["romantis", "kenangan", "mimpi", "tantangan", "seru"]);
       }
 
+      // Cek URL join code — tampilkan pre-join lobby
+      const urlCode = (typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("join")
+        : null)?.toUpperCase() ?? "";
+
+      if (urlCode) {
+        window.history.replaceState({}, "", window.location.pathname);
+        setJoinCodeInput(urlCode);
+        setPreJoinCode(urlCode);
+        setIsHost(false);
+        phaseRef.current = "waiting";
+        setPhase("waiting");
+        return; // Jangan load active session, langsung ke lobby
+      }
+
       // Cek apakah ada sesi aktif — jika ada, langsung resume
       try {
         const json = await apiFetch<{ session: TodSession | null; is_host: boolean }>("/api/game/tod/session/active");
         if (json.data.session) {
+          const s = json.data.session;
           setIsHost(json.data.is_host);
-          applySession(json.data.session);
-          startRealtime(json.data.session.session_code, user?.id);
+          // Jika sesi masih waiting dan user bukan host → pre-join lobby
+          if (s.status === "waiting" && user?.id && s.host_user_id !== user.id) {
+            setJoinCodeInput(s.session_code);
+            setPreJoinCode(s.session_code);
+            phaseRef.current = "waiting";
+            setPhase("waiting");
+            return;
+          }
+          applySession(s);
+          startRealtime(s.session_code, user?.id);
         }
       } catch { /* tidak ada sesi aktif, biarkan idle */ }
     }
@@ -279,21 +305,21 @@ function TodContent() {
   }
 
   async function handleJoin() {
-    if (!joinCodeInput.trim() || loadingRef.current) return;
+    const code = (preJoinCode ?? joinCodeInput).trim().toUpperCase();
+    if (!code || loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true); setError(null);
-    const code = joinCodeInput.trim().toUpperCase();
     try {
       const json = await apiFetch<JoinResponse>("/api/game/tod/session/join", {
         method: "POST", body: JSON.stringify({ session_code: code }),
       });
+      setPreJoinCode(null);
       setIsHost(false);
       applySession(json.data.session);
       startRealtime(json.data.session.session_code, user?.id);
-      toast.success("Berhasil bergabung!", "Menunggu host memulai game...");
+      toast.success("Berhasil bergabung!", "Game dimulai!");
     } catch (e) {
       const msg = (e as Error).message;
-      setError(msg);
       toast.error("Gagal bergabung", msg);
     } finally {
       loadingRef.current = false;
@@ -320,7 +346,7 @@ function TodContent() {
         setCurrentQuestion(json.data.next_question);
       }
     } catch (e) {
-      setError((e as Error).message);
+      toast.error("Gagal", (e as Error).message);
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -357,7 +383,7 @@ function TodContent() {
         setCurrentQuestion(json.data.next_question);
       }
     } catch (e) {
-      setError((e as Error).message);
+      toast.error("Gagal", (e as Error).message);
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -369,10 +395,8 @@ function TodContent() {
     if (session) {
       const code = session.session_code;
       if (session.status === "waiting") {
-        // Host membatalkan sesi yang belum dimulai → cancel + refund coin
         fetch(`/api/game/tod/session/${code}/cancel`, { method: "POST" }).catch(() => {});
       } else if (session.status === "playing") {
-        // User keluar dari sesi yang sedang berjalan → tandai expired
         fetch(`/api/game/tod/session/${code}/expire`, { method: "POST" }).catch(() => {});
       }
     }
@@ -384,6 +408,25 @@ function TodContent() {
     setError(null);
     setFinishReason(null);
     setShowVideo(false);
+    setPreJoinCode(null);
+    setShowSurrenderConfirm(false);
+  }
+
+  async function handleSurrender() {
+    if (!session) return;
+    try {
+      await fetch(`/api/game/tod/session/${session.session_code}/expire`, { method: "POST" });
+      stopRealtime();
+      stopTimer();
+      setFinishReason("time_up");
+      phaseRef.current = "finished";
+      setPhase("finished");
+      setCurrentQuestion(null);
+    } catch (e) {
+      toast.error("Gagal menyerah", e instanceof Error ? e.message : "Terjadi kesalahan");
+    } finally {
+      setShowSurrenderConfirm(false);
+    }
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -394,46 +437,49 @@ function TodContent() {
   const totalSeconds = session?.expires_at
     ? Math.max(0, Math.round((new Date(session.expires_at).getTime() - (session.partner_joined_at ? new Date(session.partner_joined_at).getTime() : Date.now())) / 1000))
     : 600;
-  const timerPct = totalSeconds > 0 ? (timeLeft / totalSeconds) * 100 : 0;
-  const timerColor = timerPct > 50 ? "#34D399" : timerPct > 20 ? "#FBBF24" : "#FF3D7F";
-  const timerMM = String(Math.floor(timeLeft / 60)).padStart(2, "0");
-  const timerSS = String(timeLeft % 60).padStart(2, "0");
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  // Pre-join logic
+  const isHostUser = !!(session && user && session.host_user_id === user.id);
+  const isPartnerPreJoin = !!(preJoinCode && !session);
+  const displayCode = session?.session_code ?? preJoinCode ?? "";
+
   return (
-    <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-      {/* Ambient glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full blur-[120px]"
-        style={{ background: "radial-gradient(ellipse, rgba(255,61,127,0.10) 0%, transparent 70%)" }}
-      />
-
-      {/* Header */}
-      <div className="mb-8">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
-          <Link href="/dashboard/games" className="transition hover:text-[#9B93B0]">Games</Link>
-          {" / "}Truth or Dare
-        </p>
-        <div className="mt-2 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-[#FF3D7F]/30 to-[#818CF8]/20 text-xl">
-            🔥
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">Truth or Dare</h1>
-            <p className="text-sm text-[#5C5470]">Main bareng pasangan, jujur atau tantangan!</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── IDLE: Create / Join ─────────────────────────────────────────────── */}
-      {phase === "idle" && (
-        <div className="grid gap-5 md:grid-cols-2">
-          {/* Create card */}
-          <div className="overflow-hidden rounded-2xl border border-[#FF3D7F]/20 bg-[#111113]">
-            <div className="h-0.5 w-full bg-linear-to-r from-[#FF3D7F] to-[#818CF8]" />
-            <div className="p-6">
+    <GamePageLayout
+      gameName="Truth or Dare"
+      gameEmoji="🔥"
+      gameSlug="tod"
+      gameSubtitle="Main bareng pasangan, jujur atau tantangan!"
+      accentColor="#FF3D7F"
+      accentColorLight="#FF6B9D"
+      phase={phase}
+      // Waiting
+      sessionCode={displayCode}
+      isHost={!isPartnerPreJoin && isHostUser}
+      onCancel={handleLeave}
+      onJoin={(!isHostUser || isPartnerPreJoin) ? handleJoin : undefined}
+      joinLoading={loading}
+      expiryMinutes={10}
+      waitingError={error}
+      // Playing
+      realtimeOk={realtimeOk}
+      showVideo={showVideo}
+      videoSessionCode={session?.session_code}
+      videoGame="tod"
+      onVideoLeave={() => setShowVideo(false)}
+      // Idle
+      idleContent={
+        <GameIdleLayout
+          accentColor="#FF3D7F"
+          accentColorLight="#FF6B9D"
+          joinCodeInput={joinCodeInput}
+          onJoinCodeChange={setJoinCodeInput}
+          onJoin={handleJoin}
+          joinLoading={loading}
+          joinDisabled={loading || joinCodeInput.trim().length < 4}
+          createContent={
+            <>
               <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#FF6B9D]">Buat Sesi Baru</p>
 
               {/* Header icon+text */}
@@ -466,13 +512,6 @@ function TodContent() {
                   />
                 </div>
 
-                {error && (
-                  <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/8 px-3 py-2.5 text-xs text-red-400">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                    {error}
-                  </div>
-                )}
-
                 <button
                   type="button"
                   onClick={handleCreate}
@@ -492,296 +531,158 @@ function TodContent() {
                 </button>
                 <p className="text-center text-[10px] text-[#5C5470]">Memotong 1 coin per sesi</p>
               </div>
-            </div>
-          </div>
-
-          {/* Join card */}
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-            <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#5C5470]">Gabung Game</p>
-
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#818CF8]/15">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
-                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" strokeLinecap="round" />
-                  <polyline points="10 17 15 12 10 7" />
-                  <line x1="15" y1="12" x2="3" y2="12" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-semibold text-[#FFF5F8]">Join Sesi Partner</p>
-                <p className="text-xs text-[#5C5470]">Masukkan session code dari partner</p>
-              </div>
-            </div>
-
-            <input
-              value={joinCodeInput}
-              onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-              placeholder="Masukkan kode sesi"
-              maxLength={12}
-              className="w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-3 font-mono text-base font-bold tracking-widest text-[#FFF5F8] outline-none placeholder:text-[#5C5470] placeholder:font-normal placeholder:tracking-normal focus:border-[#818CF8]/40 focus:ring-1 focus:ring-[#818CF8]/20 transition"
+            </>
+          }
+          joinContent={
+            <GameRulesList rules={[
+              "Setiap giliran ambil satu kartu",
+              "Pilih Truth atau jawab Dare-nya",
+              "Partner bisa lihat & konfirmasi selesai",
+              "Selesaikan semua kartu untuk menang!",
+              "Durasi sesi: maksimal 10 menit",
+            ]} />
+          }
+        />
+      }
+      // Playing
+      playingContent={
+        session ? (
+          <div className="space-y-4">
+            {/* Playing header */}
+            <GamePlayingHeader
+              sessionCode={session.session_code}
+              statusText={`${completedQ}/${totalQ} pertanyaan`}
+              statusColor="#9B93B0"
+              timerSeconds={timeLeft}
+              timerTotalSeconds={totalSeconds}
+              partnerOnline={partnerOnline}
+              showVideo={showVideo}
+              onToggleVideo={() => setShowVideo((v) => !v)}
+              onLeave={handleLeave}
+              realtimeOk={realtimeOk}
             />
-            <button
-              type="button"
-              onClick={handleJoin}
-              disabled={loading || joinCodeInput.trim().length < 4}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#818CF8]/30 bg-[#818CF8]/10 px-5 py-3 text-sm font-bold text-[#818CF8] transition hover:bg-[#818CF8]/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                </svg>
-              ) : null}
-              {loading ? "Bergabung..." : "Bergabung"}
-            </button>
 
-            {/* Info rules */}
-            <div className="mt-5 space-y-2 border-t border-white/[0.06] pt-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5C5470]">Cara Main</p>
-              {[
-                "Setiap giliran ambil satu kartu",
-                "Pilih Truth atau jawab Dare-nya",
-                "Partner bisa lihat & konfirmasi selesai",
-                "Selesaikan semua kartu untuk menang!",
-                "Durasi sesi: maksimal 10 menit",
-              ].map((rule, i) => (
-                <p key={i} className="flex items-start gap-2 text-[10px] text-[#9B93B0]">
-                  <span className="mt-0.5 text-[#5C5470]">•</span> {rule}
-                </p>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── WAITING: Lobi ──────────────────────────────────────────────────────── */}
-      {phase === "waiting" && session && (
-        <>
-          <GameWaitingLobby
-            sessionCode={session.session_code}
-            gameName="Truth or Dare"
-            gameEmoji="🔥"
-            isHost={isHost}
-            onCancel={handleLeave}
-            onJoin={!isHost ? () => { setJoinCodeInput(session.session_code); handleJoin(); } : undefined}
-            joinLoading={loading}
-            expiryMinutes={10}
-          />
-          {error && (
-            <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              {error}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ─── PLAYING: Game ───────────────────────────────────────────────────── */}
-      {phase === "playing" && session && (
-        <div className="space-y-4">
-          <RealtimeBanner realtimeOk={realtimeOk} />
-          {/* Game header */}
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] px-5 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs tracking-widest text-[#5C5470]">{session.session_code}</span>
-                <span className="h-1 w-1 rounded-full bg-[#5C5470]" />
-                <span className="text-xs text-[#9B93B0]">{completedQ}/{totalQ} pertanyaan</span>
-                <span className="flex items-center gap-1.5 text-[10px]" title={partnerOnline ? "Partner online" : "Partner offline"}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${partnerOnline ? "bg-[#34D399]" : "bg-[#5C5470]"}`} />
-                  <span className={partnerOnline ? "text-[#34D399]" : "text-[#5C5470]"}>
-                    {partnerOnline ? "Online" : "Offline"}
-                  </span>
-                </span>
-            </div>
-              <div className="flex items-center gap-3">
-                {/* Session timer */}
-                <span
-                  className="font-mono text-sm font-bold tabular-nums"
-                  style={{ color: timerColor }}
-                >
-                  {timerMM}:{timerSS}
-                </span>
-                {/* Video call toggle */}
-                <button
-                  type="button"
-                  onClick={() => setShowVideo((v) => !v)}
-                  title={showVideo ? "Tutup video call" : "Buka video call"}
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg border transition ${
-                    showVideo
-                      ? "border-[#34D399]/40 bg-[#34D399]/15 text-[#34D399]"
-                      : "border-white/10 bg-white/5 text-[#5C5470] hover:text-[#9B93B0]"
-                  }`}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLeave}
-                  className="text-xs text-[#5C5470] transition hover:text-[#9B93B0]"
-                >
-                  Keluar
-                </button>
-              </div>
-            </div>
-            {/* Timer bar */}
-            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/5">
+            {/* Progress bar pertanyaan */}
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
               <div
-                className="h-full rounded-full transition-all duration-1000"
-                style={{ width: `${timerPct}%`, backgroundColor: timerColor }}
+                className="h-full rounded-full bg-linear-to-r from-[#FF3D7F] to-[#818CF8] transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
               />
             </div>
-          </div>
 
-          {/* Progress bar pertanyaan */}
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
-            <div
-              className="h-full rounded-full bg-linear-to-r from-[#FF3D7F] to-[#818CF8] transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
+            {/* Question card */}
+            {currentQuestion ? (
+              <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113]">
+                <div
+                  className="h-1 w-full"
+                  style={{
+                    background:
+                      currentQuestion.type === "truth"
+                        ? "linear-gradient(90deg, #818CF8, #A78BFA)"
+                        : "linear-gradient(90deg, #FF3D7F, #FF6B9D)",
+                  }}
+                />
+                <div className="p-5 sm:p-8">
+                  {/* Type + category */}
+                  <div className="flex items-center gap-2">
+                    <QuestionTypeBadge type={currentQuestion.type} />
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium text-[#5C5470] capitalize">
+                      {currentQuestion.category}
+                    </span>
+                  </div>
 
-          {/* Question card */}
-          {currentQuestion ? (
-            <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113]">
-              <div
-                className="h-1 w-full"
-                style={{
-                  background:
-                    currentQuestion.type === "truth"
-                      ? "linear-gradient(90deg, #818CF8, #A78BFA)"
-                      : "linear-gradient(90deg, #FF3D7F, #FF6B9D)",
-                }}
-              />
-              <div className="p-5 sm:p-8">
-                {/* Type + category */}
-                <div className="flex items-center gap-2">
-                  <QuestionTypeBadge type={currentQuestion.type} />
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium text-[#5C5470] capitalize">
-                    {currentQuestion.category}
-                  </span>
-                </div>
+                  {/* Question text */}
+                  <p className="mt-6 text-xl font-semibold leading-relaxed text-[#FFF5F8]">
+                    {currentQuestion.question ?? "Pertanyaan dimuat…"}
+                  </p>
 
-                {/* Question text */}
-                <p className="mt-6 text-xl font-semibold leading-relaxed text-[#FFF5F8]">
-                  {currentQuestion.question ?? "Pertanyaan dimuat…"}
-                </p>
+                  {/* Question number */}
+                  <p className="mt-4 text-xs text-[#5C5470]">
+                    Pertanyaan ke-{currentQuestion.order} dari {totalQ}
+                  </p>
 
-                {/* Question number */}
-                <p className="mt-4 text-xs text-[#5C5470]">
-                  Pertanyaan ke-{currentQuestion.order} dari {totalQ}
-                </p>
-
-                {/* Action buttons */}
-                <div className="mt-8 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleDone}
-                    disabled={loading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.25)] transition hover:bg-[#FF6B9D] disabled:opacity-60"
-                  >
-                    {loading ? (
-                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                      </svg>
-                    ) : (
+                  {/* Action buttons */}
+                  <div className="mt-8 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleDone}
+                      disabled={loading}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.25)] transition hover:bg-[#FF6B9D] disabled:opacity-60"
+                    >
+                      {loading ? (
+                        <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                      {loading ? "Menyimpan…" : "Selesai & Lanjut"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={loading}
+                      title="Lewati pertanyaan ini"
+                      className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-60"
+                    >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <polyline points="20 6 9 17 4 12" />
+                        <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                    )}
-                    {loading ? "Menyimpan…" : "Selesai & Lanjut"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    disabled={loading}
-                    title="Lewati pertanyaan ini"
-                    className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-60"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Skip
-                  </button>
+                      Skip
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            /* Waiting for partner to load first question */
-            <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-10 text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#818CF8]/10">
-                <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                </svg>
-              </div>
-              <p className="font-medium text-[#9B93B0]">Menunggu pertanyaan pertama…</p>
-              <p className="mt-1 text-xs text-[#5C5470]">Host akan memulai sebentar lagi.</p>
-            </div>
-          )}
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              {error}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ─── FINISHED ────────────────────────────────────────────────────────── */}
-      {phase === "finished" && (
-        <>
-          <Konfetti active={finishReason !== "time_up"} />
-          <div className="overflow-hidden rounded-2xl border bg-[#111113]"
-          style={{ borderColor: finishReason === "time_up" ? "rgba(251,191,36,0.25)" : "rgba(52,211,153,0.20)" }}
-        >
-          <div
-            className="h-1 w-full"
-            style={{
-              background: finishReason === "time_up"
-                ? "linear-gradient(90deg, #FBBF24, #F59E0B)"
-                : "linear-gradient(90deg, #34D399, #6EE7B7)",
-            }}
-          />
-          <div className="p-6 sm:p-10 text-center">
-            {finishReason === "time_up" ? (
-              <>
-                <div className="mb-4 text-5xl">⏰</div>
-                <h2 className="text-2xl font-bold text-[#FFF5F8]">Waktu Habis!</h2>
-                <p className="mt-2 text-sm text-[#9B93B0]">
-                  Waktu sesi telah habis. Kalian berhasil menjawab{" "}
-                  <span className="font-semibold text-[#FBBF24]">{completedQ} dari {totalQ} pertanyaan</span>.
-                </p>
-              </>
             ) : (
-              <>
-                <div className="mb-4 text-5xl">🎉</div>
-                <h2 className="text-2xl font-bold text-[#FFF5F8]">Permainan Selesai!</h2>
-                <p className="mt-2 text-sm text-[#9B93B0]">
-                  Kalian berhasil menjawab semua{" "}
-                  <span className="font-semibold text-[#34D399]">{completedQ} pertanyaan</span>. Seru kan?
-                </p>
-              </>
+              /* Waiting for partner to load first question */
+              <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-10 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#818CF8]/10">
+                  <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                  </svg>
+                </div>
+                <p className="font-medium text-[#9B93B0]">Menunggu pertanyaan pertama…</p>
+                <p className="mt-1 text-xs text-[#5C5470]">Host akan memulai sebentar lagi.</p>
+              </div>
             )}
 
-            {/* Stats card */}
-            <div
-              className="mx-auto mt-6 max-w-xs rounded-2xl border p-4 text-left space-y-3"
-              style={{
-                borderColor: finishReason === "time_up" ? "rgba(251,191,36,0.15)" : "rgba(52,211,153,0.15)",
-                background: finishReason === "time_up" ? "rgba(251,191,36,0.07)" : "rgba(52,211,153,0.07)",
-              }}
-            >
+            {/* Surrender button */}
+            <GameSurrenderButton onClick={() => setShowSurrenderConfirm(true)} />
+
+            {/* Surrender confirm modal */}
+            {showSurrenderConfirm && (
+              <GameSurrenderModal
+                hasWinner={false}
+                warningText="Sesi akan ditandai selesai"
+                onConfirm={handleSurrender}
+                onCancel={() => setShowSurrenderConfirm(false)}
+              />
+            )}
+          </div>
+        ) : null
+      }
+      // Finished
+      finishedContent={
+        <GameFinishedCard
+          gameName="Truth or Dare"
+          gameEmoji="🔥"
+          finishType={finishReason === "time_up" ? "time_up" : "complete"}
+          title={finishReason === "time_up" ? "Waktu Habis!" : "Permainan Selesai!"}
+          subtitle={
+            finishReason === "time_up"
+              ? `Waktu sesi telah habis. Kalian berhasil menjawab ${completedQ} dari ${totalQ} pertanyaan.`
+              : `Kalian berhasil menjawab semua ${completedQ} pertanyaan. Seru kan?`
+          }
+          shareSummary={`${completedQ}/${totalQ} pertanyaan dijawab`}
+          onPlayAgain={handleLeave}
+          statsContent={
+            <>
               {/* Progress bar */}
               <div>
-                <div className="flex justify-between text-xs mb-1.5"
+                <div
+                  className="flex justify-between text-xs mb-1.5"
                   style={{ color: finishReason === "time_up" ? "#FBBF24" : "#34D399" }}
                 >
                   <span>Pertanyaan dijawab</span>
@@ -811,7 +712,6 @@ function TodContent() {
                   <span className="font-mono text-[#9B93B0]">{session.session_code}</span>
                 </div>
               )}
-              {/* Tidak ada menang/kalah di ToD */}
               <div className="flex justify-between text-xs text-[#5C5470]">
                 <span>Hasil</span>
                 <span
@@ -821,73 +721,18 @@ function TodContent() {
                   {finishReason === "time_up" ? "Waktu Habis" : "Selesai"}
                 </span>
               </div>
-            </div>
-
-            <div className="mt-8 flex flex-col gap-3">
-              <ShareResult
-                gameName="Truth or Dare"
-                gameEmoji="🔥"
-                result={finishReason === "time_up" ? "complete" : "complete"}
-                summary={`${completedQ}/${totalQ} pertanyaan dijawab`}
-              />
-              <button
-                type="button"
-                onClick={handleLeave}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.25)] transition hover:bg-[#FF6B9D]"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M1 4v6h6M23 20v-6h-6" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                Main Lagi
-              </button>
-              <Link
-                href="/dashboard/games/history"
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 8v4l3 3" strokeLinecap="round" strokeLinejoin="round" />
-                  <circle cx="12" cy="12" r="10" />
-                </svg>
-                Lihat History
-              </Link>
-              <Link
-                href="/dashboard/games"
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10"
-              >
-                Kembali ke Games
-              </Link>
-            </div>
-          </div>
-        </div>
-        </>
-      )}
-
-      {/* ─── VIDEO CALL (floating panel, saat game berlangsung) ───────────────── */}
-      {phase === "playing" && showVideo && session?.session_code && (
-        <VideoCall
-          sessionCode={session.session_code}
-          onLeave={() => setShowVideo(false)}
+            </>
+          }
         />
-      )}
-    </main>
+      }
+    />
   );
 }
 
 // ── Wrapper with Suspense ──────────────────────────────────────────────────────
 export default function TodPage() {
   return (
-    <Suspense fallback={
-      <main className="relative mx-auto w-full max-w-md px-6 py-12 lg:px-8">
-        <div className="rounded-2xl border border-white/10 bg-[#111113] p-6 text-center">
-          <div className="animate-pulse space-y-4">
-            <div className="h-12 w-12 mx-auto rounded-lg bg-white/10"></div>
-            <div className="h-4 w-24 mx-auto rounded bg-white/10"></div>
-            <div className="h-3 w-32 mx-auto rounded bg-white/10"></div>
-          </div>
-        </div>
-      </main>
-    }>
+    <Suspense fallback={<GamePageSkeleton />}>
       <TodContent />
     </Suspense>
   );
