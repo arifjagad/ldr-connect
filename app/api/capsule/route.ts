@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+
+const postSchema = z.object({
+  message:  z.string().min(1, "Pesan tidak boleh kosong").max(2000, "Pesan maksimal 2000 karakter").trim(),
+  opens_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal harus YYYY-MM-DD"),
+});
 
 /**
  * GET /api/capsule — list semua capsule milik user (sent + received)
@@ -46,13 +52,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => ({}));
-  const { message, opens_at } = body as { message?: string; opens_at?: string };
-
-  if (!message?.trim()) {
-    return NextResponse.json({ success: false, message: "Pesan tidak boleh kosong", data: null }, { status: 422 });
+  let body: z.infer<typeof postSchema>;
+  try {
+    const raw = await req.json().catch(() => ({}));
+    body = postSchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ success: false, message: e.issues[0].message, data: null }, { status: 422 });
+    }
+    return NextResponse.json({ success: false, message: "Request tidak valid", data: null }, { status: 400 });
   }
-  if (!opens_at || new Date(opens_at) <= new Date()) {
+
+  const { message, opens_at } = body;
+
+  if (new Date(opens_at) <= new Date()) {
     return NextResponse.json({ success: false, message: "Tanggal buka harus di masa depan", data: null }, { status: 422 });
   }
 

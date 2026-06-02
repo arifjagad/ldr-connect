@@ -5,6 +5,7 @@ import { createDailyRoom } from "@/lib/daily";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { broadcastGameInvite } from "@/lib/broadcast-invite";
 import { sendPushToUser } from "@/lib/push";
+import { generateSessionCode, cryptoShuffle } from "@/lib/crypto-utils";
 
 const bodySchema = z.object({
   categories:     z.array(z.string().min(1).max(50)).max(10).default([]),
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+  const shuffled = cryptoShuffle(allQuestions);
   const selected = shuffled.slice(0, questionCount);
 
   const questions = selected.map((q, i) => ({
@@ -106,9 +107,7 @@ export async function POST(request: NextRequest) {
     is_completed: false,
   }));
 
-  const sessionCode = Array.from({ length: 12 }, () =>
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]
-  ).join("");
+  const sessionCode = generateSessionCode(12);
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 

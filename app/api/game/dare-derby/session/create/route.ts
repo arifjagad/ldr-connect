@@ -6,6 +6,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { broadcastGameInvite } from "@/lib/broadcast-invite";
 import { sendPushToUser } from "@/lib/push";
 import type { DareDerbyBoardConfig, DareDerbyGameState } from "@/lib/types";
+import { generateSessionCode, cryptoShuffle, cryptoRandInt } from "@/lib/crypto-utils";
 
 const bodySchema = z.object({
   total_rounds: z.union([z.literal(5), z.literal(7), z.literal(10)]),
@@ -80,9 +81,9 @@ export async function POST(request: NextRequest) {
   if (sequence.length < body.total_rounds && sequence.length > 0) {
     const pool = [...sequence];
     while (sequence.length < body.total_rounds) {
-      sequence.push(pool[Math.floor(Math.random() * pool.length)]);
+      sequence.push(pool[cryptoRandInt(0, pool.length - 1)]);
     }
-    sequence = sequence.sort(() => Math.random() - 0.5);
+    sequence = cryptoShuffle(sequence);
   }
 
   // 🛠 DEBUG: override sequence jika DEBUG_FORCE_MINIGAME diisi
@@ -109,9 +110,7 @@ export async function POST(request: NextRequest) {
     last_round_result: null,
   };
 
-  const sessionCode = Array.from({ length: 12 }, () =>
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]
-  ).join("");
+  const sessionCode = generateSessionCode(12);
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 

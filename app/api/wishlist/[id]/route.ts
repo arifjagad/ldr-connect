@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+
+const patchSchema = z.object({
+  title:       z.string().min(1).max(200).trim().optional(),
+  description: z.string().max(1000).trim().nullable().optional(),
+  category:    z.enum(["virtual", "offline", "dream", "gift", "other"]).optional(),
+});
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,18 +23,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => ({}));
-  const { title, description, category } = body as {
-    title?: string;
-    description?: string;
-    category?: string;
-  };
+  let body: z.infer<typeof patchSchema>;
+  try {
+    const raw = await req.json().catch(() => ({}));
+    body = patchSchema.parse(raw);
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ success: false, message: e.issues[0].message, data: null }, { status: 422 });
+    }
+    return NextResponse.json({ success: false, message: "Request tidak valid", data: null }, { status: 400 });
+  }
 
-  const validCategories = ["virtual", "offline", "dream", "gift", "other"];
+  const { title, description, category } = body;
+
   const updates: Record<string, unknown> = {};
-  if (title?.trim()) updates.title = title.trim();
-  if (description !== undefined) updates.description = description?.trim() || null;
-  if (category && validCategories.includes(category)) updates.category = category;
+  if (title) updates.title = title;
+  if (description !== undefined) updates.description = description ?? null;
+  if (category) updates.category = category;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ success: false, message: "Tidak ada data yang diubah", data: null }, { status: 422 });

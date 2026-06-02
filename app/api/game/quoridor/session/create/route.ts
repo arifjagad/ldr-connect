@@ -5,6 +5,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { broadcastGameInvite } from "@/lib/broadcast-invite";
 import { sendPushToUser } from "@/lib/push";
 import type { QuoridorGameState } from "@/lib/types";
+import { generateSessionCode } from "@/lib/crypto-utils";
 
 /** State awal: host di baris 0 kolom 4, partner di baris 8 kolom 4 */
 const initialGameState: QuoridorGameState = {
@@ -63,10 +64,8 @@ export async function POST(_request: NextRequest) {
   const coinCost           = settings?.coin_cost ?? 3;
   const gameDurationMinutes = (settings as { expires_in_minutes?: number } | null)?.expires_in_minutes ?? 30;
 
-  // Generate session code (12 karakter acak)
-  const sessionCode = Array.from({ length: 12 }, () =>
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]
-  ).join("");
+  // Generate session code (12 karakter acak — CSPRNG)
+  const sessionCode = generateSessionCode(12);
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 menit menunggu partner
 

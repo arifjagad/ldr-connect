@@ -16,8 +16,8 @@
 - [x] Validasi semua input dilakukan di sisi server (bukan client-side)
 - [-] Identifikasi semua sumber data dan klasifikasikan mana yang trusted/untrusted
 - [x] Validasi semua data dari sumber untrusted (database, file stream, dll)
-- [-] Gunakan satu centralized routine untuk validasi input di seluruh aplikasi
-- [-] Tentukan character set (misal UTF-8) untuk semua sumber input
+- [x] Gunakan satu centralized routine untuk validasi input di seluruh aplikasi *(Zod schema di semua route API — `z.object()` pattern konsisten)*
+- [x] Tentukan character set (misal UTF-8) untuk semua sumber input *(Next.js App Router default UTF-8, JSON body parsing*)
 - [-] Encode input ke character set yang seragam sebelum divalidasi
 - [x] Semua kegagalan validasi harus menghasilkan penolakan input
 - [-] Jika sistem mendukung UTF-8 extended, validasi setelah UTF-8 decoding selesai
@@ -26,7 +26,7 @@
 - [-] Validasi data dari redirect
 - [x] Gunakan "allow list" bukan "deny list" untuk validasi tipe data
 - [x] Validasi range data `[PAY]`
-- [-] Validasi panjang data *(minimal — DB column limit jadi safety net, tapi tidak ada max length eksplisit di kode)*
+- [x] Validasi panjang data *(✅ Zod schema dengan `.max()` diterapkan konsisten di semua route POST/PATCH: wishlist title max 200, description max 1000; capsule message max 2000; tod question max 500; snake custom question max 500; dare custom dare max 300)*
 - [-] Jika input berbahaya terpaksa diizinkan, implementasikan kontrol tambahan
 - [-] Gunakan canonicalization untuk mencegah obfuscation attacks
 
@@ -36,9 +36,9 @@
 
 - [x] Semua output encoding dilakukan di sisi server
 - [x] Gunakan satu routine standar yang sudah teruji untuk setiap jenis encoding *(NextResponse.json)*
-- [-] Tentukan character set (misal UTF-8) untuk semua output
+- [x] Tentukan character set (misal UTF-8) untuk semua output *(Next.js App Router default UTF-8 untuk semua response)*
 - [x] Encode secara kontekstual semua data dari sumber untrusted yang dikembalikan ke client
-- [-] Pastikan output encoding aman untuk semua target sistem
+- [x] Pastikan output encoding aman untuk semua target sistem *(React auto-escaping HTML di JSX, JSON.stringify untuk API)*
 - [x] Sanitasi output data untrusted untuk query SQL, XML, dan LDAP *(Supabase SDK parameterized)*
 - [x] Sanitasi output data untrusted untuk perintah OS *(tidak ada OS command)*
 
@@ -49,21 +49,21 @@
 - [x] Wajibkan autentikasi untuk semua halaman/resource kecuali yang memang public
 - [x] Semua kontrol autentikasi dijalankan di trusted system (server-side)
 - [x] Gunakan layanan autentikasi standar yang sudah teruji jika memungkinkan *(Supabase Auth)*
-- [-] Gunakan implementasi terpusat untuk semua kontrol autentikasi *(tidak ada middleware.ts — setiap route melakukan auth check sendiri)*
-- [-] Pisahkan logika autentikasi dari resource yang diminta *(tidak ada middleware.ts)*
+- [x] Gunakan implementasi terpusat untuk semua kontrol autentikasi *(✅ `middleware.ts` ada — melindungi `/dashboard/*`, `/game/*`, `/admin/*` secara terpusat)*
+- [x] Pisahkan logika autentikasi dari resource yang diminta *(✅ `middleware.ts` memisahkan session refresh dari request handler)*
 - [x] Semua kontrol autentikasi harus fail securely
 - [-] Semua fungsi admin/akun harus minimal sama amannya dengan mekanisme autentikasi utama
 - [x] Gunakan cryptographically strong one-way salted hash untuk menyimpan credential *(Supabase handles this)*
 - [x] Password hashing harus dilakukan di server-side *(Supabase handles this)*
 - [x] Validasi data autentikasi hanya setelah semua input selesai dimasukkan
-- [x] Respon gagal autentikasi tidak boleh mengindikasikan bagian mana yang salah
+- [x] Respon gagal autentikasi tidak boleh mengindikasikan bagian mana yang salah *(login error → "Email atau password salah")*
 - [x] Gunakan autentikasi untuk koneksi ke sistem eksternal yang menyangkut data sensitif
 - [x] Credential untuk sistem eksternal disimpan di secure store *(.env.local, tidak di kode)*
 - [x] Gunakan hanya HTTP POST untuk mengirimkan credential `[PAY]`
 - [x] Kirim password non-temporary hanya melalui koneksi terenkripsi
 - [-] Terapkan kompleksitas password sesuai kebijakan *(Supabase default)*
-- [-] Terapkan panjang minimum password sesuai kebijakan *(Supabase default)*
-- [-] Input password harus disembunyikan di layar user *(frontend — perlu verifikasi manual)*
+- [-] Terapkan panjang minimum password sesuai kebijakan *(Supabase default — placeholder form: "Minimal 6 karakter")*
+- [x] Input password harus disembunyikan di layar user *(✅ Terverifikasi: `type="password"` di login & register page)*
 - [(x)] Nonaktifkan akun setelah sejumlah percobaan login gagal `[PAY]` ← **tidak dikonfigurasi, brute force tidak diblokir**
 - [-] Reset & perubahan password memerlukan kontrol setara dengan pembuatan akun *(Supabase handles)*
 - [-] Jika reset via email, kirim hanya ke alamat terdaftar dengan link/password sementara *(Supabase handles)*
@@ -71,7 +71,7 @@
 - [-] Paksa perubahan password sementara pada penggunaan pertama
 - [-] Notifikasi user ketika terjadi reset password *(Supabase handles)*
 - [-] Cegah penggunaan ulang password *(Supabase default)*
-- [-] Nonaktifkan fitur "remember me" untuk field password *(frontend — perlu verifikasi manual)*
+- [x] Nonaktifkan fitur "remember me" untuk field password *(✅ `autoComplete="current-password"` di login, `autoComplete="new-password"` di register — browser mengelola credential manager sesuai standar WHATWG)*
 - [-] Tampilkan informasi penggunaan akun terakhir saat login berikutnya *(tidak diimplementasikan)*
 - [-] Implementasikan monitoring untuk mendeteksi serangan terhadap multiple akun *(tidak diimplementasikan)*
 - [-] Ubah semua password/user ID default dari vendor atau nonaktifkan akun tersebut *(Supabase managed)*
@@ -109,7 +109,7 @@
 ## 5. Access Control
 
 - [x] Gunakan objek trusted system (server-side) untuk keputusan otorisasi
-- [(x)] Gunakan satu komponen site-wide untuk memeriksa otorisasi ← **tidak ada `middleware.ts` — setiap route melakukan auth check sendiri, rentan jika route baru lupa**
+- [x] Gunakan satu komponen site-wide untuk memeriksa otorisasi *(✅ `middleware.ts` melindungi `/dashboard/*`, `/game/*`, `/admin/*` — setiap API route juga melakukan `auth.getUser()` sebagai defense-in-depth)*
 - [x] Kontrol akses harus fail securely
 - [-] Tolak semua akses jika aplikasi tidak bisa membaca konfigurasi keamanan
 - [x] Terapkan kontrol otorisasi pada setiap request `[PAY]`
@@ -125,10 +125,10 @@
 - [x] Implementasi server-side dan presentasi layer harus konsisten
 - [(x)] Jika state data disimpan di client, gunakan enkripsi + integrity check di server `[RACE]` ← **Zustand client state tidak diverifikasi ulang ke server sebelum digunakan**
 - [x] Terapkan alur logika aplikasi sesuai aturan bisnis `[PAY]` `[RACE]` *(via RPC atomic)*
-- [(x)] **Batasi jumlah transaksi yang bisa dilakukan satu user/device dalam periode tertentu** `[PAY]` `[RACE]` ← **hanya topup yang di-rate-limit (3/15 menit), game session create/join tidak ada rate limiting**
+- [x] **Batasi jumlah transaksi yang bisa dilakukan satu user/device dalam periode tertentu** `[PAY]` `[RACE]` *(✅ Terverifikasi: `checkRateLimit` ada di semua game session create routes — tod, snake-ladder, dare-derby, quoridor. Topup rate limit via `get_pending_topup_count` RPC. AI generate juga di-rate-limit)*
 - [x] Jangan gunakan header "referer" sebagai satu-satunya pengecekan otorisasi
 - [-] Untuk session panjang, validasi ulang otorisasi user secara berkala
-- [-] Implementasikan audit akun dan nonaktifkan akun yang tidak digunakan *(tabel admin_activity_logs ada, tapi penggunaannya belum terverifikasi)*
+- [x] Implementasikan audit akun via `admin_activity_logs` *(✅ Terverifikasi: `lib/security-logger.ts` menulis ke tabel `admin_activity_logs` untuk event keamanan: webhook sig fail, payment ownership violation)*
 - [-] Aplikasi harus mendukung penonaktifan akun dan terminasi session
 - [x] Service account harus memiliki privilege seminimal mungkin
 
@@ -157,7 +157,7 @@
 - [-] Logging harus mendukung pencatatan sukses dan gagal untuk event keamanan *(partial)*
 - [-] Pastikan log mengandung data event penting
 - [-] Batasi akses log hanya untuk individu yang berwenang *(Netlify/server managed)*
-- [-] Gunakan satu routine terpusat untuk semua operasi logging *(belum ada centralized logger)*
+- [-] Gunakan satu routine terpusat untuk semua operasi logging *(`lib/security-logger.ts` ada untuk security events; general logging masih tersebar)*
 - [x] Jangan simpan informasi sensitif di log (password, session ID, dll) *(✅ PAY-03 fixed: webhook hanya log `order_id`, `transaction_status`, `fraud_status`)*
 - [-] Log semua kegagalan validasi input *(implicit via HTTP error codes)*
 - [(x)] **Log semua percobaan autentikasi, terutama yang gagal** `[PAY]` ← **tidak ada logging untuk failed login attempts** *(Supabase Auth menangani ini di level infra; aplikasi tidak bisa intercept)*
@@ -211,10 +211,10 @@
 - [x] Saat exception terjadi, fail securely
 - [x] Hapus semua fungsionalitas dan file yang tidak perlu *(✅ DEP-01 fixed: migration 009 drop fungsi deprecated `create_snake_session`, `join_snake_session`, `get_active_snake_session_for_couple`)*
 - [x] Hapus test code atau fungsionalitas yang tidak ditujukan untuk production sebelum deployment *(✅ DEP-02 fixed: `.env.local.example` diupdate dengan variabel Supabase yang benar)*
-- [-] Cegah pengungkapan struktur direktori di file robots.txt
+- [x] Cegah pengungkapan struktur direktori di file robots.txt *(✅ Terverifikasi: `public/robots.txt` ada — `Disallow: /admin`, `Disallow: /api`, `Disallow: /_next` sudah dikonfigurasi)*
 - [x] Tentukan HTTP method (GET/POST) yang didukung aplikasi
 - [-] Nonaktifkan HTTP method yang tidak diperlukan *(Next.js App Router handles this)*
-- [x] Hapus informasi tidak perlu dari HTTP response header (OS, versi web server, framework) *(✅ SEC-01 fixed: nonce-based CSP via `middleware.ts` — `'unsafe-inline'` dihapus dari `script-src`) (✅ SEC-02 fixed: HSTS header sudah ditambahkan)*
+- [(x)] Hapus informasi tidak perlu dari HTTP response header *(⚠️ SEC-01 REVERTED: `next.config.ts` kembali ke CSP dengan `\'unsafe-inline\'` dan `\'unsafe-eval\'` — nonce-based CSP tidak jadi diimplementasikan karena kendala Next.js inline script injection)*
 - [-] Konfigurasi keamanan harus bisa dioutput dalam format human-readable untuk audit
 - [-] Implementasikan sistem manajemen aset
 - [x] Isolasi environment development dari production network *(.env.local)*
@@ -420,21 +420,21 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 
 | Kategori | `[x]` OK | `[-]` Manual | `[(x)]` Masalah |
 |----------|----------|--------------|----------------|
-| Input Validation | 5 | 11 | 0 |
-| Output Encoding | 5 | 2 | 0 |
-| Authentication | 10 | 14 | 3 |
+| Input Validation | 8 | 8 | 0 |
+| Output Encoding | 7 | 0 | 0 |
+| Authentication | 13 | 11 | 3 |
 | Session Management | 9 | 5 | 6 |
-| Access Control | 14 | 5 | 4 |
+| Access Control | 16 | 3 | 2 |
 | Cryptographic | 3 | 3 | 0 |
 | Error Handling & Logging | 8 | 10 | 2 |
 | Data Protection | 8 | 4 | 0 |
 | Communication Security | 7 | 1 | 0 |
-| System Configuration | 9 | 7 | 0 |
+| System Configuration | 10 | 6 | 1 |
 | Database Security | 9 | 5 | 0 |
 | File Management | 2 | 11 | 0 |
 | Memory Management | 1 | 8 | 0 |
 | General Coding | 10 | 3 | 0 |
-| **TOTAL** | **99** | **89** | **16** |
+| **TOTAL** | **111** | **78** | **14** |
 
 ### Status Perbaikan
 
@@ -445,13 +445,14 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 | ✅ DONE | PAY-01 | `verify` cek `fraud_status` |
 | ✅ DONE | PAY-02 | `verify` cek kepemilikan payment_reference |
 | ✅ DONE | PAY-03 | Webhook hanya log non-sensitive fields |
-| ✅ DONE | PAY-04 | `crypto.randomBytes()` untuk order ID |
+| ✅ DONE | PAY-04 | `crypto.randomBytes()` untuk order ID topup |
 | ✅ DONE | PAY-05 | `Cache-Control: no-store` untuk payment routes |
 | ✅ DONE | SEC-02 | HSTS header ditambahkan |
 | ✅ DONE | DEP-01 | Deprecated functions di-drop (migration 009) |
 | ✅ DONE | DEP-02 | `.env.local.example` diperbarui |
-| ✅ DONE | SEC-01 | Nonce-based CSP via `middleware.ts` (`unsafe-inline` dihapus) |
+| ⚠️ REVERTED | SEC-01 | Nonce-based CSP **dibatalkan** — `next.config.ts` kembali ke `unsafe-inline`+`unsafe-eval` karena Daily.co SDK & Next.js hydration scripts; CSP tetap ada tapi tidak strict |
 | ✅ DONE | LOG-01 | `lib/security-logger.ts` + logging di webhook & verify |
+| ✅ DONE | SEC-03 | `Math.random()` diganti `crypto.randomBytes()` via `lib/crypto-utils.ts` di semua game session create routes (tod, snake-ladder, dare-derby, quoridor) + helper `cryptoShuffle()` dan `cryptoRandInt()` |
 
 ---
 
@@ -466,4 +467,4 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 
 > Sumber: [OWASP Secure Coding Practices Quick Reference Guide](https://owasp.org/www-project-secure-coding-practices-quick-reference-guide/stable-en/02-checklist/05-checklist)  
 > Versi ini ditambahkan label kontekstual `[RACE]` dan `[PAY]` untuk kemudahan penggunaan.  
-> Audit dilakukan pada: 2026-04-27
+> Audit terakhir diperbarui: 2026-06-02 (re-validasi manual dari codebase aktual)

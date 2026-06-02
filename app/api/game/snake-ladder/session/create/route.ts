@@ -6,6 +6,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { broadcastGameInvite } from "@/lib/broadcast-invite";
 import { sendPushToUser } from "@/lib/push";
 import type { SnakeBoardConfig, ChallengeCell, SnakeGameState } from "@/lib/types";
+import { generateSessionCode, cryptoShuffle, cryptoRandInt } from "@/lib/crypto-utils";
 
 const customQuestionSchema = z.object({
   type:     z.enum(["truth", "dare"]),
@@ -22,8 +23,7 @@ function generateBoard(
   questions: Array<{ type: string; question: string; category: string }>
 ): SnakeBoardConfig {
   const occupied = new Set<number>([1, 100]);
-  const rnd = (min: number, max: number) =>
-    Math.floor(Math.random() * (max - min + 1)) + min;
+  const rnd = (min: number, max: number) => cryptoRandInt(min, max);
 
   const snakes: SnakeBoardConfig["snakes"] = [];
   let tries = 0;
@@ -55,8 +55,8 @@ function generateBoard(
   for (let i = 2; i <= 99; i++) {
     if (!occupied.has(i)) available.push(i);
   }
-  const shuffledSquares = available.sort(() => Math.random() - 0.5).slice(0, 15);
-  const shuffledQs = [...questions].sort(() => Math.random() - 0.5);
+  const shuffledSquares = cryptoShuffle(available).slice(0, 15);
+  const shuffledQs = cryptoShuffle(questions);
 
   const challenges: ChallengeCell[] = shuffledSquares.map((square, i) => ({
     square,
@@ -142,14 +142,12 @@ export async function POST(request: NextRequest) {
     if (!pool || pool.length === 0) {
       return NextResponse.json({ success: false, message: "Pool pertanyaan kosong", data: null }, { status: 400 });
     }
-    questions = pool.sort(() => Math.random() - 0.5).slice(0, 15);
+    questions = cryptoShuffle(pool).slice(0, 15);
   }
 
   const boardConfig = generateBoard(questions);
 
-  const sessionCode = Array.from({ length: 12 }, () =>
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]
-  ).join("");
+  const sessionCode = generateSessionCode(12);
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
