@@ -17,10 +17,11 @@
 INSERT INTO public.game_settings
   (game_type, display_name, description, coin_cost, expires_in_minutes, is_active)
 VALUES
-  ('tod',          'Truth or Dare', 'Game seru Truth or Dare untuk pasangan LDR',              1,  10, true),
-  ('snake_ladder', 'Ular Tangga',   'Main ular tangga bareng pasangan',                        5,  20, true),
-  ('quiz',         'Quiz Pasangan', 'Uji seberapa kenal kamu dengan pasanganmu',               5,  15, false),
-  ('dare_derby',   'Dare Derby',    'Mini-game kompetitif! Yang kalah tiap ronde dapat dare.',  3,  60, true)
+  ('tod',          'Truth or Dare', 'Game seru Truth or Dare untuk pasangan LDR',                        1,  10, true),
+  ('snake_ladder', 'Ular Tangga',   'Main ular tangga bareng pasangan',                                  5,  20, true),
+  ('quiz',         'Quiz Pasangan', 'Uji seberapa kenal kamu dengan pasanganmu',                         5,  15, false),
+  ('dare_derby',   'Dare Derby',    'Mini-game kompetitif! Yang kalah tiap ronde dapat dare.',            3,  60, true),
+  ('quoridor',     'Quoridor',      'Game strategi papan 9×9. Gerakkan pion atau pasang tembok!',         3,  30, true)
 ON CONFLICT (game_type) DO UPDATE
   SET coin_cost          = EXCLUDED.coin_cost,
       expires_in_minutes = EXCLUDED.expires_in_minutes,

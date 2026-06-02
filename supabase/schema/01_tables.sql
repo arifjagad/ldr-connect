@@ -1,13 +1,18 @@
 -- ============================================================
 -- LDR-Connect: Schema Fresh — 01 Tables, Indexes, Triggers
 --
--- State akhir setelah semua migrasi (001–021):
---   • game_sessions: board_config + game_state + dare_derby type
+-- State akhir setelah semua migrasi (001–027 + avatar + push):
+--   • game_sessions: board_config + game_state + dare_derby + quoridor type
 --   • game_snake_sessions TIDAK ADA (dihapus di migration 006)
 --   • rate_limit_events (migration 010)
 --   • game_dare_questions + game_minigame_configs (migration 014)
 --   • vouchers + voucher_redemptions (migration 020+021)
 --   • coin_value NULLABLE pada vouchers (topup_discount tidak punya coin)
+--   • wishlists (migration 022)
+--   • capsules (migration 023)
+--   • quoridor game_type + quoridor_action function (migration 024–027)
+--   • avatar_url pada users
+--   • push_subscriptions
 --
 -- Urutan jalankan:
 --   01_tables.sql → 02_rls.sql → 03_functions.sql → 04_seed_data.sql
@@ -43,6 +48,7 @@ CREATE TABLE public.users (
   email       VARCHAR(255) UNIQUE NOT NULL,
   couple_code VARCHAR(10)  UNIQUE NOT NULL DEFAULT public.generate_couple_code(),
   partner_id  UUID         REFERENCES public.users(id) ON DELETE SET NULL,
+  avatar_url  TEXT         DEFAULT NULL,
   status      VARCHAR(10)  NOT NULL DEFAULT 'single'
                 CHECK (status IN ('single', 'linked')),
   is_admin    BOOLEAN      NOT NULL DEFAULT false,
@@ -174,12 +180,12 @@ CREATE TABLE public.game_sessions (
   partner_user_id  UUID         REFERENCES public.users(id) ON DELETE SET NULL,
   session_code     VARCHAR(12)  UNIQUE NOT NULL,
   game_type        VARCHAR(20)  NOT NULL DEFAULT 'tod'
-                     CHECK (game_type IN ('tod', 'snake_ladder', 'quiz', 'dare_derby')),
+                     CHECK (game_type IN ('tod', 'snake_ladder', 'quiz', 'dare_derby', 'quoridor')),
   status           VARCHAR(20)  NOT NULL DEFAULT 'waiting'
                      CHECK (status IN ('waiting', 'playing', 'completed', 'expired', 'cancelled')),
   questions        JSONB        NOT NULL DEFAULT '[]'::jsonb,
-  board_config     JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- Snake: ular/tangga/tantangan
-  game_state       JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- Snake: posisi pion, giliran, pemenang
+  board_config     JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- Snake: ular/tangga/tantangan; Quoridor: board config
+  game_state       JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- Snake: posisi pion, giliran, pemenang; Quoridor: posisi pion, tembok
   coin_deducted    INTEGER      NOT NULL DEFAULT 0,
   partner_joined_at TIMESTAMPTZ,
   expires_at       TIMESTAMPTZ,
@@ -453,3 +459,96 @@ CREATE TABLE public.voucher_redemptions (
 
 CREATE INDEX idx_vr_voucher_id ON public.voucher_redemptions(voucher_id);
 CREATE INDEX idx_vr_user_id    ON public.voucher_redemptions(user_id);
+
+-- ============================================================
+-- TABLE: wishlists (migration 022)
+-- Bucket list bersama untuk pasangan
+-- ============================================================
+CREATE TABLE public.wishlists (
+  id           BIGSERIAL    PRIMARY KEY,
+  couple_id    UUID         NOT NULL,
+  created_by   UUID         NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+
+  title        VARCHAR(255) NOT NULL,
+  description  TEXT,
+  category     VARCHAR(10)  NOT NULL DEFAULT 'other'
+                 CHECK (category IN ('virtual', 'offline', 'dream', 'gift', 'other')),
+
+  -- Status selesai
+  is_done      BOOLEAN      NOT NULL DEFAULT false,
+  done_by      UUID         REFERENCES public.users(id) ON DELETE SET NULL,
+  done_at      TIMESTAMPTZ,
+  done_note    TEXT,
+
+  is_active    BOOLEAN      NOT NULL DEFAULT true,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_wishlists_couple_id  ON public.wishlists(couple_id);
+CREATE INDEX idx_wishlists_created_by ON public.wishlists(created_by);
+CREATE INDEX idx_wishlists_is_done    ON public.wishlists(is_done);
+CREATE INDEX idx_wishlists_category   ON public.wishlists(category);
+CREATE INDEX idx_wishlists_created_at ON public.wishlists(created_at DESC);
+
+CREATE TRIGGER trg_wishlists_updated_at
+  BEFORE UPDATE ON public.wishlists
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.wishlists;
+
+-- ============================================================
+-- TABLE: capsules (migration 023)
+-- Kapsul waktu digital — pesan yang dikunci sampai tanggal tertentu
+-- ============================================================
+CREATE TABLE public.capsules (
+  id           BIGSERIAL    PRIMARY KEY,
+  sender_id    UUID         NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  receiver_id  UUID         NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  couple_id    UUID         NOT NULL,           -- LEAST(sender_id, receiver_id)
+
+  message      TEXT         NOT NULL,           -- isi pesan
+  opens_at     DATE         NOT NULL,           -- tanggal kapsul bisa dibuka
+
+  -- Status: locked → delivered → opened
+  status       VARCHAR(10)  NOT NULL DEFAULT 'locked'
+                 CHECK (status IN ('locked', 'delivered', 'opened')),
+
+  delivered_at TIMESTAMPTZ,                     -- kapan cron deliver (push notif)
+  opened_at    TIMESTAMPTZ,                     -- kapan receiver buka
+
+  is_active    BOOLEAN      NOT NULL DEFAULT true,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_capsules_sender_id   ON public.capsules(sender_id);
+CREATE INDEX idx_capsules_receiver_id ON public.capsules(receiver_id);
+CREATE INDEX idx_capsules_couple_id   ON public.capsules(couple_id);
+CREATE INDEX idx_capsules_opens_at    ON public.capsules(opens_at) WHERE status = 'locked';
+CREATE INDEX idx_capsules_status      ON public.capsules(status);
+
+CREATE TRIGGER trg_capsules_updated_at
+  BEFORE UPDATE ON public.capsules
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.capsules;
+
+-- ============================================================
+-- TABLE: push_subscriptions
+-- Web Push API subscriptions (untuk notifikasi browser)
+-- ============================================================
+CREATE TABLE public.push_subscriptions (
+  id         BIGSERIAL   PRIMARY KEY,
+  user_id    UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  endpoint   TEXT        NOT NULL,
+  p256dh     TEXT        NOT NULL,
+  auth       TEXT        NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, endpoint)
+);
+
+CREATE INDEX idx_push_subscriptions_user_id
+  ON public.push_subscriptions(user_id);

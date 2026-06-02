@@ -23,6 +23,9 @@ ALTER TABLE public.game_dare_questions    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.game_minigame_configs  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vouchers               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.voucher_redemptions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wishlists              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.capsules               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.push_subscriptions     ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- HELPER FUNCTIONS (SECURITY DEFINER)
@@ -281,3 +284,89 @@ CREATE POLICY "vr_select_own"
 CREATE POLICY "vr_select_admin"
   ON public.voucher_redemptions FOR SELECT
   USING (public.is_admin());
+
+-- ============================================================
+-- wishlists (migration 022)
+-- ============================================================
+
+-- SELECT: Kedua partner bisa lihat wishlist couple mereka
+CREATE POLICY "wishlists_select_couple"
+  ON public.wishlists FOR SELECT
+  USING (
+    couple_id = LEAST(
+      auth.uid(),
+      (SELECT partner_id FROM public.users WHERE id = auth.uid())
+    )
+  );
+
+-- INSERT: Hanya user yang linked, couple_id harus cocok
+CREATE POLICY "wishlists_insert_own"
+  ON public.wishlists FOR INSERT
+  WITH CHECK (
+    created_by = auth.uid()
+    AND couple_id = LEAST(
+      auth.uid(),
+      (SELECT partner_id FROM public.users WHERE id = auth.uid())
+    )
+  );
+
+-- UPDATE: Kedua partner boleh update (mark selesai, edit, dll)
+CREATE POLICY "wishlists_update"
+  ON public.wishlists FOR UPDATE
+  USING (
+    couple_id = LEAST(
+      auth.uid(),
+      (SELECT partner_id FROM public.users WHERE id = auth.uid())
+    )
+  );
+
+-- DELETE: Hanya created_by
+CREATE POLICY "wishlists_delete_own"
+  ON public.wishlists FOR DELETE
+  USING (created_by = auth.uid());
+
+-- ============================================================
+-- capsules (migration 023)
+-- ============================================================
+
+-- Sender & receiver bisa lihat kapsul mereka
+CREATE POLICY "capsules_select_couple"
+  ON public.capsules FOR SELECT
+  USING (sender_id = auth.uid() OR receiver_id = auth.uid());
+
+-- Hanya sender yang bisa buat kapsul
+CREATE POLICY "capsules_insert_sender"
+  ON public.capsules FOR INSERT
+  WITH CHECK (
+    sender_id = auth.uid()
+    AND receiver_id = (SELECT partner_id FROM public.users WHERE id = auth.uid())
+    AND couple_id = LEAST(
+      auth.uid(),
+      (SELECT partner_id FROM public.users WHERE id = auth.uid())
+    )
+    AND opens_at > CURRENT_DATE  -- harus di masa depan
+  );
+
+-- Update: receiver bisa ubah status ke 'opened'
+CREATE POLICY "capsules_update_open"
+  ON public.capsules FOR UPDATE
+  USING (receiver_id = auth.uid() AND status = 'delivered');
+
+-- ============================================================
+-- push_subscriptions
+-- ============================================================
+
+-- User hanya bisa akses subscription miliknya sendiri
+CREATE POLICY "push_subscriptions_own"
+  ON public.push_subscriptions
+  FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Service role bisa baca semua (untuk server-side push sending)
+CREATE POLICY "push_subscriptions_service_role"
+  ON public.push_subscriptions
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);

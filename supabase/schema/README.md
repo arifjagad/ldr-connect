@@ -43,6 +43,14 @@ Jalankan file-file berikut **secara berurutan** di Supabase SQL Editor:
 | 020 (vouchers) | Tabel `vouchers` + `voucher_redemptions` + RLS + `redeem_voucher` | ✅ `01_tables.sql` + `02_rls.sql` + `03_functions.sql` |
 | 020b (vouchers seed) | Dummy vouchers untuk testing | ✅ `04_seed_data.sql` |
 | 021 (vouchers) | Tipe diskon, fix `coin_value` nullable, + `apply_topup_discount`, `redeem_voucher` update | ✅ `01_tables.sql` + `03_functions.sql` |
+| 022 | Tabel `wishlists` + RLS + Realtime | ✅ `01_tables.sql` + `02_rls.sql` |
+| 023 | Tabel `capsules` + RLS + Realtime | ✅ `01_tables.sql` + `02_rls.sql` |
+| 024 | `quoridor` di game_type constraint + seed game_settings + `quoridor_action` v1 | ✅ `01_tables.sql` + `04_seed_data.sql` + `03_functions.sql` |
+| 025 | `quoridor_action` v2 — jump logic (lurus + diagonal) + wall overlap check | ✅ `03_functions.sql` (versi terbaru) |
+| 026 | `quoridor_has_path` (BFS) + `quoridor_action` v3 — BFS validation | ✅ `03_functions.sql` (versi terbaru) |
+| 027 | `quoridor_action` v4 — fix deteksi lompatan lurus (delta-based) | ✅ `03_functions.sql` (versi terbaru, state akhir) |
+| `add_avatar_url` | Kolom `avatar_url TEXT` pada tabel `users` | ✅ `01_tables.sql` |
+| `push_subscriptions` | Tabel `push_subscriptions` + RLS | ✅ `01_tables.sql` + `02_rls.sql` |
 
 ## Fungsi yang Dihapus (Deprecated)
 
@@ -57,3 +65,26 @@ Jalankan file-file berikut **secara berurutan** di Supabase SQL Editor:
 ## Folder `migrations/` — Untuk Apa?
 
 Folder `migrations/` tetap ada sebagai **rekam jejak historis**. Jangan dijalankan ulang jika database sudah ada — hanya untuk referensi dan audit trail perubahan schema dari waktu ke waktu.
+
+## Ringkasan Tabel Aktif
+
+| Tabel | Keterangan |
+|-------|------------|
+| `users` | Profil user + couple_code + avatar_url |
+| `wallets` | Saldo coin per user |
+| `coin_packages` | Paket topup coin |
+| `coin_transactions` | Riwayat topup & deduct coin |
+| `game_sessions` | Sesi semua game (tod, snake_ladder, dare_derby, quoridor) |
+| `game_tod_questions` | Pertanyaan Truth or Dare |
+| `game_snake_questions` | Pertanyaan tantangan Ular Tangga |
+| `game_dare_questions` | Pool dare untuk Dare Derby |
+| `game_minigame_configs` | Konfigurasi mini-game Dare Derby |
+| `game_settings` | Konfigurasi biaya & durasi per game type |
+| `rate_limit_events` | Event rate limiting berbasis DB |
+| `anniversaries` | Pengingat anniversary pasangan |
+| `wishlists` | Bucket list bersama pasangan |
+| `capsules` | Kapsul waktu digital (pesan terkunci) |
+| `vouchers` | Voucher coin gratis & diskon topup |
+| `voucher_redemptions` | Log penggunaan voucher per user |
+| `push_subscriptions` | Web Push subscription untuk notifikasi |
+| `admin_activity_logs` | Log aktivitas admin |
