@@ -499,10 +499,10 @@ CREATE TRIGGER trg_wishlists_updated_at
 ALTER PUBLICATION supabase_realtime ADD TABLE public.wishlists;
 
 -- ============================================================
--- TABLE: capsules (migration 023)
+-- TABLE: capsules (migration 023, updated 029)
 -- Kapsul waktu digital — pesan yang dikunci sampai tanggal tertentu
 -- ============================================================
-CREATE TABLE public.capsules (
+CREATE TABLE IF NOT EXISTS public.capsules (
   id           BIGSERIAL    PRIMARY KEY,
   sender_id    UUID         NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   receiver_id  UUID         NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -523,13 +523,13 @@ CREATE TABLE public.capsules (
   updated_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_capsules_sender_id   ON public.capsules(sender_id);
-CREATE INDEX idx_capsules_receiver_id ON public.capsules(receiver_id);
-CREATE INDEX idx_capsules_couple_id   ON public.capsules(couple_id);
-CREATE INDEX idx_capsules_opens_at    ON public.capsules(opens_at) WHERE status = 'locked';
-CREATE INDEX idx_capsules_status      ON public.capsules(status);
+CREATE INDEX IF NOT EXISTS idx_capsules_sender_id   ON public.capsules(sender_id);
+CREATE INDEX IF NOT EXISTS idx_capsules_receiver_id ON public.capsules(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_capsules_couple_id   ON public.capsules(couple_id);
+CREATE INDEX IF NOT EXISTS idx_capsules_opens_at    ON public.capsules(opens_at) WHERE status = 'locked';
+CREATE INDEX IF NOT EXISTS idx_capsules_status      ON public.capsules(status);
 
-CREATE TRIGGER trg_capsules_updated_at
+CREATE OR REPLACE TRIGGER trg_capsules_updated_at
   BEFORE UPDATE ON public.capsules
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Capsule } from "@/lib/types";
+import { DatePicker } from "@/components/DatePicker";
 
 const supabase = createClient();
 
@@ -53,10 +54,15 @@ function fireConfetti(canvas: HTMLCanvasElement) {
   draw();
 }
 
-// ── Days Until ────────────────────────────────────────────────────────────────
+// Days Until ────────────────────────────────────────────────────────────────
 function daysUntil(dateStr: string) {
-  const diff = new Date(dateStr).getTime() - new Date().setHours(0, 0, 0, 0);
-  return Math.ceil(diff / 86400000);
+  // Tambah T00:00:00 TANPA 'Z' agar diparsing sebagai local midnight, bukan UTC.
+  // Tanpa ini, "2026-06-03" = UTC midnight → di WIB (UTC+7) jadi +7 jam ekstra
+  // yang menyebabkan Math.ceil menghitung 2 hari padahal seharusnya 1 hari.
+  const openDate = new Date(dateStr + "T00:00:00");
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  return Math.ceil((openDate.getTime() - todayMidnight.getTime()) / 86400000);
 }
 
 function formatDate(d: string) {
@@ -427,15 +433,15 @@ export default function CapsulePage() {
                 <label className="block text-xs font-medium text-[#9B93B0]" htmlFor="cap-date">
                   Tanggal kapsul terbuka
                 </label>
-                <input
-                  id="cap-date"
-                  type="date"
-                  value={opensAt}
-                  onChange={(e) => setOpensAt(e.target.value)}
-                  min={minDate}
-                  required
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none focus:border-[#F472B6]/40 focus:ring-1 focus:ring-[#F472B6]/20 transition [color-scheme:dark]"
-                />
+                <div className="mt-1.5">
+                  <DatePicker
+                    value={opensAt}
+                    onChange={setOpensAt}
+                    min={minDate}
+                    placeholder="Pilih tanggal pembukaan..."
+                    accentColor="#F472B6"
+                  />
+                </div>
               </div>
 
               <button type="submit" disabled={formLoading || !message.trim() || !opensAt}

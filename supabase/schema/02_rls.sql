@@ -326,15 +326,17 @@ CREATE POLICY "wishlists_delete_own"
   USING (created_by = auth.uid());
 
 -- ============================================================
--- capsules (migration 023)
+-- capsules (migration 023, updated 029)
 -- ============================================================
 
 -- Sender & receiver bisa lihat kapsul mereka
+DROP POLICY IF EXISTS "capsules_select_couple" ON public.capsules;
 CREATE POLICY "capsules_select_couple"
   ON public.capsules FOR SELECT
   USING (sender_id = auth.uid() OR receiver_id = auth.uid());
 
 -- Hanya sender yang bisa buat kapsul
+DROP POLICY IF EXISTS "capsules_insert_sender" ON public.capsules;
 CREATE POLICY "capsules_insert_sender"
   ON public.capsules FOR INSERT
   WITH CHECK (
@@ -348,6 +350,7 @@ CREATE POLICY "capsules_insert_sender"
   );
 
 -- Update: receiver bisa ubah status ke 'opened'
+DROP POLICY IF EXISTS "capsules_update_open" ON public.capsules;
 CREATE POLICY "capsules_update_open"
   ON public.capsules FOR UPDATE
   USING (receiver_id = auth.uid() AND status = 'delivered');
