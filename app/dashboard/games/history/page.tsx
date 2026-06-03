@@ -336,6 +336,8 @@ function SessionCard({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+const ITEMS_PER_PAGE = 10;
+
 export default function GameHistoryPage() {
   const { user } = useAuthStore();
   const [sessions, setSessions] = useState<GameSession[]>([]);
@@ -343,6 +345,7 @@ export default function GameHistoryPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     async function load() {
@@ -354,6 +357,7 @@ export default function GameHistoryPage() {
         setSessions(json.data.sessions ?? []);
         setProfiles(json.data.profiles ?? {});
         setCurrentUserId(json.data.currentUserId ?? user?.id ?? "");
+        setPage(1); // reset ke halaman pertama setiap load
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -429,19 +433,111 @@ export default function GameHistoryPage() {
         </div>
       )}
 
-      {/* Session list */}
-      {!loading && !error && sessions.length > 0 && (
-        <div className="space-y-3">
-          {sessions.map((s) => (
-            <SessionCard
-              key={s.id}
-              session={s}
-              currentUserId={currentUserId || user?.id || ""}
-              profiles={profiles}
-            />
-          ))}
-        </div>
-      )}
+      {/* Session list + pagination */}
+      {!loading && !error && sessions.length > 0 && (() => {
+        const totalPages     = Math.ceil(sessions.length / ITEMS_PER_PAGE);
+        const start          = (page - 1) * ITEMS_PER_PAGE;
+        const paginated      = sessions.slice(start, start + ITEMS_PER_PAGE);
+        const pageNumbers: number[] = [];
+
+        // Tampilkan maks 5 nomor halaman di sekitar halaman saat ini
+        const delta = 2;
+        for (let i = Math.max(1, page - delta); i <= Math.min(totalPages, page + delta); i++) {
+          pageNumbers.push(i);
+        }
+
+        return (
+          <>
+            <div className="space-y-3">
+              {paginated.map((s) => (
+                <SessionCard
+                  key={s.id}
+                  session={s}
+                  currentUserId={currentUserId || user?.id || ""}
+                  profiles={profiles}
+                />
+              ))}
+            </div>
+
+            {/* Pagination controls */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between gap-2">
+                {/* Info */}
+                <p className="text-xs text-[#5C5470] shrink-0">
+                  {start + 1}–{Math.min(start + ITEMS_PER_PAGE, sessions.length)} dari {sessions.length} sesi
+                </p>
+
+                {/* Controls */}
+                <div className="flex items-center gap-1">
+                  {/* Prev */}
+                  <button
+                    type="button"
+                    onClick={() => { setPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                    disabled={page === 1}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Halaman sebelumnya"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+
+                  {/* First page + ellipsis */}
+                  {pageNumbers[0] > 1 && (
+                    <>
+                      <button type="button" onClick={() => { setPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        className="flex h-8 min-w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-[#9B93B0] transition hover:bg-white/10">
+                        1
+                      </button>
+                      {pageNumbers[0] > 2 && <span className="px-1 text-xs text-[#5C5470]">…</span>}
+                    </>
+                  )}
+
+                  {/* Page numbers */}
+                  {pageNumbers.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                      className={`flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-semibold transition ${
+                        n === page
+                          ? "border-[#818CF8]/40 bg-[#818CF8]/15 text-[#818CF8]"
+                          : "border-white/10 bg-white/5 text-[#9B93B0] hover:bg-white/10"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+
+                  {/* Last page + ellipsis */}
+                  {pageNumbers[pageNumbers.length - 1] < totalPages && (
+                    <>
+                      {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && <span className="px-1 text-xs text-[#5C5470]">…</span>}
+                      <button type="button" onClick={() => { setPage(totalPages); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        className="flex h-8 min-w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2 text-xs text-[#9B93B0] transition hover:bg-white/10">
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+
+                  {/* Next */}
+                  <button
+                    type="button"
+                    onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                    disabled={page === totalPages}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Halaman berikutnya"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Back button */}
       {!loading && (

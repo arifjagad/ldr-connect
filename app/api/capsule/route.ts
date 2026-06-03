@@ -10,6 +10,11 @@ const postSchema = z.object({
 
 /**
  * GET /api/capsule — list semua capsule milik user (sent + received)
+ *
+ * Lazy delivery: sebelum mengembalikan data, cek apakah ada capsule yang
+ * masih "locked" tapi opens_at-nya sudah <= hari ini (WIB, UTC+7).
+ * Jika ada, ubah statusnya ke "delivered" sekarang.
+ * Ini sebagai fallback jika cron job belum/gagal jalan sebelum 07:00 WIB.
  */
 export async function GET() {
   const supabase = await createClient();
@@ -19,6 +24,23 @@ export async function GET() {
   }
 
   const serviceClient = createServiceClient();
+
+  // ── Lazy delivery ──────────────────────────────────────────────────────────
+  // Gunakan tanggal lokal WIB (UTC+7) agar "hari ini" sesuai dengan yang user lihat.
+  // new Date().toISOString() pakai UTC, jadi kita offset manual.
+  const nowWib  = new Date(Date.now() + 7 * 60 * 60 * 1000); // UTC+7
+  const todayWib = nowWib.toISOString().split("T")[0];       // "YYYY-MM-DD"
+
+  // Update semua capsule yang sudah waktunya tapi masih locked
+  await serviceClient
+    .from("capsules")
+    .update({ status: "delivered", delivered_at: new Date().toISOString() })
+    .eq("status", "locked")
+    .eq("is_active", true)
+    .lte("opens_at", todayWib);
+  // Error diabaikan — jika gagal, cron job akan handle nanti
+
+  // ── Fetch capsule milik user ───────────────────────────────────────────────
   const { data, error } = await serviceClient
     .from("capsules")
     .select("*")
