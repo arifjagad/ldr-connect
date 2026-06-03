@@ -21,7 +21,7 @@ const COIN_COSTS: Record<number, number> = { 5: 3, 7: 4, 10: 6 };
  * Isi dengan ID game ("true_false", "tap_timing", dll.) untuk testing.
  * Kosongkan ("") untuk kembali ke urutan acak normal.
  */
-const DEBUG_FORCE_MINIGAME = "number_order";
+const DEBUG_FORCE_MINIGAME = "math_dash"; // kosongkan untuk urutan acak normal
 
 /**
  * POST /api/game/dare-derby/session/create

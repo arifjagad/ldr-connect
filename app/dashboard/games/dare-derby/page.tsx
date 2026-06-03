@@ -12,12 +12,17 @@ import { MemorySequenceGame } from "@/components/games/dare-derby/mini-games/Mem
 import { WordScrambleGame } from "@/components/games/dare-derby/mini-games/WordScrambleGame";
 import { TrueFalseGame } from "@/components/games/dare-derby/mini-games/TrueFalseGame";
 import { NumberOrderGame } from "@/components/games/dare-derby/mini-games/NumberOrderGame";
+import { MathDashGame } from "@/components/games/dare-derby/mini-games/MathDashGame";
+import { FlagGuessGame } from "@/components/games/dare-derby/mini-games/FlagGuessGame";
+import { FastestTyperGame } from "@/components/games/dare-derby/mini-games/FastestTyperGame";
+import { ColorMatchGame } from "@/components/games/dare-derby/mini-games/ColorMatchGame";
 import { GamePageLayout, GamePageSkeleton } from "@/components/games/GamePageLayout";
 import { GamePlayingHeader } from "@/components/games/GamePlayingHeader";
 import { GameFinishedCard } from "@/components/games/GameFinishedCard";
 import { GameIdleLayout, GameRulesList } from "@/components/games/GameIdleLayout";
 import { useCountdown } from "@/lib/hooks/useCountdown";
 import { GameSurrenderModal, GameSurrenderButton } from "@/components/games/GameSurrenderModal";
+import { usePartnerProfile } from "@/lib/hooks/usePartnerProfile";
 import type {
   DareDerbySession,
   DareDerbyGameState,
@@ -32,6 +37,10 @@ const MINIGAME_META: Record<string, { name: string; emoji: string; duration: num
   word_scramble: { name: "Acak Kata",     emoji: "🎯", duration: 20 },
   true_false:    { name: "Benar/Salah",   emoji: "🎯", duration: 30 },
   number_order:  { name: "Urutan Angka",  emoji: "🔢", duration: 25 },
+  math_dash:     { name: "Math Dash",     emoji: "🔢", duration: 45 },
+  flag_guess:    { name: "Tebak Bendera", emoji: "🏳️", duration: 60 },
+  fastest_typer: { name: "Ketik Cepat",   emoji: "⌨️", duration: 60 },
+  color_match:   { name: "Color Match",   emoji: "🎨", duration: 25 },
 };
 
 const DARE_LEVEL_LABELS: Record<DareDerbyDareLevel, string> = {
@@ -98,6 +107,9 @@ function DareDerbyContent() {
   const [preJoinCode, setPreJoinCode] = useState<string | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
 
+  // Profil untuk share image — di-fetch saat game selesai
+  const { profiles: shareProfiles } = usePartnerProfile(phase === "finished");
+
   // Realtime
   const supabaseRef = useRef(createClient());
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
@@ -115,8 +127,12 @@ function DareDerbyContent() {
   const bonusActive = !!(gameState?.pending_bonus_for && gameState.pending_bonus_for === myRole);
 
   // Timestamp server saat ronde mini-game mulai
-  const roundStartedAtRef = useRef<number | null>(null);
-  const lastRoundStartRef = useRef<string | null>(null);
+  const roundStartedAtRef   = useRef<number | null>(null);
+  const lastRoundStartRef   = useRef<string | null>(null);
+  // ⚡ Fix: track round number untuk mencegah spurious remount
+  // Game baru HANYA boleh mount saat current_round benar-benar bertambah,
+  // bukan karena updated_at berubah pada ronde yang sama.
+  const lastMountedRoundRef = useRef<number | null>(null);
 
   const [roundKey, setRoundKey] = useState(0);
 
@@ -179,8 +195,12 @@ function DareDerbyContent() {
         s.game_state?.phase === "playing" &&
         !s.game_state.round_submissions?.host &&
         !s.game_state.round_submissions?.partner &&
-        lastRoundStartRef.current !== s.updated_at
+        // ⚡ Guard utama: hanya reset/mount jika ini ronde BARU
+        // Gunakan current_round sebagai ID stabil, bukan hanya updated_at
+        // Ini mencegah remount akibat realtime event ganda pada ronde yang sama
+        s.game_state.current_round !== lastMountedRoundRef.current
       ) {
+        lastMountedRoundRef.current = s.game_state.current_round;
         lastRoundStartRef.current = s.updated_at;
         roundStartedAtRef.current = Date.now();
         setSubmitted(false);
@@ -195,6 +215,37 @@ function DareDerbyContent() {
       if (s.game_state?.phase !== "playing") setSubmitted(false);
     }
     prevDDStatusRef.current = s.status;
+  }, []);
+
+  /**
+   * ⚡ applyRawGameState — dipakai oleh handler API yang LANGSUNG menerima game_state
+   * (handleReadyUp, handleDareComplete, handleDareConfirm, handleDareSkip).
+   *
+   * Root cause bug "B siap duluan → B=0":
+   *   handleReadyUp mendapat game_state dari API *sebelum* Supabase realtime
+   *   menembak applySession. Akibatnya mini-game mount dengan roundStartedAtRef
+   *   dari ronde sebelumnya (bisa 90+ detik lalu) → calcRemaining=0 langsung
+   *   → finish() → onComplete(0) → skor salah terkirim ke server.
+   *
+   * Solusi: replikasi logika round-start dari applySession di sini.
+   */
+  const applyRawGameState = useCallback((gs: DareDerbyGameState | null) => {
+    if (
+      gs?.phase === "playing" &&
+      !gs.round_submissions?.host &&
+      !gs.round_submissions?.partner &&
+      gs.current_round !== lastMountedRoundRef.current
+    ) {
+      lastMountedRoundRef.current = gs.current_round;
+      roundStartedAtRef.current = Date.now();
+      setSubmitted(false);
+      submittedRef.current = false;
+      setMyRoundResult(null);
+      setRoundKey(k => k + 1);
+    }
+    if (gs?.phase !== "playing") setSubmitted(false);
+    setGameState(gs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Load active session on mount ───────────────────────────────────────────
@@ -356,7 +407,7 @@ function DareDerbyContent() {
         method: "POST",
       }).then(r => r.json());
       if (!res.success) toast.error("Gagal", res.message);
-      else if (res.data?.game_state) setGameState(res.data.game_state);
+      else if (res.data?.game_state) applyRawGameState(res.data.game_state);
     } catch { toast.error("Terjadi kesalahan"); }
     finally { setReadying(false); }
   };
@@ -407,7 +458,7 @@ function DareDerbyContent() {
         method: "POST",
       }).then(r => r.json());
       if (!res.success) toast.error("Gagal", res.message);
-      else setGameState(res.data.game_state);
+      else applyRawGameState(res.data.game_state);
     } catch { toast.error("Terjadi kesalahan"); }
     finally { setDaringAction(false); }
   };
@@ -422,7 +473,7 @@ function DareDerbyContent() {
         body: JSON.stringify({ confirmed }),
       }).then(r => r.json());
       if (!res.success) toast.error("Gagal", res.message);
-      else setGameState(res.data.game_state);
+      else applyRawGameState(res.data.game_state);
     } catch { toast.error("Terjadi kesalahan"); }
     finally { setDaringAction(false); }
   };
@@ -435,7 +486,7 @@ function DareDerbyContent() {
         method: "POST",
       }).then(r => r.json());
       if (!res.success) toast.error("Gagal", res.message);
-      else setGameState(res.data.game_state);
+      else applyRawGameState(res.data.game_state);
     } catch { toast.error("Terjadi kesalahan"); }
     finally { setDaringAction(false); }
   };
@@ -760,6 +811,42 @@ function DareDerbyContent() {
                         onComplete={handleGameComplete}
                       />
                     )}
+                    {currentMiniGameId === "math_dash" && (
+                      <MathDashGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.math_dash.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId === "flag_guess" && (
+                      <FlagGuessGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.flag_guess.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId === "fastest_typer" && (
+                      <FastestTyperGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.fastest_typer.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
+                    {currentMiniGameId === "color_match" && (
+                      <ColorMatchGame
+                        key={`${session.session_code}-${gameState.current_round}-${roundKey}`}
+                        duration={MINIGAME_META.color_match.duration}
+                        startedAt={roundStartedAtRef.current ?? undefined}
+                        bonusActive={bonusActive}
+                        onComplete={handleGameComplete}
+                      />
+                    )}
                     {currentMiniGameId && !MINIGAME_META[currentMiniGameId] && (
                       <div className="text-center py-8 text-[#5C5470]">Mini-game belum tersedia</div>
                     )}
@@ -912,6 +999,29 @@ function DareDerbyContent() {
             shareSummary={`${myDares} dare vs ${partnerDaresCount} dare · ${rounds.length} ronde`}
             onPlayAgain={handleReset}
             showKonfetti={winner === "me" && finishReason === "completed"}
+            myName={shareProfiles?.my.name}
+            myAvatarUrl={shareProfiles?.my.avatar_url}
+            partnerName={shareProfiles?.partner?.name}
+            partnerAvatarUrl={shareProfiles?.partner?.avatar_url}
+            playedAt={session.created_at}
+            shareStats={(() => {
+              const myWins    = rounds.filter(r => r.loser !== myRole && r.loser !== "draw").length;
+              const myLosses  = rounds.filter(r => r.loser === myRole).length;
+              const draws     = rounds.filter(r => r.loser === "draw").length;
+              return [
+                {
+                  label: "Hasil akhir",
+                  value: finishReason === "completed"
+                    ? winner === "me" ? "🏆 Kamu Menang" : winner === "partner" ? "😅 Kamu Kalah" : "🤝 Seri"
+                    : finishReason === "time_up" ? "⏰ Waktu Habis" : "❌ Dibatalkan",
+                },
+                { label: "Dare kamu",    value: `${myDares} dare` },
+                { label: "Dare partner", value: `${partnerDaresCount} dare` },
+                { label: "Total ronde",  value: `${rounds.length} ronde` },
+                { label: "Ronde kamu (M/K/D)", value: `${myWins}M · ${myLosses}K · ${draws}D` },
+                { label: "Session",      value: session.session_code },
+              ];
+            })()}
             statsContent={
               <>
                 {/* Round history */}

@@ -11,7 +11,7 @@ import type { TodQuestion } from "@/lib/types";
 type GameSession = {
   id: number;
   session_code: string;
-  game_type: "tod" | "snake_ladder" | "dare_derby" | "quiz";
+  game_type: "tod" | "snake_ladder" | "dare_derby" | "quiz" | "quoridor";
   status: "completed" | "expired" | "cancelled";
   questions: TodQuestion[];
   game_state: Record<string, any> | null;
@@ -33,6 +33,7 @@ const GAME_META: Record<string, { label: string; icon: string; color: string }> 
   snake_ladder: { label: "Ular Tangga",   icon: "🎲", color: "#34D399" },
   dare_derby:   { label: "Dare Derby",    icon: "🏁", color: "#F97316" },
   quiz:         { label: "Quiz Pasangan", icon: "🧠", color: "#818CF8" },
+  quoridor:     { label: "Quoridor",      icon: "♟️", color: "#10B981" },
 };
 
 function formatDate(iso: string): string {
@@ -147,6 +148,29 @@ function getResultInfo(
         </span>
       ),
       summary: `${done}/${total} pertanyaan dijawab`,
+    };
+  }
+
+  // ── Quoridor ──────────────────────────────────────────────────────────────
+  if (session.game_type === "quoridor") {
+    const winner: string | null = session.game_state?.winner ?? null;
+    if (!winner) {
+      // Waktu habis tanpa pemenang
+      return {
+        result: "complete",
+        resultLabel: <span className="text-xs text-[#FBBF24]">Waktu Habis</span>,
+        summary: "Quoridor · waktu habis",
+      };
+    }
+    const iWon = winner === myRole;
+    return {
+      result: iWon ? "win" : "lose",
+      resultLabel: (
+        <span className={`text-xs font-semibold ${iWon ? "text-[#34D399]" : "text-red-400"}`}>
+          {iWon ? "Menang" : "Kalah"}
+        </span>
+      ),
+      summary: `Quoridor · ${iWon ? "Kamu menang" : "Kamu kalah"}`,
     };
   }
 

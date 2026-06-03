@@ -96,9 +96,19 @@ export function WordScrambleGame({ duration = 20, startedAt, bonusActive = false
         </div>
       )}
 
-      <div className="flex items-center justify-between w-full text-xs">
-        <span className="text-[#5C5470]">{word.length} huruf</span>
-        <span className={urgent ? "text-red-400 font-bold animate-pulse" : "text-[#5C5470]"}>{timeLeft}s</span>
+      <div className="flex items-center justify-between w-full">
+        <span className="text-sm font-bold text-[#818CF8]">{word.length} huruf</span>
+        <span
+          className={`text-sm font-bold tabular-nums ${
+            timeLeft <= 5
+              ? "text-red-400 animate-pulse"
+              : timeLeft <= 10
+              ? "text-yellow-400"
+              : "text-[#FFF5F8]"
+          }`}
+        >
+          {timeLeft}s
+        </span>
       </div>
 
       <div className="flex gap-2 flex-wrap justify-center">

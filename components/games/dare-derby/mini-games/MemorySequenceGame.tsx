@@ -78,7 +78,9 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
       setTimeLeft(remaining);
       if (remaining <= 0 && !completedRef.current) {
         clearInterval(id);
-        finish(0);
+        // ✅ Bug fix: pakai correctCountRef (bukan 0) agar partial credit dihitung
+        // Contoh: user jawab 3/5 benar lalu waktu habis → dapat round(3/5*100)=60, bukan 0
+        finish(correctCountRef.current);
       }
     }, 250);
     return () => clearInterval(id);
@@ -158,9 +160,19 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
 
       {phase === "input" && (
         <>
-          <div className="flex items-center justify-between w-full text-xs text-[#5C5470]">
-            <span>{userInput.length}/{SEQ_LEN}</span>
-            <span className={timeLeft <= 5 ? "text-red-400 font-bold animate-pulse" : ""}>{timeLeft}s</span>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-sm font-bold text-[#818CF8]">{userInput.length}/{SEQ_LEN}</span>
+            <span
+              className={`text-sm font-bold tabular-nums ${
+                timeLeft <= 5
+                  ? "text-red-400 animate-pulse"
+                  : timeLeft <= 10
+                  ? "text-yellow-400"
+                  : "text-[#FFF5F8]"
+              }`}
+            >
+              {timeLeft}s
+            </span>
           </div>
           <div className="grid grid-cols-2 gap-3 w-full">
             {COLORS.map(c => (
@@ -179,9 +191,12 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
 
       {phase === "done" && (
         <div className="text-center py-4">
-          <p className="text-3xl font-bold text-[#FFF5F8]">{userInput.length}/{SEQ_LEN}</p>
-          <p className="text-sm text-[#9B93B0] mt-1">urutan benar</p>
-        </div>
+        <p className="text-3xl font-bold text-[#FFF5F8]">
+          {/* ✅ Bug fix: tampilkan jawaban BENAR saja, bukan total klik */}
+          {userInput.length - wrongIndexes.size}/{SEQ_LEN}
+        </p>
+        <p className="text-sm text-[#9B93B0] mt-1">urutan benar</p>
+      </div>
       )}
     </div>
   );

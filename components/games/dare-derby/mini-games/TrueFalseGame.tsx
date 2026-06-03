@@ -50,10 +50,11 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
   const [done, setDone] = useState(false);
   const [timeLeft, setTimeLeft] = useState(() => calcRemaining(duration, startedAt));
 
-  const gameStartRef = useRef(startedAt ?? Date.now());
-  const completedRef = useRef(false);
+  const gameStartRef  = useRef(startedAt ?? Date.now());
+  const completedRef  = useRef(false);
   // Selalu menyimpan answers terkini agar countdown tidak membaca stale closure.
-  const answersRef = useRef<boolean[]>([]);
+  const answersRef    = useRef<boolean[]>([]);
+  const finalScoreRef = useRef<{ correct: number } | null>(null);
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
   const finish = useCallback((ans: boolean[]) => {
@@ -61,6 +62,7 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
     completedRef.current = true;
     const timeTaken = Date.now() - gameStartRef.current;
     const correct = ans.filter((a, i) => a === statements[i]?.answer).length;
+    finalScoreRef.current = { correct };
     onComplete(Math.round((correct / QUESTIONS_PER_ROUND) * 100), timeTaken, { correct, total: QUESTIONS_PER_ROUND });
   }, [onComplete, statements]);
 
@@ -89,20 +91,23 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
   }, []);
 
   const handleAnswer = (answer: boolean) => {
-    if (done || feedback !== null) return;
+    if (completedRef.current || feedback !== null) return;
     const isCorrect = answer === statements[current].answer;
+    // ⚡ Update ref SEGERA sebelum 500ms delay agar timer tidak baca data lama
+    // Simpan `answer` (raw) bukan `isCorrect` — scoring di finish() butuh nilai asli
+    const newAnswers = [...answersRef.current, answer];
+    answersRef.current = newAnswers;
     setFeedback(isCorrect ? "correct" : "wrong");
     setTimeout(() => {
       setFeedback(null);
-      const newAnswers = [...answers, answer];
       setAnswers(newAnswers);
-      const next = current + 1;
+      const next = newAnswers.length;
       if (next >= QUESTIONS_PER_ROUND) { setDone(true); finish(newAnswers); }
       else setCurrent(next);
     }, 500);
   };
 
-  const correctCount = answers.filter((a, i) => a === statements[i]?.answer).length;
+  const correctCount = finalScoreRef.current?.correct ?? answers.filter((a, i) => a === statements[i]?.answer).length;
   const urgent = timeLeft <= 5;
 
   if (done) {
@@ -128,9 +133,19 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
         </div>
       )}
 
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-[#5C5470]">{current + 1}/{QUESTIONS_PER_ROUND}</span>
-        <span className={urgent ? "text-red-400 font-bold animate-pulse" : "text-[#5C5470]"}>{timeLeft}s</span>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-bold text-[#818CF8]">{current + 1}/{QUESTIONS_PER_ROUND}</span>
+        <span
+          className={`text-sm font-bold tabular-nums ${
+            timeLeft <= 5
+              ? "text-red-400 animate-pulse"
+              : timeLeft <= 10
+              ? "text-yellow-400"
+              : "text-[#FFF5F8]"
+          }`}
+        >
+          {timeLeft}s
+        </span>
       </div>
 
       <div className="flex gap-1.5">

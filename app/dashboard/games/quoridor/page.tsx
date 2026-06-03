@@ -13,6 +13,7 @@ import { GamePageLayout, GamePageSkeleton } from "@/components/games/GamePageLay
 import { GamePlayingHeader } from "@/components/games/GamePlayingHeader";
 import { GameFinishedCard } from "@/components/games/GameFinishedCard";
 import { GameIdleLayout, GameRulesList } from "@/components/games/GameIdleLayout";
+import { usePartnerProfile } from "@/lib/hooks/usePartnerProfile";
 import type { QuoridorSession, QuoridorGameState } from "@/lib/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -55,6 +56,9 @@ function QuoridorContent() {
   const [showVideo, setShowVideo]       = useState(false);
   const [partnerOnline, setPartnerOnline] = useState(false);
   const [realtimeOk, setRealtimeOk]     = useState(true);
+
+  // Profil untuk share image — di-fetch saat game selesai
+  const { profiles: shareProfiles } = usePartnerProfile(phase === "finished");
 
   // Realtime refs
   const supabaseRef   = useRef(createClient());
@@ -753,6 +757,21 @@ function QuoridorContent() {
             shareSummary={`${gameState.walls.length} tembok dipasang total`}
             onPlayAgain={handleNewGame}
             showKonfetti={winnerIsMe && finishReason !== "time_up"}
+            myName={shareProfiles?.my.name}
+            myAvatarUrl={shareProfiles?.my.avatar_url}
+            partnerName={shareProfiles?.partner?.name}
+            partnerAvatarUrl={shareProfiles?.partner?.avatar_url}
+            playedAt={session.created_at}
+            shareStats={[
+              {
+                label: "Hasil",
+                value: finishReason === "time_up" ? "⏰ Waktu Habis" : winnerIsMe ? "🏆 Kamu Menang" : partnerWon ? "😅 Kamu Kalah" : "🤝 Seri",
+              },
+              { label: "Total tembok dipasang", value: `${gameState.walls.length} tembok` },
+              { label: `Sisa tembok ${myRole === "host" ? "Kamu" : "Partner"} (host)`, value: `${gameState.walls_left.host} / 10` },
+              { label: `Sisa tembok ${myRole === "partner" ? "Kamu" : "Partner"} (partner)`, value: `${gameState.walls_left.partner} / 10` },
+              { label: "Session", value: session.session_code },
+            ]}
             statsContent={
               <>
                 <div className="flex justify-between text-xs text-[#5C5470]">

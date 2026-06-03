@@ -28,6 +28,14 @@ interface GameFinishedCardProps {
   onPlayAgain: () => void;
   /** Show konfetti? Default: true for win/complete */
   showKonfetti?: boolean;
+  /** Profile data for share image — opsional, jika tidak ada tampilkan inisial */
+  myName?: string;
+  myAvatarUrl?: string | null;
+  partnerName?: string;
+  partnerAvatarUrl?: string | null;
+  playedAt?: string;
+  /** Statistik terstruktur untuk card gambar share */
+  shareStats?: Array<{ label: string; value: string }>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -101,6 +109,12 @@ export function GameFinishedCard({
   shareSummary,
   onPlayAgain,
   showKonfetti,
+  myName,
+  myAvatarUrl,
+  partnerName,
+  partnerAvatarUrl,
+  playedAt,
+  shareStats,
 }: GameFinishedCardProps) {
   const styles = getFinishStyles(finishType);
   const shouldKonfetti = showKonfetti ?? styles.konfetti;
@@ -141,6 +155,12 @@ export function GameFinishedCard({
               gameEmoji={gameEmoji}
               result={toShareResult(finishType)}
               summary={shareSummary}
+              myName={myName}
+              myAvatarUrl={myAvatarUrl}
+              partnerName={partnerName}
+              partnerAvatarUrl={partnerAvatarUrl}
+              playedAt={playedAt}
+              stats={shareStats}
             />
 
             {/* Main Lagi */}

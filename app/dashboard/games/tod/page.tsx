@@ -13,6 +13,7 @@ import { GamePlayingHeader } from "@/components/games/GamePlayingHeader";
 import { GameFinishedCard } from "@/components/games/GameFinishedCard";
 import { GameIdleLayout, GameRulesList } from "@/components/games/GameIdleLayout";
 import { GameSurrenderModal, GameSurrenderButton } from "@/components/games/GameSurrenderModal";
+import { usePartnerProfile } from "@/lib/hooks/usePartnerProfile";
 
 type RealtimeSubscription = { unsubscribe: () => void };
 
@@ -75,6 +76,9 @@ function TodContent() {
   const [partnerOnline, setPartnerOnline] = useState(false);
   const [realtimeOk, setRealtimeOk] = useState(true);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+
+  // Profil untuk share image — di-fetch saat game selesai
+  const { profiles: shareProfiles } = usePartnerProfile(phase === "finished");
 
   // Pre-join lobby: menyimpan kode sesi yang belum di-join
   const [preJoinCode, setPreJoinCode] = useState<string | null>(null);
@@ -677,6 +681,30 @@ function TodContent() {
           }
           shareSummary={`${completedQ}/${totalQ} pertanyaan dijawab`}
           onPlayAgain={handleLeave}
+          myName={shareProfiles?.my.name}
+          myAvatarUrl={shareProfiles?.my.avatar_url}
+          partnerName={shareProfiles?.partner?.name}
+          partnerAvatarUrl={shareProfiles?.partner?.avatar_url}
+          playedAt={session?.created_at}
+          shareStats={[
+            {
+              label: "Status",
+              value: finishReason === "time_up" ? "⏰ Waktu Habis" : "✅ Selesai",
+            },
+            {
+              label: "Pertanyaan dijawab",
+              value: `${completedQ} dari ${totalQ}`,
+            },
+            {
+              label: "Pertanyaan dilewati",
+              value: `${totalQ - completedQ} pertanyaan`,
+            },
+            {
+              label: "Progres",
+              value: `${totalQ > 0 ? Math.round((completedQ / totalQ) * 100) : 0}%`,
+            },
+            ...(session?.session_code ? [{ label: "Session", value: session.session_code }] : []),
+          ]}
           statsContent={
             <>
               {/* Progress bar */}

@@ -15,6 +15,7 @@ import { GamePlayingHeader } from "@/components/games/GamePlayingHeader";
 import { GameFinishedCard } from "@/components/games/GameFinishedCard";
 import { GameIdleLayout, GameRulesList } from "@/components/games/GameIdleLayout";
 import { GameSurrenderModal, GameSurrenderButton } from "@/components/games/GameSurrenderModal";
+import { usePartnerProfile } from "@/lib/hooks/usePartnerProfile";
 import type { SnakeSession, SnakeGameState } from "@/lib/types";
 
 // ── Custom Select ──────────────────────────────────────────────────────────────
@@ -124,6 +125,9 @@ function SnakeGameContent() {
   const [realtimeOk, setRealtimeOk] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+
+  // Profil untuk share image — di-fetch saat game selesai
+  const { profiles: shareProfiles } = usePartnerProfile(phase === "finished");
 
   // Pre-join lobby
   const [preJoinCode, setPreJoinCode] = useState<string | null>(null);
@@ -826,6 +830,26 @@ function SnakeGameContent() {
             }
             shareSummary={`Posisi akhir: ${gameState.host_position} vs ${gameState.partner_position}`}
             onPlayAgain={handleNewGame}
+            myName={shareProfiles?.my.name}
+            myAvatarUrl={shareProfiles?.my.avatar_url}
+            partnerName={shareProfiles?.partner?.name}
+            partnerAvatarUrl={shareProfiles?.partner?.avatar_url}
+            playedAt={session.created_at}
+            shareStats={[
+              {
+                label: "Hasil",
+                value: finishReason === "time_up" ? "⏰ Waktu Habis" : winnerIsMe ? "🏆 Kamu Menang" : partnerWon ? "😅 Kamu Kalah" : "🤝 Seri",
+              },
+              {
+                label: `Posisi ${myRole === "host" ? "Kamu" : "Partner"} (host)`,
+                value: `Kotak ${gameState.host_position}${gameState.host_position === 100 ? " 🏆" : " / 100"}`,
+              },
+              {
+                label: `Posisi ${myRole === "partner" ? "Kamu" : "Partner"} (partner)`,
+                value: `Kotak ${gameState.partner_position}${gameState.partner_position === 100 ? " 🏆" : " / 100"}`,
+              },
+              { label: "Session", value: session.session_code },
+            ]}
             statsContent={
               <>
                 <div className="flex justify-between text-xs text-[#5C5470]">

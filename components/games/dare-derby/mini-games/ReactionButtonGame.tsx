@@ -135,7 +135,19 @@ export function ReactionButtonGame({ duration = 8, startedAt, bonusActive = fals
         </div>
       )}
 
-      <div className="w-full text-right text-xs text-[#5C5470]">{countdown}s</div>
+      <div className="flex justify-end w-full">
+        <span
+          className={`text-sm font-bold tabular-nums ${
+            countdown <= 5
+              ? "text-red-400 animate-pulse"
+              : countdown <= 10
+              ? "text-yellow-400"
+              : "text-[#FFF5F8]"
+          }`}
+        >
+          {countdown}s
+        </span>
+      </div>
 
       <div
         className="w-full flex items-center justify-center"

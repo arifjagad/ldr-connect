@@ -12,6 +12,8 @@ interface ShareResultProps {
   myAvatarUrl?: string | null;
   partnerAvatarUrl?: string | null;
   playedAt?: string;
+  /** Statistik terstruktur untuk ditampilkan di gambar share */
+  stats?: Array<{ label: string; value: string }>;
 }
 
 const RESULT_CONFIG = {
@@ -59,6 +61,7 @@ export function ShareResult({
   myAvatarUrl,
   partnerAvatarUrl,
   playedAt,
+  stats,
 }: ShareResultProps) {
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -323,10 +326,23 @@ export function ShareResult({
         ctx.fillText("VS", cx, avatarY);
       }
 
-      // ── Stats card ────────────────────────────────────────────
+      // ── Stats card ─────────────────────────────────────────
       const cardY = 1180;
-      const cardH2 = summary ? 200 : 150;
       const cardPad = 80;
+      const statX = cardPad + 40;
+      const statXR = W - cardPad - 40; // right-aligned value
+
+      // Hitung tinggi card secara dinamis
+      const hasStats = stats && stats.length > 0;
+      const rowH = 58;       // tinggi per baris stat
+      const cardHeaderH = 64; // "📊 Statistik" heading
+      const cardDateH = playedAt ? 52 : 0;
+      const cardH2 = hasStats
+        ? cardHeaderH + stats.length * rowH + cardDateH + 40
+        : summary
+        ? 200
+        : 150;
+
       ctx.fillStyle = "rgba(255,255,255,0.04)";
       ctx.beginPath();
       ctx.roundRect(cardPad, cardY, W - cardPad * 2, cardH2, 24);
@@ -337,7 +353,7 @@ export function ShareResult({
       ctx.roundRect(cardPad, cardY, W - cardPad * 2, cardH2, 24);
       ctx.stroke();
 
-      // Left accent on card
+      // Left accent bar
       ctx.fillStyle = config.color;
       ctx.beginPath();
       ctx.roundRect(cardPad, cardY, 4, cardH2, [0, 2, 2, 0]);
@@ -345,12 +361,62 @@ export function ShareResult({
 
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
-      const statX = cardPad + 40;
 
-      if (summary) {
+      if (hasStats) {
+        // Heading
         ctx.font = `bold 36px ${SF}`;
         ctx.fillStyle = config.color;
-        ctx.fillText("📊 Statistik", statX, cardY + 54);
+        ctx.fillText("\uD83D\uDCCA Statistik", statX, cardY + 50);
+
+        // Divider line bawah heading
+        ctx.strokeStyle = "rgba(255,255,255,0.05)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(statX, cardY + 62);
+        ctx.lineTo(W - cardPad - 40, cardY + 62);
+        ctx.stroke();
+
+        // Rows
+        stats.forEach((row, i) => {
+          const ry = cardY + cardHeaderH + i * rowH;
+          // Label (kiri)
+          ctx.font = `28px ${SF}`;
+          ctx.fillStyle = "#5C5470";
+          ctx.textAlign = "left";
+          ctx.fillText(row.label, statX, ry);
+          // Value (kanan)
+          ctx.font = `bold 28px ${SF}`;
+          ctx.fillStyle = "#FFF5F8";
+          ctx.textAlign = "right";
+          ctx.fillText(row.value, statXR, ry);
+
+          // Subtle divider between rows (except last)
+          if (i < stats.length - 1) {
+            ctx.strokeStyle = "rgba(255,255,255,0.04)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(statX, ry + 14);
+            ctx.lineTo(statXR, ry + 14);
+            ctx.stroke();
+          }
+        });
+
+        // Tanggal
+        if (playedAt) {
+          const dateY = cardY + cardHeaderH + stats.length * rowH + 36;
+          const d = new Date(playedAt);
+          const dateLabel = d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+          ctx.font = `26px ${SF}`;
+          ctx.fillStyle = "#5C5470";
+          ctx.textAlign = "left";
+          ctx.fillText(`\uD83D\uDCC5  ${dateLabel}`, statX, dateY);
+        }
+
+      } else if (summary) {
+        ctx.font = `bold 36px ${SF}`;
+        ctx.fillStyle = config.color;
+        ctx.textAlign = "left";
+        ctx.fillText("\uD83D\uDCCA Statistik", statX, cardY + 54);
         ctx.font = `32px ${SF}`;
         ctx.fillStyle = "#9B93B0";
         ctx.fillText(summary, statX, cardY + 100);

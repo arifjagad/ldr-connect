@@ -42,28 +42,23 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
   const [timeLeft, setTimeLeft]         = useState(duration);
   const inputStartedAtRef               = useRef<number | null>(null);
 
-  const gameStartRef   = useRef(startedAt ?? Date.now());
-  const completedRef   = useRef(false);
-  const inputIdxRef    = useRef(0);
-  const phaseRef       = useRef<"show" | "input" | "done">("show");
+  const gameStartRef    = useRef(startedAt ?? Date.now());
+  const completedRef    = useRef(false);
+  const inputIdxRef     = useRef(0);
+  const correctCountRef = useRef(0);          // ← jumlah BENAR (bukan attempt)
+  const phaseRef        = useRef<"show" | "input" | "done">("show");
 
-  useEffect(() => { inputIdxRef.current = inputIdx; }, [inputIdx]);
-  useEffect(() => { phaseRef.current    = phase;    }, [phase]);
+  useEffect(() => { inputIdxRef.current  = inputIdx; }, [inputIdx]);
+  useEffect(() => { phaseRef.current     = phase;    }, [phase]);
 
   const finish = useCallback((correct: number) => {
     if (completedRef.current) return;
     completedRef.current = true;
     const timeTaken = Date.now() - gameStartRef.current;
-    const ratio = correct / TOTAL;
-    // Skor: 80–100 jika semua benar (bonus kecepatan), 10–70 proporsional jika parsial
-    const elapsed  = inputStartedAtRef.current ? (Date.now() - inputStartedAtRef.current) / 1000 : duration;
-    const inputDur = duration - (TOTAL * (SHOW_MS + GAP_MS) / 1000) - 1;
-    const speedBonus = correct === TOTAL ? Math.max(0, Math.round((1 - elapsed / Math.max(1, inputDur)) * 20)) : 0;
-    const raw = correct === TOTAL
-      ? Math.min(100, 80 + speedBonus)
-      : Math.max(10, Math.round(ratio * 70));
-    onComplete(raw, timeTaken, { correct, total: TOTAL });
-  }, [onComplete, duration]);
+    // Skor linear: benar 1 ≈ 11 poin, benar semua (9) = 100 poin
+    const score = Math.round((correct / TOTAL) * 100);
+    onComplete(score, timeTaken, { correct, total: TOTAL });
+  }, [onComplete]);
 
   // ── Show phase: tampilkan urutan satu per satu ─────────────────────────────
   useEffect(() => {
@@ -110,7 +105,8 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
       if (remaining <= 0 && !completedRef.current) {
         clearInterval(id);
         setPhase("done");
-        finish(inputIdxRef.current); // berapa yang sudah benar
+        // ✅ Bug fix: pakai correctCountRef (jumlah benar), bukan inputIdxRef (jumlah attempt)
+        finish(correctCountRef.current);
       }
     }, 250);
     return () => clearInterval(id);
@@ -124,6 +120,7 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
 
     if (num === expected) {
       // ✅ Benar
+      correctCountRef.current++;              // ← track jumlah benar via ref
       const newResults = [...results];
       newResults[inputIdxRef.current] = true;
       setResults(newResults);
@@ -131,7 +128,7 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
       setInputIdx(newIdx);
       if (newIdx >= TOTAL) {
         setPhase("done");
-        finish(TOTAL);
+        finish(correctCountRef.current);
       }
     } else {
       // ❌ Salah — flash merah, catat hasil, tetap lanjut ke angka berikutnya
@@ -144,8 +141,7 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
       setInputIdx(newIdx);
       if (newIdx >= TOTAL) {
         setPhase("done");
-        const correctCount = newResults.filter(Boolean).length;
-        finish(correctCount);
+        finish(correctCountRef.current);      // ← gunakan correctCountRef, bukan filter(Boolean)
       }
     }
   };
@@ -172,20 +168,28 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
       )}
 
       {/* Status bar */}
-      <div className="flex items-center justify-between w-full text-xs">
+      <div className="flex items-center justify-between w-full">
         {phase === "show" ? (
-          <span className="text-[#818CF8] font-bold animate-pulse">
-            Menampilkan {showStepLabel}/{TOTAL}...
+          <span className="text-sm font-bold text-[#818CF8] animate-pulse">
+            Menampilkan {showStepLabel}/{TOTAL}
           </span>
         ) : phase === "input" ? (
-          <span className="text-[#818CF8] font-bold">
-            {inputIdx}/{TOTAL} ✓
+          <span className="text-sm font-bold text-[#818CF8]">
+            {inputIdx}/{TOTAL}
           </span>
         ) : (
-          <span className="text-green-400 font-bold">✅ Selesai!</span>
+          <span className="text-sm font-bold text-green-400">✅ Selesai!</span>
         )}
         {phase === "input" && (
-          <span className={urgent ? "text-red-400 font-bold animate-pulse" : "text-[#5C5470]"}>
+          <span
+            className={`text-sm font-bold tabular-nums ${
+              timeLeft <= 5
+                ? "text-red-400 animate-pulse"
+                : timeLeft <= 10
+                ? "text-yellow-400"
+                : "text-[#FFF5F8]"
+            }`}
+          >
             {timeLeft}s
           </span>
         )}

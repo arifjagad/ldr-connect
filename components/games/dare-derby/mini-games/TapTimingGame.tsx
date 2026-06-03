@@ -100,7 +100,19 @@ export function TapTimingGame({ duration = 10, startedAt, bonusActive = false, o
         </div>
       )}
 
-      <div className="w-full text-right text-xs text-[#5C5470]">{timeLeft}s</div>
+      <div className="flex justify-end w-full">
+        <span
+          className={`text-sm font-bold tabular-nums ${
+            timeLeft <= 5
+              ? "text-red-400 animate-pulse"
+              : timeLeft <= 10
+              ? "text-yellow-400"
+              : "text-[#FFF5F8]"
+          }`}
+        >
+          {timeLeft}s
+        </span>
+      </div>
 
       <div className="relative w-full h-12 rounded-xl bg-[#18181C] border border-white/10 overflow-hidden">
         {/* Garis tengah — satu-satunya target */}

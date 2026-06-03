@@ -1,22 +1,44 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/stores/auth-store";
+
+/**
+ * Hook untuk mendapatkan saldo coin dari server.
+ *
+ * Strategi fetch (hemat request):
+ * - Fetch 1x saat mount (jika user sudah login)
+ * - Refetch saat window focus, TAPI hanya jika sejak fetch terakhir
+ *   sudah > MIN_REFETCH_MS (60 detik). Mencegah spam saat user
+ *   alt-tab cepat atau banyak tab login sekaligus.
+ * - TIDAK ada polling interval — balance hanya berubah saat user
+ *   melakukan transaksi; halaman Coin menangani refresh sendiri.
+ *
+ * Sebelumnya: setInterval(30s) × n-tab = n × 2 request/menit — boros.
+ */
+
+const MIN_REFETCH_MS = 60_000; // minimum jeda antar refetch via focus
 
 export function useServerBalance() {
   const { user } = useAuthStore();
-  const [balance, setBalance] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Gunakan wallet_balance dari store sebagai nilai awal agar tidak ada flash loading
+  const [balance, setBalance] = useState<number | null>(user?.wallet_balance ?? null);
+  const [loading, setLoading]  = useState(balance === null);
+  const [error, setError]      = useState<string | null>(null);
 
-  const fetchBalance = useCallback(async () => {
+  const lastFetchRef = useRef<number>(0);
+
+  const fetchBalance = useCallback(async (force = false) => {
+    const now = Date.now();
+    // Debounce: skip jika baru saja fetch (kecuali dipaksa)
+    if (!force && now - lastFetchRef.current < MIN_REFETCH_MS) return;
+    lastFetchRef.current = now;
+
     try {
       const res = await fetch("/api/coin/balance");
-      if (!res.ok) {
-        throw new Error("Gagal mengambil saldo dari server");
-      }
+      if (!res.ok) throw new Error("Gagal mengambil saldo dari server");
       const json = await res.json();
-      if (json && json.success) {
+      if (json?.success) {
         setBalance(json.data.wallet.balance);
         setError(null);
       } else {
@@ -36,20 +58,19 @@ export function useServerBalance() {
       return;
     }
 
-    fetchBalance();
+    // Fetch pertama kali (force = true, abaikan debounce)
+    fetchBalance(true);
 
-    // Refetch on window focus
-    const handleFocus = () => fetchBalance();
+    // Refetch saat tab kembali aktif — tapi hanya jika jeda sudah cukup
+    const handleFocus = () => fetchBalance(false);
     window.addEventListener("focus", handleFocus);
-
-    // Polling tiap 30 detik selama user aktif di halaman
-    const intervalId = setInterval(fetchBalance, 30_000);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
-      clearInterval(intervalId);
+      // Tidak ada interval untuk di-clear — by design
     };
-  }, [fetchBalance, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // hanya re-run jika user ganti (login/logout), bukan setiap render
 
-  return { balance, loading, error, refresh: fetchBalance };
+  return { balance, loading, error, refresh: () => fetchBalance(true) };
 }

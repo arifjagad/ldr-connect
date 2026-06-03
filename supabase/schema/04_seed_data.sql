@@ -40,7 +40,7 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- ============================================================
--- SEED: game_minigame_configs (migration 016 + 019)
+-- SEED: game_minigame_configs (migration 016 + 019 + 030)
 -- ============================================================
 INSERT INTO public.game_minigame_configs (game_id, name, category, duration, is_active, config)
 VALUES
@@ -55,7 +55,15 @@ VALUES
   ('word_scramble', 'Acak Kata',     'skill',  20, true,
    '{"description": "Susun huruf acak menjadi kata yang benar!", "word_count": 1}'::jsonb),
   ('true_false',    'Benar/Salah',   'skill',  15, true,
-   '{"description": "Tentukan apakah pernyataan berikut benar atau salah!", "question_count": 5}'::jsonb)
+   '{"description": "Tentukan apakah pernyataan berikut benar atau salah!", "question_count": 5}'::jsonb),
+  ('math_dash',     'Math Dash',     'brain',  20, true,
+   '{"description": "Jawab soal matematika secepat mungkin!", "questions_per_round": 5}'::jsonb),
+  ('flag_guess',    'Tebak Bendera', 'brain',  20, true,
+   '{"description": "Tebak negara dari emoji bendera!", "questions_per_round": 5}'::jsonb),
+  ('fastest_typer', 'Ketik Cepat',   'skill',  30, true,
+   '{"description": "Ketik kata yang muncul secepat mungkin!", "words_per_round": 5}'::jsonb),
+  ('color_match',   'Color Match',   'skill',  20, true,
+   '{"description": "Pilih warna teks, bukan kata yang tertulis! (Stroop effect)", "rounds_per_game": 6}'::jsonb)
 ON CONFLICT (game_id) DO UPDATE
   SET name = EXCLUDED.name, category = EXCLUDED.category,
       duration = EXCLUDED.duration, config = EXCLUDED.config,
