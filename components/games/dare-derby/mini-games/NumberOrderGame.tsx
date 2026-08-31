@@ -47,6 +47,9 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
   const inputIdxRef     = useRef(0);
   const correctCountRef = useRef(0);          // ← jumlah BENAR (bukan attempt)
   const phaseRef        = useRef<"show" | "input" | "done">("show");
+  // onCompleteRef: selalu up-to-date agar finish() tidak tangkap onComplete stale
+  const onCompleteRef   = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   useEffect(() => { inputIdxRef.current  = inputIdx; }, [inputIdx]);
   useEffect(() => { phaseRef.current     = phase;    }, [phase]);
@@ -55,10 +58,10 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
     if (completedRef.current) return;
     completedRef.current = true;
     const timeTaken = Date.now() - gameStartRef.current;
-    // Skor linear: benar 1 ≈ 11 poin, benar semua (9) = 100 poin
     const score = Math.round((correct / TOTAL) * 100);
-    onComplete(score, timeTaken, { correct, total: TOTAL });
-  }, [onComplete]);
+    onCompleteRef.current(score, timeTaken, { correct, total: TOTAL });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Show phase: tampilkan urutan satu per satu ─────────────────────────────
   useEffect(() => {

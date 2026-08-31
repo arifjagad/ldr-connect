@@ -28,10 +28,11 @@ export function ReactionButtonGame({ duration = 8, startedAt, bonusActive = fals
   const completedRef      = useRef(false);
   const appearTimeRef     = useRef<number | null>(null);
   // stateRef: sumber kebenaran untuk state di dalam callbacks async
-  // (React state bisa stale di dalam setTimeout/setInterval)
   const stateRef          = useRef<State>("waiting");
+  // onCompleteRef: selalu up-to-date agar finish() tidak tangkap onComplete stale
+  const onCompleteRef     = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
-  // setState yang selalu sinkron dengan stateRef
   const setStateSafe = useCallback((s: State) => {
     stateRef.current = s;
     setState(s);
@@ -41,8 +42,9 @@ export function ReactionButtonGame({ duration = 8, startedAt, bonusActive = fals
     if (completedRef.current) return;
     completedRef.current = true;
     const timeTaken = Date.now() - gameStartRef.current;
-    onComplete(score, timeTaken, { reaction_ms: ms });
-  }, [onComplete]);
+    onCompleteRef.current(score, timeTaken, { reaction_ms: ms });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Countdown ──────────────────────────────────────────────────────────────
   useEffect(() => {

@@ -38,20 +38,22 @@ export function WordScrambleGame({ duration = 20, startedAt, bonusActive = false
   const [timeLeft, setTimeLeft] = useState(duration); // mulai dari durasi penuh
 
   const gameStartRef = useRef(startedAt ?? Date.now());
-  // mountedAt: waktu komponen ini BENAR-BENAR mount di device player.
-  // Dipakai sebagai basis countdown agar tidak premature timeout karena
-  // network/render delay antara saat ronde dimulai di server dan saat komponen mount.
   const mountedAtRef = useRef(Date.now());
   const completedRef = useRef(false);
   const inputRef     = useRef<HTMLInputElement>(null);
+  // onCompleteRef: selalu up-to-date agar finish() tidak tangkap onComplete stale
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   const finish = useCallback((correct: boolean, tl: number) => {
     if (completedRef.current) return;
     completedRef.current = true;
     const timeTaken = Date.now() - gameStartRef.current;
     const timeBonus = correct ? Math.max(0, Math.floor((tl / duration) * 20)) : 0;
-    onComplete(correct ? Math.min(100, 80 + timeBonus) : 0, timeTaken, { word, correct });
-  }, [onComplete, word, duration]);
+    onCompleteRef.current(correct ? Math.min(100, 80 + timeBonus) : 0, timeTaken, { word, correct });
+  // word & duration stabil selama game; onComplete diganti pakai ref
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [word, duration]);
 
   // ── Countdown — dihitung dari mountedAt, bukan startedAt ──────────────────
   // Menggunakan mountedAt memastikan setiap player selalu mendapat durasi penuh

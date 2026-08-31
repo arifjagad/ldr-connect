@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { toast } from "@/components/ui/Toast";
 import type { AuthUser } from "@/lib/types";
 
 export default function RegisterPage() {
@@ -14,12 +15,10 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
-    setError(null);
 
     const supabase = createClient();
 
@@ -35,11 +34,10 @@ export default function RegisterPage() {
     });
 
     if (signUpError) {
-      setError(
-        signUpError.message.includes("already registered")
-          ? "Email ini sudah terdaftar"
-          : signUpError.message
-      );
+      const msg = signUpError.message.includes("already registered")
+        ? "Email ini sudah terdaftar"
+        : signUpError.message;
+      toast.error("Registrasi Gagal", msg);
       setLoading(false);
       return;
     }
@@ -52,6 +50,7 @@ export default function RegisterPage() {
       setUser(json.data as AuthUser);
     }
 
+    toast.success("Akun Berhasil Dibuat", "Selamat datang di LDR-Connect!");
     router.push("/dashboard");
     router.refresh();
   }
@@ -103,12 +102,6 @@ export default function RegisterPage() {
               placeholder="Minimal 6 karakter"
             />
           </label>
-
-          {error ? (
-            <p className="rounded-lg bg-rose-400/10 px-3 py-2 text-sm text-rose-300">
-              {error}
-            </p>
-          ) : null}
 
           <button
             type="submit"

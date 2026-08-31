@@ -128,38 +128,48 @@ export default function CoinPage() {
   }, [voucherRedeemMsg]);
 
   // Focus → auto-refresh + verify pending
+  // Guard: verifyingRef mencegah concurrent calls; lastFocusRef debounce 30s
+  const lastFocusRef = useRef(0);
   useEffect(() => {
     const onFocus = async () => {
-      const [walletRes, txRes] = await Promise.all([
-        fetch("/api/coin/balance"), fetch("/api/coin/transactions"),
-      ]);
-      const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
-      setWallet(walletJson.data?.wallet ?? null);
-      const txs: CoinTransaction[] = txJson.data?.transactions ?? [];
-      setTransactions(txs);
+      // Debounce: jika refresh terakhir < 30 detik lalu, skip
+      if (Date.now() - lastFocusRef.current < 30_000) return;
+      // Concurrency guard: jika sedang proses, skip
+      if (verifyingRef.current) return;
+      verifyingRef.current = true;
+      lastFocusRef.current = Date.now();
 
-      const pendings = txs.filter((t) => t.payment_status === "pending" && t.type === "topup");
-      let needRefresh = false;
-      for (const p of pendings) {
-        if (p.payment_reference) {
-          const vRes = await fetch("/api/coin/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ payment_reference: p.payment_reference }),
-          });
-          if (vRes.ok) needRefresh = true;
+      try {
+        const [walletRes, txRes] = await Promise.all([
+          fetch("/api/coin/balance"), fetch("/api/coin/transactions"),
+        ]);
+        const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
+        setWallet(walletJson.data?.wallet ?? null);
+        const txs: CoinTransaction[] = txJson.data?.transactions ?? [];
+        setTransactions(txs);
+
+        const pendings = txs.filter((t) => t.payment_status === "pending" && t.type === "topup");
+        let needRefresh = false;
+        for (const p of pendings) {
+          if (p.payment_reference) {
+            const vRes = await fetch("/api/coin/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ payment_reference: p.payment_reference }),
+            });
+            if (vRes.ok) needRefresh = true;
+          }
         }
-      }
-      if (needRefresh) {
-        const [wRes2, tRes2] = await Promise.all([fetch("/api/coin/balance"), fetch("/api/coin/transactions")]);
-        const [wJson2, tJson2] = await Promise.all([wRes2.json(), tRes2.json()]);
-        setWallet(wJson2.data?.wallet ?? null);
-        setTransactions(tJson2.data?.transactions ?? []);
+        if (needRefresh) {
+          await refreshWalletAndTransactions();
+        }
+      } finally {
+        verifyingRef.current = false;
       }
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, []);
+  }, [refreshWalletAndTransactions]);
 
   const selectedPkg = useMemo(
     () => packages.find((p) => p.id === selectedPackage) ?? null,

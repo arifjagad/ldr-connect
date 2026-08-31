@@ -158,8 +158,6 @@ export async function POST(request: NextRequest) {
     .in("status", ["waiting", "playing"])
     .lt("expires_at", new Date().toISOString());
 
-  await createDailyRoom(sessionCode, 10 + gameDurationMinutes);
-
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("create_game_session", {
     p_host_user_id: user.id,
     p_session_code: sessionCode,
@@ -183,6 +181,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Saldo coin tidak cukup", data: null }, { status: 400 });
     return NextResponse.json({ success: false, message: msg || "Gagal membuat sesi", data: null }, { status: 500 });
   }
+
+  // Buat room Daily.co setelah database session sukses dibuat
+  await createDailyRoom(sessionCode, 10 + gameDurationMinutes);
 
   broadcastGameInvite({
     hostUserId: user.id,

@@ -230,9 +230,20 @@ export async function POST(request: NextRequest) {
           metadata: { snap_token: snapToken, payment_url: paymentUrl }
         })
         .eq("id", tx.id);
+    } else {
+      const errText = await snapRes.text().catch(() => "");
+      console.error("[topup] Midtrans Snap API HTTP error:", snapRes.status, errText);
+      return NextResponse.json(
+        { success: false, message: "Gagal terhubung ke layanan pembayaran Midtrans", data: null },
+        { status: 502 }
+      );
     }
-  } catch {
-    // Midtrans error — transaksi tetap dibuat (user bisa retry via verify)
+  } catch (fetchErr) {
+    console.error("[topup] Midtrans Snap API fetch exception:", fetchErr);
+    return NextResponse.json(
+      { success: false, message: "Terjadi kesalahan jaringan ke layanan pembayaran", data: null },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({

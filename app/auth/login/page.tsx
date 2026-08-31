@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
+import { toast } from "@/components/ui/Toast";
 import type { AuthUser } from "@/lib/types";
 
 export default function LoginPage() {
@@ -12,12 +13,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
-    setError(null);
 
     // 1. Login via server-side route (includes rate limiting + session age cookie)
     const loginRes = await fetch("/api/auth/login", {
@@ -28,7 +27,8 @@ export default function LoginPage() {
 
     if (!loginRes.ok) {
       const json = await loginRes.json().catch(() => ({}));
-      setError(json.message || "Login gagal, coba lagi.");
+      const msg = json.message || "Login gagal, coba lagi.";
+      toast.error("Gagal Masuk", msg);
       setLoading(false);
       return;
     }
@@ -41,6 +41,8 @@ export default function LoginPage() {
       profile = json.data as AuthUser;
       setUser(profile);
     }
+
+    toast.success("Berhasil Masuk", `Selamat datang kembali, ${profile?.name || "User"}!`);
 
     // 3. Redirect berdasarkan role
     const redirectTo = profile?.is_admin ? "/admin/dashboard" : "/dashboard";
@@ -82,12 +84,6 @@ export default function LoginPage() {
               placeholder="********"
             />
           </label>
-
-          {error ? (
-            <p className="rounded-lg bg-rose-400/10 px-3 py-2 text-sm text-rose-300">
-              {error}
-            </p>
-          ) : null}
 
           <button
             type="submit"

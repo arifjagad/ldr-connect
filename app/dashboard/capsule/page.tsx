@@ -66,7 +66,10 @@ function daysUntil(dateStr: string) {
 }
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+  // Tambahkan T00:00:00 untuk date-only strings agar diparsing sebagai local time
+  // bukan UTC midnight (yang bisa menyebabkan tampil mundur 1 hari di WIB)
+  const date = d.includes("T") ? new Date(d) : new Date(d + "T00:00:00");
+  return date.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
 
 // ── Opening Animation Component ───────────────────────────────────────────────
@@ -316,10 +319,10 @@ export default function CapsulePage() {
     showToast(true, "Kapsul berhasil dibuka! 🎉");
   }
 
-  // Min date: besok
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const minDate = tomorrow.toISOString().split("T")[0];
+  // Min date: besok WIB (pakai offset +7 agar tidak salah kalkulasi UTC vs WIB)
+  const tomorrowWib = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  tomorrowWib.setDate(tomorrowWib.getDate() + 1);
+  const minDate = tomorrowWib.toISOString().split("T")[0];
 
   const received = capsules.filter((c) => c.receiver_id === userId);
   const sent = capsules.filter((c) => c.sender_id === userId);

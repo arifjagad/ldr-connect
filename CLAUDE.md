@@ -29,8 +29,9 @@
 | State Management | **Zustand** (`stores/`) |
 | Payment | **Midtrans** (Snap.js — payment gateway Indonesia) |
 | Video Call | **Daily.co** (`@daily-co/daily-js`) |
+| Push Notification | **Web Push** (VAPID / `web-push`) |
 | AI | **Gemini API** + **OpenRouter API** |
-| Game Engine | **Phaser 4** (untuk mini-game di Dare Derby) |
+| Game Engine | **Phaser 4** (mini-game Dare Derby, board Snake & Ladder) |
 | Validasi | **Zod** |
 | Deploy | Netlify (frontend), Supabase cloud (DB + Auth) |
 
@@ -47,56 +48,66 @@
 ldr-connect/
 ├── app/                          # Next.js App Router
 │   ├── page.tsx                  # Landing page (/)
-│   ├── layout.tsx                # Root layout + global providers
+│   ├── layout.tsx                # Root layout + global providers (Sora + Jakarta Sans)
 │   ├── globals.css               # Global styles (Tailwind v4)
-│   ├── auth/                     # Halaman login, register, callback
+│   ├── auth/                     # Halaman login, register
 │   ├── dashboard/                # Area utama setelah login
-│   │   ├── page.tsx              # Dashboard home
-│   │   ├── games/                # Halaman pilih game
-│   │   ├── coin/                 # Topup coin
-│   │   ├── couple/               # Kelola koneksi partner
+│   │   ├── page.tsx              # Dashboard home (stats, partner, active session, anniversaries, onboarding)
+│   │   ├── games/                # Hub game + history
+│   │   │   ├── tod/              # Truth or Dare
+│   │   │   ├── snake-ladder/     # Ular Tangga
+│   │   │   ├── dare-derby/       # Dare Derby
+│   │   │   ├── quoridor/         # Quoridor (board 9x9)
+│   │   │   ├── stats/            # Statistik couple game
+│   │   │   └── history/          # Riwayat game
+│   │   ├── coin/                 # Topup coin + redeem voucher + riwayat
+│   │   ├── couple/               # Kelola koneksi partner (link/unlink)
 │   │   ├── anniversaries/        # Anniversary tracker
-│   │   └── profile/              # Edit profil user
-│   ├── game/                     # Game rooms (gameplay aktif)
-│   │   └── tod/                  # Ruang game ToD aktif
-│   ├── games/                    # Halaman daftar semua game
-│   ├── join/                     # Halaman join via invite link
-│   ├── topup/                    # Redirect setelah bayar Midtrans
+│   │   ├── wishlist/             # Bucket list / wishlist bersama
+│   │   ├── capsule/              # Time capsule (pesan terjadwal)
+│   │   └── profile/              # Edit profil user & avatar
+│   ├── join/[code]/              # Deep link join game session
 │   ├── admin/                    # Panel admin (is_admin = true)
-│   └── api/                      # API Routes (backend logic)
-│       ├── auth/                 # Auth helpers
-│       ├── coin/                 # Topup, verify, webhook Midtrans
+│   │   ├── dashboard/            # Overview metrics
+│   │   ├── users/                # Manajemen user
+│   │   ├── questions/            # Approval pertanyaan ToD
+│   │   ├── transactions/         # Riwayat transaksi coin
+│   │   └── vouchers/             # CRUD voucher
+│   └── api/                      # API Routes (~50 endpoints)
+│       ├── auth/                 # Login, logout, me (rate limit 2-tier, session age)
+│       ├── coin/                 # Topup, verify, webhook, voucher redeem/validate/check
 │       ├── couple/               # Link/unlink pasangan
-│       ├── game/
-│       │   ├── session/          # Cek sesi aktif (cross-game)
-│       │   ├── tod/              # Truth or Dare API
-│       │   ├── snake-ladder/     # Ular Tangga API
-│       │   └── dare-derby/       # Dare Derby API
-│       └── anniversaries/        # CRUD anniversary
+│       ├── game/                 # Game sessions (tod, snake-ladder, dare-derby, quoridor)
+│       ├── anniversaries/        # CRUD anniversary
+│       ├── wishlist/             # CRUD wishlist + mark done
+│       ├── capsule/              # CRUD time capsule + open
+│       ├── push/                 # Subscribe & test web push
+│       ├── cron/                 # Anniversary reminders & capsule delivery
+│       ├── user/                 # Avatar, partner-profile
+│       └── admin/                # Admin voucher management
 ├── components/
-│   ├── landing/                  # Komponen halaman landing (Hero, FAQ, dll)
-│   ├── games/
-│   │   ├── tod/                  # Komponen game ToD
-│   │   ├── snake-ladder/         # Komponen game Ular Tangga
-│   │   └── dare-derby/           # Komponen game Dare Derby
-│   ├── ui/                       # Komponen UI reusable
-│   ├── app-shell.tsx             # Shell dengan bottom nav (mobile)
-│   ├── VideoCall.tsx             # Komponen video call (Daily.co)
-│   ├── DatePicker.tsx            # Custom date picker dengan year selector
-│   ├── GameInviteNotification.tsx # Notifikasi undangan game
-│   └── SearchableSelect.tsx      # Dropdown dengan search
+│   ├── landing/                  # Komponen landing page
+│   ├── games/                    # Komponen game UI (tod, snake-ladder, dare-derby, quoridor)
+│   ├── ui/                       # Komponen UI reusable (Toast, Avatar, Select, dll)
+│   └── app-shell.tsx             # Shell dengan bottom nav (mobile)
+├── hooks/
+│   └── usePushSubscription.ts    # Web push notification hook
 ├── lib/
-│   ├── supabase/                 # Supabase client (browser + server)
-│   ├── games/                    # Helper logic per game
+│   ├── supabase/                 # Supabase client (browser, server, service role)
+│   ├── games/                    # Helper logic & validation per game
+│   ├── hooks/                    # useCountdown, usePartnerProfile, useServerBalance
 │   ├── types.ts                  # TypeScript types global
-│   ├── daily.ts                  # Helper Daily.co room creation
+│   ├── daily.ts                  # Helper Daily.co room
+│   ├── push.ts / notifications.ts # Web Push helpers (VAPID)
 │   ├── rate-limit.ts             # Rate limiting helper
+│   ├── crypto-utils.ts           # Token generator & security helpers
 │   └── security-logger.ts        # Audit log security events
 ├── stores/
-│   └── auth-store.ts             # Zustand store untuk auth state
+│   └── auth-store.ts             # Zustand store (persisted) untuk auth state
 ├── supabase/
-│   ├── migrations/               # SQL migrations (001–019)
-│   └── schema/                   # Snapshot schema
+│   ├── migrations/               # SQL migrations (001–030)
+│   └── schema/                   # Snapshot schema (01–06)
+├── proxy.ts                      # Next.js 16 proxy (auth protect, CSP nonce, session timeout)
 └── public/                       # Static assets
 ```
 
@@ -174,14 +185,27 @@ Pool dare untuk game Dare Derby. Kategori: `sweet`, `funny`, `bold`, `challenge`
 Konfigurasi mini-game untuk Dare Derby. `game_id` contoh: `tap_timing`, `memory_seq`.
 
 #### `anniversaries`
-Pengingat hari spesial pasangan (tanggal jadian, anniversary, dll).
+Pengingat hari spesial pasangan (tanggal jadian, anniversary, dll). RLS shared per couple via `couple_id`.
+
+#### `wishlists`
+Bucket list / wishlist bersama. Kategori: `virtual`, `offline`, `dream`, `gift`, `other`. Shared per couple.
+
+#### `capsules`
+Time capsule — pesan terkunci sampai `delivery_date`. Status: `locked` → `delivered` → `opened`.
+
+#### `vouchers` & `voucher_redemptions`
+Sistem voucher promosi. Tipe: `coin_credit` (tambah saldo langsung) dan `topup_discount` (potongan % saat checkout Midtrans).
+
+#### `push_subscriptions`
+Endpoint Web Push VAPID per user device untuk background push notifications.
 
 #### `game_settings`
 Konfigurasi game: coin cost per sesi, expiry menit.
 ```
 tod          → 1 coin,  expire 10 menit
 snake_ladder → 5 coin,  expire 20 menit
-dare_derby   → ? coin,  ? menit (lihat migration terbaru)
+dare_derby   → 3 coin,  expire 15 menit
+quoridor     → 3 coin,  expire 15 menit
 ```
 
 #### `admin_activity_logs`
@@ -355,7 +379,7 @@ Partner (User B):
 }
 ```
 
-### 7.3 Dare Derby (Game Terbaru)
+### 7.3 Dare Derby
 - **Konsep**: Kompetisi mini-game per ronde. Yang kalah di setiap ronde dapat "dare".
 - **Alur gameplay**:
   ```
@@ -368,7 +392,7 @@ Partner (User B):
   Setelah semua ronde → status = 'completed', tampilkan scoreboard
   ```
 - **Dare levels**: `sweet_only` | `mixed` | `full_chaos`
-- **Mini-game types**: `reflex` | `brain` | `skill` (lihat `game_minigame_configs`)
+- **Mini-game types**: `reflex` | `brain` | `skill` (FastestTyper, FlagGuess, MathDash, NumberOrder, dll)
 - **Fase game**: `lobby` → `playing` → `result` → `game_over`
 
 **API Endpoints Dare Derby**:
@@ -379,7 +403,32 @@ Partner (User B):
 - `POST /api/game/dare-derby/session/{code}/ready`
 - `POST /api/game/dare-derby/session/{code}/submit`
 - `POST /api/game/dare-derby/session/{code}/dare`
+- `POST /api/game/dare-derby/session/{code}/dare/confirm`
+- `POST /api/game/dare-derby/session/{code}/dare/complete`
+- `POST /api/game/dare-derby/session/{code}/dare/skip`
+- `POST /api/game/dare-derby/session/{code}/surrender`
 - `GET  /api/game/dare-derby/session/{code}/room` (Daily.co room)
+
+### 7.4 Quoridor (Game Board Strategi)
+- **Coin cost**: 3 coin
+- **Expire**: 15 menit menunggu partner
+- **Konsep**: Board game strategi 9×9. Tujuan: pion Host mencapai baris 8 (bawah), pion Partner mencapai baris 0 (atas).
+- **Mekanik**:
+  - Giliran player: pilih **MOVE** (geser 1 langkah orthogonal) atau **WALL** (pasang tembok 2-blok horisontal/vertikal).
+  - Setiap player punya jatah tembok (default 10 buah).
+  - Tembok tidak boleh memblokir total jalan lawan ke garis finis (pathfinding A* / BFS validation server-side).
+  - Jump rules: lompat pion lawan jika berhadapan.
+- **Race condition**: Semua mutasi move/wall divalidasi dan dijalankan via API server-side `POST /api/game/quoridor/session/{code}/action`.
+
+**API Endpoints Quoridor**:
+- `POST /api/game/quoridor/session/create`
+- `POST /api/game/quoridor/session/join`
+- `GET  /api/game/quoridor/session/active`
+- `GET  /api/game/quoridor/session/{code}`
+- `POST /api/game/quoridor/session/{code}/action` (move/wall)
+- `POST /api/game/quoridor/session/{code}/surrender`
+- `POST /api/game/quoridor/session/{code}/expire`
+- `GET  /api/game/quoridor/session/{code}/room` (Daily.co room)
 
 ---
 
@@ -528,13 +577,22 @@ Lihat bagian [Section 8](#8-realtime-supabase). Selalu cleanup channel saat komp
 
 | Halaman | Path | Deskripsi |
 |---|---|---|
-| Dashboard Home | `/dashboard` | Overview: saldo coin, status couple, partner, upcoming anniversaries, active session banner |
-| Games | `/dashboard/games` | Daftar semua game yang tersedia |
-| Coin Topup | `/dashboard/coin` | Beli coin + riwayat transaksi |
+| Dashboard Home | `/dashboard` | Overview: saldo coin, status couple, partner, upcoming anniversaries, active session banner, onboarding checklist |
+| Games Hub | `/dashboard/games` | Daftar semua game yang tersedia |
+| Truth or Dare | `/dashboard/games/tod` | Gameplay Truth or Dare |
+| ToD Questions | `/dashboard/games/tod/questions` | Submit pertanyaan custom ToD |
+| Ular Tangga | `/dashboard/games/snake-ladder` | Gameplay Ular Tangga (Phaser 4) |
+| Dare Derby | `/dashboard/games/dare-derby` | Mini-game competition |
+| Quoridor | `/dashboard/games/quoridor` | Board game strategi 9×9 |
+| Game Stats | `/dashboard/games/stats` | Statistik couple game (win/loss, match count) |
+| Game History | `/dashboard/games/history` | Riwayat game sesi sebelumnya |
+| Coin Topup | `/dashboard/coin` | Beli coin via Midtrans + redeem voucher + riwayat |
 | Couple Connection | `/dashboard/couple` | Link/unlink partner via couple code |
 | Anniversary Tracker | `/dashboard/anniversaries` | Buat & kelola pengingat hari spesial |
-| Profile | `/dashboard/profile` | Edit nama, foto profil |
-| Admin Panel | `/admin` | Kelola questions, users, transaksi (is_admin only) |
+| Wishlist | `/dashboard/wishlist` | Bucket list bersama (virtual/offline/dream/gift) |
+| Time Capsule | `/dashboard/capsule` | Pesan terjadwal antar pasangan |
+| Profile | `/dashboard/profile` | Edit nama, avatar |
+| Admin Panel | `/admin` | Kelola questions, users, transaksi, voucher (is_admin only) |
 
 ---
 
@@ -544,24 +602,62 @@ File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supa
 
 | File | Isi |
 |---|---|
-| 001_tables.sql | Semua tabel, index, triggers, seed game_settings & coin_packages |
-| 002_rls_policies.sql | Row Level Security policies |
-| 003_functions.sql | Stored functions (business logic utama) |
-| 004_tod_questions_seed.sql | Seed ~60 pertanyaan Truth or Dare |
-| 005_snake_questions_seed.sql | Seed ~100 pertanyaan Ular Tangga |
-| 006_snake_use_game_sessions.sql | Migrasi snake ke unified game_sessions |
-| 007_fix_create_game_session_ambiguity.sql | Fix ambiguity di stored proc |
-| 008_atomic_snake_and_cancel.sql | Stored proc atomic untuk snake & cancel |
-| 009_drop_deprecated_snake_functions.sql | Drop fungsi snake lama |
-| 010_rate_limiting.sql | Tabel & fungsi rate limiting |
-| 011_enforce_session_expiry.sql | Enforce expiry & auto-expire sessions |
-| 012_fix_active_session_check.sql | Fix cek sesi aktif |
-| 013_fix_active_session_gametype.sql | Fix game type di cek sesi aktif |
-| 014_dare_derby_tables.sql | Tabel Dare Derby (dare_questions, minigame_configs) |
-| 015_dare_derby_functions.sql | Stored functions Dare Derby |
-| 016_dare_derby_seed.sql | Seed data dare questions & minigame configs |
-| 017_fix_select_dare_derby_minigames.sql | Fix query select minigames |
-| 018_fix_confirm_dare_next_round.sql | Fix logic confirm dare & next round |
-| 019_add_number_order_minigame.sql | Tambah mini-game number order |
+| `001_tables.sql` | Semua tabel, index, triggers, seed game_settings & coin_packages |
+| `002_rls_policies.sql` | Row Level Security policies |
+| `003_functions.sql` | Stored functions (business logic utama) |
+| `004_tod_questions_seed.sql` | Seed ~60 pertanyaan Truth or Dare |
+| `005_snake_questions_seed.sql` | Seed ~100 pertanyaan Ular Tangga |
+| `006_snake_use_game_sessions.sql` | Migrasi snake ke unified game_sessions |
+| `007_fix_create_game_session_ambiguity.sql` | Fix ambiguity di stored proc |
+| `008_atomic_snake_and_cancel.sql` | Stored proc atomic untuk snake & cancel |
+| `009_drop_deprecated_snake_functions.sql` | Drop fungsi snake lama |
+| `010_rate_limiting.sql` | Tabel & fungsi rate limiting |
+| `011_enforce_session_expiry.sql` | Enforce expiry & auto-expire sessions |
+| `012_fix_active_session_check.sql` | Fix cek sesi aktif |
+| `013_fix_active_session_gametype.sql` | Fix game type di cek sesi aktif |
+| `014_dare_derby_tables.sql` | Tabel Dare Derby (dare_questions, minigame_configs) |
+| `015_dare_derby_functions.sql` | Stored functions Dare Derby |
+| `016_dare_derby_seed.sql` | Seed data dare questions & minigame configs |
+| `017_fix_select_dare_derby_minigames.sql` | Fix query select minigames |
+| `018_fix_confirm_dare_next_round.sql` | Fix logic confirm dare & next round |
+| `019_add_number_order_minigame.sql` | Tambah mini-game number order |
+| `020_anniversaries_shared_couple.sql` | Policy anniversaries shared couple |
+| `020_vouchers.sql` | Tabel vouchers + voucher_redemptions |
+| `020b_vouchers_seed.sql` | Seed sample vouchers |
+| `021_anniversaries_couple_update.sql` | Trigger auto-update couple anniversaries |
+| `021_discount_vouchers.sql` | Dukungan voucher topup discount |
+| `022_wishlists.sql` | Tabel wishlists + RLS + trigger |
+| `023_capsules.sql` | Tabel capsules + RLS |
+| `024_quoridor.sql` | Game settings Quoridor |
+| `025_quoridor_fix.sql` | Stored procedures Quoridor gameplay |
+| `026_quoridor_pathcheck.sql` | Validasi pathfinding Quoridor (BFS) |
+| `027_quoridor_fix_jump.sql` | Fix rule lompat bidak Quoridor |
+| `028_login_rate_limit.sql` | Rate limiting login 2-tier di DB |
+| `029_capsules.sql` | Capsule enhancement + unlock procedures |
+| `030_add_new_minigames.sql` | Mini-game baru Dare Derby |
+| `add_avatar_url.sql` | Kolom avatar_url di users |
+| `push_subscriptions.sql` | Tabel push_subscriptions |
 
 > **JANGAN menjalankan migration yang sama dua kali.** Gunakan `IF NOT EXISTS` atau `ON CONFLICT DO NOTHING` saat menambah migration baru.
+
+---
+
+## 15. Cron Jobs (vercel.json)
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/anniversary-reminders",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/capsule-delivery",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
+```
+- Endpoint dilindungi via header `Authorization: Bearer ${CRON_SECRET}`.
+- `anniversary-reminders`: Push notif H-7, H-3, H-1, dan hari-H anniversary.
+- `capsule-delivery`: Unlock pesan time capsule yang `delivery_date <= today`, kirim push notif ke penerima.

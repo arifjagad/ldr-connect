@@ -16,20 +16,14 @@ export function TapTimingGame({ duration = 10, startedAt, bonusActive = false, o
   const [timeLeft, setTimeLeft] = useState(duration); // mulai dari durasi penuh
 
   const gameStartRef  = useRef(startedAt ?? Date.now());
-  // mountedAt: waktu komponen ini BENAR-BENAR mount di device player.
-  // Dipakai sebagai basis countdown agar tidak premature timeout karena
-  // network/render delay antara saat ronde dimulai di server dan saat komponen mount.
   const mountedAtRef  = useRef(Date.now());
   const posRef        = useRef(0);
   const dirRef        = useRef(1);
   const rafRef        = useRef<number>(0);
   const completedRef  = useRef(false);
-
-  // Scoring kontinu: tepat di tengah (dist=0) = 100, tiap 1% jauh = -2 poin, minimum 10
-  const calcScore = (pos: number) => {
-    const dist = Math.abs(pos - 50);
-    return Math.max(10, Math.round(100 - dist * 2));
-  };
+  // onCompleteRef: selalu up-to-date agar finish() tidak tangkap onComplete stale
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   const finish = useCallback((s: number, pos: number) => {
     if (completedRef.current) return;
@@ -37,8 +31,9 @@ export function TapTimingGame({ duration = 10, startedAt, bonusActive = false, o
     cancelAnimationFrame(rafRef.current);
     const timeTaken = Date.now() - gameStartRef.current;
     setScore(s);
-    onComplete(s, timeTaken, { tap_position: pos, tapped: s > 0 });
-  }, [onComplete]);
+    onCompleteRef.current(s, timeTaken, { tap_position: pos, tapped: s > 0 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Bar animation ──────────────────────────────────────────────────────────
   useEffect(() => {

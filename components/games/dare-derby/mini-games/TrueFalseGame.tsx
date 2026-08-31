@@ -55,6 +55,9 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
   // Selalu menyimpan answers terkini agar countdown tidak membaca stale closure.
   const answersRef    = useRef<boolean[]>([]);
   const finalScoreRef = useRef<{ correct: number } | null>(null);
+  // onCompleteRef: selalu up-to-date agar finish() tidak tangkap onComplete stale
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
   const finish = useCallback((ans: boolean[]) => {
@@ -63,8 +66,10 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
     const timeTaken = Date.now() - gameStartRef.current;
     const correct = ans.filter((a, i) => a === statements[i]?.answer).length;
     finalScoreRef.current = { correct };
-    onComplete(Math.round((correct / QUESTIONS_PER_ROUND) * 100), timeTaken, { correct, total: QUESTIONS_PER_ROUND });
-  }, [onComplete, statements]);
+    onCompleteRef.current(Math.round((correct / QUESTIONS_PER_ROUND) * 100), timeTaken, { correct, total: QUESTIONS_PER_ROUND });
+  // statements stabil dari useState lazy init; onComplete diganti pakai ref
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statements]);
 
   // Countdown sinkron
   // Penting: gunakan `answersRef.current` (bukan `answers`) di dalam interval

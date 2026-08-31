@@ -40,6 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen]     = useState(false);   // hamburger mobile
   const [moreOpen, setMoreOpen]     = useState(false);   // "Lainnya" desktop submenu
   const [sessionReady, setSessionReady] = useState(false);
+  const [partnerInfo, setPartnerInfo] = useState<{ name: string; avatar_url: string | null } | null>(null);
 
   const hamburgerRef = useRef<HTMLDivElement>(null);
   const moreRef      = useRef<HTMLDivElement>(null);
@@ -78,6 +79,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     moreTimeoutRef.current = setTimeout(() => setMoreOpen(false), 120);
   };
 
+  // Fetch partner info (nama + avatar) sekali saat user linked
+  useEffect(() => {
+    if (!user?.partner_id) { setPartnerInfo(null); return; }
+    let cancelled = false;
+    createClient()
+      .from("users")
+      .select("name, avatar_url")
+      .eq("id", user.partner_id)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled && data) setPartnerInfo({ name: data.name, avatar_url: data.avatar_url ?? null });
+      });
+    return () => { cancelled = true; };
+  }, [user?.partner_id]);
+
   // Register service worker & resync subscription
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !VAPID_PUBLIC_KEY) return;
@@ -94,22 +110,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }).catch(() => {});
   }, []);
 
-  // Validasi sesi Supabase
+  // Validasi sesi Supabase & auto-sync auth state secara global
   useEffect(() => {
-    if (!isDashboardPage) { setSessionReady(true); return; }
     let cancelled = false;
     const supabase = createClient();
+
+    // 1. Cek sesi saat mount
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (cancelled) return;
-      if (error) { console.warn("[AppShell] getSession error:", error.message); setSessionReady(true); return; }
-      if (!session) { clearAuth(); router.replace("/auth/login"); }
-      else { setSessionReady(true); }
+      if (error) {
+        console.warn("[AppShell] getSession error:", error.message);
+        setSessionReady(true);
+        return;
+      }
+      if (!session) {
+        if (useAuthStore.getState().user) clearAuth();
+        if (isDashboardPage) router.replace("/auth/login");
+      } else {
+        // Jika session ada tapi store kosong (misal hard refresh / new tab)
+        if (!useAuthStore.getState().user) {
+          fetch("/api/auth/me")
+            .then((res) => (res.ok ? res.json() : null))
+            .then((json) => {
+              if (json?.data && !cancelled) {
+                useAuthStore.getState().setUser(json.data);
+              }
+            })
+            .catch(() => {});
+        }
+      }
+      setSessionReady(true);
     }).catch((err) => {
       if (cancelled) return;
       console.warn("[AppShell] getSession threw:", err);
       setSessionReady(true);
     });
-    return () => { cancelled = true; };
+
+    // 2. Listen auth changes (SIGNED_OUT, TOKEN_REFRESHED, SIGNED_IN)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (event === "SIGNED_OUT" || !session) {
+        clearAuth();
+        if (isDashboardPage) router.replace("/auth/login");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [isDashboardPage, clearAuth, router]);
 
   async function handleLogout() {
@@ -137,9 +186,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {isDashboardPage ? (
         <>
           <header className="sticky top-0 z-40 border-b border-white/5 bg-[#141417]/90 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+            <div className="mx-auto grid w-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
 
-              {/* Brand */}
+              {/* Brand — col 1, left */}
               <Link href="/dashboard" className="group shrink-0">
                 <p className="text-[10px] text-[#5C5470]">LDR-Connect</p>
                 <p className="text-sm font-semibold text-[#F5F0FF] group-hover:text-[#FF6B9D] transition">
@@ -147,7 +196,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </p>
               </Link>
 
-              {/* ── Desktop nav (≥ 1024px) ─────────────────────────────── */}
+              {/* ── Desktop nav (≥ 1024px) — col 2, truly centered ─────── */}
               <nav className="hidden lg:flex items-center gap-1.5">
                 {/* Main nav items */}
                 {mainNavItems.map((item) => {
@@ -215,8 +264,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </nav>
 
-              {/* ── Right side ─────────────────────────────────────────── */}
-              <div className="flex items-center gap-2">
+              {/* On mobile: empty center placeholder so grid stays balanced */}
+              <div className="lg:hidden" />
+
+              {/* ── Right side — col 3, right ─────────────────────────── */}
+              <div className="flex items-center justify-end gap-2">
 
                 {/* Coin badge — selalu tampil */}
                 {user && (
@@ -230,20 +282,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </Link>
                 )}
 
-                {/* Profile avatar — selalu tampil */}
-                <Link
-                  href="/dashboard/profile"
-                  title="Profil & Pengaturan"
-                  className={`relative flex h-8 w-8 shrink-0 overflow-hidden items-center justify-center rounded-full text-sm font-bold transition ring-2 ${
-                    pathname.startsWith("/dashboard/profile") ? "ring-[#FF3D7F]" : "ring-white/10 bg-white/10 text-[#9B93B0] hover:ring-white/30"
-                  }`}
-                >
-                  {user?.avatar_url ? (
-                    <Image src={user.avatar_url} alt={user.name} width={32} height={32} className="h-full w-full object-cover" unoptimized />
-                  ) : (
-                    <span>{user?.name?.[0]?.toUpperCase() ?? "?"}</span>
-                  )}
-                </Link>
+                {/* Avatar pair: [partner] ❤ [me] */}
+                {partnerInfo ? (
+                  <div className="flex items-center gap-1">
+                    {/* Partner avatar */}
+                    <div
+                      className="relative flex h-7 w-7 shrink-0 overflow-hidden items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-[#818CF8]/40 bg-[#818CF8]/20 text-[#C4B5FD]"
+                      title={`Partner: ${partnerInfo.name}`}
+                    >
+                      {partnerInfo.avatar_url ? (
+                        <Image src={partnerInfo.avatar_url} alt={partnerInfo.name} width={28} height={28} className="h-full w-full object-cover" unoptimized />
+                      ) : (
+                        <span>{partnerInfo.name?.[0]?.toUpperCase() ?? "?"}</span>
+                      )}
+                    </div>
+
+                    {/* Heart — di tengah antara partner & user */}
+                    <span className="text-[10px] text-[#FF3D7F] leading-none">❤</span>
+
+                    {/* User avatar */}
+                    <Link
+                      href="/dashboard/profile"
+                      title="Profil & Pengaturan"
+                      className={`relative flex h-8 w-8 shrink-0 overflow-hidden items-center justify-center rounded-full text-sm font-bold transition ring-2 ${
+                        pathname.startsWith("/dashboard/profile") ? "ring-[#FF3D7F]" : "ring-white/10 bg-white/10 text-[#9B93B0] hover:ring-white/30"
+                      }`}
+                    >
+                      {user?.avatar_url ? (
+                        <Image src={user.avatar_url} alt={user.name} width={32} height={32} className="h-full w-full object-cover" unoptimized />
+                      ) : (
+                        <span>{user?.name?.[0]?.toUpperCase() ?? "?"}</span>
+                      )}
+                    </Link>
+                  </div>
+                ) : (
+                  /* User avatar saja (belum linked) */
+                  <Link
+                    href="/dashboard/profile"
+                    title="Profil & Pengaturan"
+                    className={`relative flex h-8 w-8 shrink-0 overflow-hidden items-center justify-center rounded-full text-sm font-bold transition ring-2 ${
+                      pathname.startsWith("/dashboard/profile") ? "ring-[#FF3D7F]" : "ring-white/10 bg-white/10 text-[#9B93B0] hover:ring-white/30"
+                    }`}
+                  >
+                    {user?.avatar_url ? (
+                      <Image src={user.avatar_url} alt={user.name} width={32} height={32} className="h-full w-full object-cover" unoptimized />
+                    ) : (
+                      <span>{user?.name?.[0]?.toUpperCase() ?? "?"}</span>
+                    )}
+                  </Link>
+                )}
 
                 {/* Logout — hanya desktop */}
                 <button

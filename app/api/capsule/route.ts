@@ -87,8 +87,12 @@ export async function POST(req: Request) {
 
   const { message, opens_at } = body;
 
-  if (new Date(opens_at) <= new Date()) {
-    return NextResponse.json({ success: false, message: "Tanggal buka harus di masa depan", data: null }, { status: 422 });
+  // Validasi: opens_at harus BESOK atau lebih (berdasarkan tanggal WIB, bukan UTC)
+  // Menggunakan UTC offset +7 agar "hari ini WIB" tidak ditolak karena server UTC
+  const nowWib   = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const todayWib = nowWib.toISOString().split("T")[0]; // "YYYY-MM-DD" WIB
+  if (opens_at <= todayWib) {
+    return NextResponse.json({ success: false, message: "Tanggal buka harus besok atau lebih", data: null }, { status: 422 });
   }
 
   const serviceClient = createServiceClient();

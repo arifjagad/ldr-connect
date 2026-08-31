@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth-store";
 import { ShareResult } from "@/components/ui/ShareResult";
@@ -176,6 +176,297 @@ function getResultInfo(
 
   return { result: null, resultLabel: <span className="text-xs text-[#5C5470]">—</span>, summary: "" };
 }
+
+// ─── Stats computation ────────────────────────────────────────────────────────
+
+function computeStats(sessions: GameSession[], userId: string) {
+  const completedSessions = sessions.filter((s) => s.status === "completed");
+
+  // Win / Lose / Draw for competitive games
+  let wins = 0, losses = 0, draws = 0;
+  for (const s of completedSessions) {
+    const { result } = getResultInfo(s, userId);
+    if (result === "win")       wins++;
+    else if (result === "lose") losses++;
+    else if (result === "draw") draws++;
+  }
+  const competitive = wins + losses + draws;
+  const winRate = competitive > 0 ? Math.round((wins / competitive) * 100) : null;
+
+  // Game type breakdown
+  const gameCount: Record<string, number> = {};
+  for (const s of sessions) {
+    gameCount[s.game_type] = (gameCount[s.game_type] ?? 0) + 1;
+  }
+  const sortedGames = Object.entries(gameCount).sort((a, b) => b[1] - a[1]);
+  const favoriteGame = sortedGames[0]?.[0] ?? null;
+  const maxCount     = sortedGames[0]?.[1] ?? 1;
+
+  // Total coins spent
+  const totalCoins = sessions.reduce((sum, s) => sum + (s.coin_deducted ?? 0), 0);
+
+  // Last 14-day activity
+  const now = Date.now();
+  const activityMap: Record<string, number> = {};
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now - i * 86400000);
+    activityMap[d.toISOString().split("T")[0]] = 0;
+  }
+  for (const s of sessions) {
+    const key = s.created_at.split("T")[0];
+    if (key in activityMap) activityMap[key]++;
+  }
+  const activityData = Object.entries(activityMap).map(([date, count]) => ({ date, count }));
+  const maxActivity  = Math.max(...activityData.map((d) => d.count), 1);
+
+  return {
+    total: sessions.length,
+    completedCount: completedSessions.length,
+    wins, losses, draws, competitive, winRate,
+    sortedGames, favoriteGame, maxCount,
+    totalCoins, activityData, maxActivity,
+  };
+}
+
+// ─── Stats Section Component ──────────────────────────────────────────────────
+
+function StatsSection({ sessions, userId }: { sessions: GameSession[]; userId: string }) {
+  const stats    = useMemo(() => computeStats(sessions, userId), [sessions, userId]);
+  const todayKey = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  // Chart height constant: h-16 = 64px
+  const CHART_H = 64;
+
+  return (
+    <div className="mb-8 space-y-4">
+
+      {/* ── 4 Stat Cards ── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+        {/* Total sesi */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+          <div aria-hidden className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full blur-2xl" style={{ background: "rgba(129,140,248,0.2)" }} />
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">Total Sesi</p>
+          <p className="mt-3 text-4xl font-bold tabular-nums text-[#FFF5F8]">{stats.total}</p>
+          <div className="mt-2 flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#34D399]" />
+            <p className="text-[11px] text-[#5C5470]">{stats.completedCount} selesai</p>
+          </div>
+        </div>
+
+        {/* Win Rate */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+          <div aria-hidden className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full blur-2xl" style={{ background: "rgba(52,211,153,0.2)" }} />
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">Win Rate</p>
+          {stats.winRate !== null ? (
+            <>
+              <p className="mt-3 text-4xl font-bold tabular-nums text-[#34D399]">{stats.winRate}%</p>
+              <p className="mt-2 text-[11px] text-[#5C5470]">{stats.wins}W · {stats.losses}L{stats.draws > 0 ? ` · ${stats.draws}D` : ""}</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-4xl font-bold text-[#5C5470]">—</p>
+              <p className="mt-2 text-[11px] text-[#5C5470]">belum ada data</p>
+            </>
+          )}
+        </div>
+
+        {/* Favorit */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full blur-2xl"
+            style={{ background: `${GAME_META[stats.favoriteGame ?? ""]?.color ?? "#FF3D7F"}35` }}
+          />
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">Favorit</p>
+          {stats.favoriteGame ? (
+            <>
+              <div className="mt-3 flex items-center gap-2">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
+                  style={{ background: `${GAME_META[stats.favoriteGame]?.color ?? "#9B93B0"}20` }}
+                >
+                  {GAME_META[stats.favoriteGame]?.icon}
+                </span>
+                <p className="text-sm font-bold leading-tight text-[#FFF5F8]">
+                  {GAME_META[stats.favoriteGame]?.label ?? stats.favoriteGame}
+                </p>
+              </div>
+              <p className="mt-2 text-[11px] text-[#5C5470]">{stats.sortedGames[0][1]}× dimainkan</p>
+            </>
+          ) : (
+            <p className="mt-3 text-4xl font-bold text-[#5C5470]">—</p>
+          )}
+        </div>
+
+        {/* Coins dipakai */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+          <div aria-hidden className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full blur-2xl" style={{ background: "rgba(249,115,22,0.18)" }} />
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">Coin Dipakai</p>
+          <p className="mt-3 text-4xl font-bold tabular-nums text-[#FB923C]">{stats.totalCoins}</p>
+          <p className="mt-2 text-[11px] text-[#5C5470]">dari {stats.total} sesi</p>
+        </div>
+      </div>
+
+      {/* ── Row 2: Game breakdown + Activity ── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+
+        {/* Game distribution */}
+        <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#5C5470]">Breakdown Per Game</p>
+          <div className="mt-5 space-y-4">
+            {stats.sortedGames.map(([type, count]) => {
+              const meta = GAME_META[type] ?? { label: type, icon: "🎮", color: "#9B93B0" };
+              const pct  = Math.round((count / stats.total) * 100);
+              const barW = Math.round((count / stats.maxCount) * 100);
+              return (
+                <div key={type}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-sm text-[#C4B5FD]">
+                      <span
+                        className="flex h-5 w-5 items-center justify-center rounded text-xs"
+                        style={{ background: `${meta.color}20` }}
+                      >
+                        {meta.icon}
+                      </span>
+                      {meta.label}
+                    </span>
+                    <span className="text-xs tabular-nums text-[#FFF5F8]">
+                      <span className="font-semibold">{count}×</span>
+                      <span className="ml-1 text-[#5C5470]">({pct}%)</span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${barW}%`, background: `linear-gradient(90deg, ${meta.color}99, ${meta.color})` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Activity + W/L/D */}
+        <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#5C5470]">Aktivitas 14 Hari</p>
+
+          {/*
+            Bar chart fix:
+            - Outer div: h-16 (= 64px), no items-end (default stretch so children fill height)
+            - Each column: h-full flex flex-col justify-end → bar pins to bottom
+            - Bar height in px (not %) to avoid circular % calculation
+            - Floor line: absolute bottom border
+          */}
+          <div className="relative mt-5">
+            <div className="absolute bottom-0 inset-x-0 h-px bg-white/[0.07]" />
+            <div className="flex gap-[3px]" style={{ height: 64 }}>
+              {stats.activityData.map(({ date, count }) => {
+                const isToday  = date === todayKey;
+                const heightPx = count > 0
+                  ? Math.max(8, Math.round((count / stats.maxActivity) * 64))
+                  : 2;
+                return (
+                  <div
+                    key={date}
+                    title={`${count} sesi`}
+                    className="group relative flex flex-1 flex-col justify-end"
+                    style={{ height: "100%" }}
+                  >
+                    {/* CSS tooltip */}
+                    <div className="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#1A1A22] px-2 py-1 text-[9px] text-[#C4B5FD] ring-1 ring-white/10 group-hover:block z-20">
+                      {count > 0 ? `${count} sesi` : "—"}
+                    </div>
+
+                    <div
+                      className="w-full transition-all duration-500"
+                      style={{
+                        height: heightPx,
+                        borderRadius: "2px 2px 0 0",
+                        background: count > 0
+                          ? isToday
+                            ? "linear-gradient(to top, #FF3D7F, #FF6B9D)"
+                            : "linear-gradient(to top, #6366F1, #818CF8)"
+                          : "rgba(255,255,255,0.05)",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* X-axis: tanggal per bar */}
+          <div className="mt-1 flex gap-[3px]">
+            {stats.activityData.map(({ date, count }, i) => {
+              const isToday = date === todayKey;
+              const d       = new Date(date + "T12:00:00");
+              const day     = d.getDate();
+              const month   = d.getMonth();
+              // Tampilkan DD/MM di awal bulan atau bar pertama, sisanya DD saja
+              const label   = (day === 1 || i === 0)
+                ? `${String(day).padStart(2, "0")}/${String(month + 1).padStart(2, "0")}`
+                : String(day);
+              return (
+                <div
+                  key={date}
+                  className="flex flex-1 items-center justify-center"
+                >
+                  <span
+                    className="text-center leading-none"
+                    style={{
+                      fontSize: 8,
+                      color: isToday ? "#FF3D7F" : count > 0 ? "#6B7280" : "#374151",
+                      fontWeight: isToday ? 700 : 400,
+                    }}
+                  >
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* W/L/D segmented bar */}
+          {stats.competitive > 0 && (
+            <div className="mt-4 border-t border-white/[0.06] pt-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[10px] font-medium text-[#5C5470]">Menang / Seri / Kalah</p>
+                <p className="text-[10px] text-[#5C5470]">{stats.competitive} game</p>
+              </div>
+              <div className="flex h-3 w-full overflow-hidden rounded-full bg-white/5">
+                {stats.wins > 0 && (
+                  <div className="h-full transition-all duration-700" style={{ width: `${(stats.wins / stats.competitive) * 100}%`, background: "#34D399" }} />
+                )}
+                {stats.draws > 0 && (
+                  <div className="h-full transition-all duration-700" style={{ width: `${(stats.draws / stats.competitive) * 100}%`, background: "#9B93B0" }} />
+                )}
+                {stats.losses > 0 && (
+                  <div className="h-full transition-all duration-700" style={{ width: `${(stats.losses / stats.competitive) * 100}%`, background: "#EF4444" }} />
+                )}
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-4">
+                <span className="flex items-center gap-1.5 text-[11px] text-[#34D399]">
+                  <span className="h-2 w-2 rounded-sm bg-[#34D399]" />{stats.wins} Menang
+                </span>
+                {stats.draws > 0 && (
+                  <span className="flex items-center gap-1.5 text-[11px] text-[#9B93B0]">
+                    <span className="h-2 w-2 rounded-sm bg-[#9B93B0]" />{stats.draws} Seri
+                  </span>
+                )}
+                <span className="flex items-center gap-1.5 text-[11px] text-red-400">
+                  <span className="h-2 w-2 rounded-sm bg-red-400" />{stats.losses} Kalah
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // ─── Session Card ─────────────────────────────────────────────────────────────
 
@@ -448,6 +739,15 @@ export default function GameHistoryPage() {
 
         return (
           <>
+            {/* ── Stats Section ── */}
+            <StatsSection sessions={sessions} userId={currentUserId || user?.id || ""} />
+
+            {/* ── Session list header ── */}
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Riwayat Sesi</p>
+              <p className="text-xs text-[#5C5470]">{sessions.length} total</p>
+            </div>
+
             <div className="space-y-3">
               {paginated.map((s) => (
                 <SessionCard

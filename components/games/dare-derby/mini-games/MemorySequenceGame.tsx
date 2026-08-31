@@ -33,24 +33,26 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
 
   const gameStartRef      = useRef(startedAt ?? Date.now());
   const completedRef      = useRef(false);
-  // inputStartedAt: dicatat tepat saat showing phase selesai — dipakai sebagai basis countdown input.
-  // Ini BERBEDA dari startedAt round, karena kita tidak ingin delay render/network
-  // memotong waktu input player.
   const inputStartedAtRef = useRef<number | null>(null);
   // userInputRef: sinkron dengan userInput agar handleColorTap tidak baca stale state
   const userInputRef      = useRef<string[]>([]);
+  // onCompleteRef: selalu up-to-date agar finish() tidak tangkap onComplete stale
+  const onCompleteRef     = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
   useEffect(() => { userInputRef.current = userInput; }, [userInput]);
 
   const finish = useCallback((correct: number) => {
     if (completedRef.current) return;
     completedRef.current = true;
     const timeTaken = Date.now() - gameStartRef.current;
-    onComplete(Math.round((correct / SEQ_LEN) * 100), timeTaken, { correct, total: SEQ_LEN });
-  }, [onComplete]);
+    onCompleteRef.current(Math.round((correct / SEQ_LEN) * 100), timeTaken, { correct, total: SEQ_LEN });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Showing phase: tampilkan urutan warna satu per satu ──────────────────────
   useEffect(() => {
     if (phase !== "showing") return;
+    correctCountRef.current = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
     sequence.forEach((_, i) => {
       timers.push(setTimeout(() => setShowingIndex(i),   i * 900));

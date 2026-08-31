@@ -101,27 +101,25 @@ export function ColorMatchGame({ duration = 25, startedAt, bonusActive = false, 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const gameStartRef  = useRef(startedAt ?? Date.now());
   const completedRef  = useRef(false);
-  // Bug fix #1 & #2: gunakan ref untuk answers agar tidak ada stale closure
-  // di dalam setTimeout atau interval callback
   const answersRef    = useRef<boolean[]>([]);
   const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Bug fix #3: simpan skor final di ref agar layar "done" selalu akurat
   const finalScoreRef = useRef<{ correct: number; total: number } | null>(null);
+  // onCompleteRef: selalu up-to-date agar finish() tidak tangkap onComplete stale
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
   const finish = useCallback((ans: boolean[]) => {
-    // Bug fix #4: cek completedRef sebagai single source of truth
     if (completedRef.current) return;
     completedRef.current = true;
-    // Bug fix #5: hentikan interval saat game selesai manual (semua ronde dijawab)
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     const timeTaken = Date.now() - gameStartRef.current;
     const correct = ans.filter(Boolean).length;
     finalScoreRef.current = { correct, total: ROUNDS_PER_GAME };
-    // 10 ronde × 10 poin = 100
-    onComplete(correct * 10, timeTaken, { correct, total: ROUNDS_PER_GAME });
-  }, [onComplete]);
+    onCompleteRef.current(correct * 10, timeTaken, { correct, total: ROUNDS_PER_GAME });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Countdown
   useEffect(() => {

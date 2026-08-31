@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
   }
 
   const serviceClient = createServiceClient();
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const nowWib = new Date(Date.now() + 7 * 60 * 60 * 1000); // UTC+7 (WIB)
+  const today = nowWib.toISOString().split("T")[0]; // YYYY-MM-DD (WIB)
 
   // Ambil semua capsule yang sudah waktunya dibuka tapi masih locked
   const { data: capsules, error } = await serviceClient

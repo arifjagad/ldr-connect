@@ -119,7 +119,6 @@ export async function POST(request: NextRequest) {
     .lt("expires_at", new Date().toISOString());
 
   const gameDurationMinutes = (settings as { expires_in_minutes?: number } | null)?.expires_in_minutes ?? 10;
-  await createDailyRoom(sessionCode, 10 + gameDurationMinutes);
 
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("create_game_session", {
     p_host_user_id: user.id,
@@ -165,6 +164,9 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  // Buat room Daily.co setelah database session sukses dibuat
+  await createDailyRoom(sessionCode, 10 + gameDurationMinutes);
 
   broadcastGameInvite({
     hostUserId: user.id,
