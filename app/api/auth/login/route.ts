@@ -69,9 +69,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 3. Attempt login ke Supabase Auth & tangkap session cookies secara eksplisit
-  const cookiesToSet: Array<{ name: string; value: string; options: any }> = [];
+  // 3. Buat base response object
+  const response = NextResponse.json({
+    success: true,
+    message: "Login berhasil",
+    data: {
+      user: null as any,
+    },
+  });
 
+  // 4. Inisialisasi Supabase client dengan response cookies callback langsung
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -80,8 +87,14 @@ export async function POST(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(toSet) {
-          toSet.forEach((c) => cookiesToSet.push(c));
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, {
+              ...options,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+            });
+          });
         },
       },
     }
@@ -93,7 +106,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (signInError || !signInData.session) {
-    // Login gagal — rate limit sudah dicatat di langkah 2 (check + insert)
+    // Login gagal — rate limit sudah dicatat di langkah 2
     const message =
       signInError?.message === "Invalid login credentials"
         ? "Email atau password salah"
@@ -105,7 +118,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 4. Login berhasil — reset rate limit counter untuk email ini
+  // 5. Login berhasil — reset rate limit counter untuk email ini
   try {
     const { error: clearError } = await serviceClient.rpc("clear_login_rate_limit", { p_email: email });
     if (clearError) {
@@ -115,7 +128,7 @@ export async function POST(request: NextRequest) {
     console.error("[login] clear rate limit network error:", e);
   }
 
-  // 5. Concurrent session block: sign out semua sesi LAIN yang aktif
+  // 6. Concurrent session block: sign out semua sesi LAIN yang aktif
   try {
     const currentUserId = signInData.user.id;
     if (currentUserId) {
@@ -125,29 +138,8 @@ export async function POST(request: NextRequest) {
     console.error("[login] concurrent session sign-out failed:", e);
   }
 
-  // 6. Buat response dan attach SEMUA auth cookie + ldr_session_age
+  // 7. Attach session age cookie ke response yang sama
   const sessionTimestamp = Date.now().toString();
-
-  const response = NextResponse.json({
-    success: true,
-    message: "Login berhasil",
-    data: {
-      user: {
-        id: signInData.user.id,
-        email: signInData.user.email,
-      },
-    },
-  });
-
-  // Tulis semua cookie auth Supabase ke headers response Netlify
-  cookiesToSet.forEach(({ name, value, options }) => {
-    response.cookies.set(name, value, {
-      ...options,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-    });
-  });
-
   response.cookies.set(SESSION_COOKIE_NAME, sessionTimestamp, {
     httpOnly: true,
     secure:   process.env.NODE_ENV === "production",
