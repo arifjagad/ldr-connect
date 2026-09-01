@@ -19,8 +19,21 @@ import { useAuthStore } from "@/stores/auth-store";
 
 const MIN_REFETCH_MS = 60_000; // minimum jeda antar refetch via focus
 
+/**
+ * Custom event name untuk dispatch update saldo coin ke seluruh komponen
+ */
+export const COIN_BALANCE_UPDATED_EVENT = "coin:balance_updated";
+
+export function emitCoinBalanceUpdated(newBalance?: number) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(COIN_BALANCE_UPDATED_EVENT, { detail: { balance: newBalance } })
+    );
+  }
+}
+
 export function useServerBalance() {
-  const { user } = useAuthStore();
+  const { user, setWalletBalance } = useAuthStore();
   // Gunakan wallet_balance dari store sebagai nilai awal agar tidak ada flash loading
   const [balance, setBalance] = useState<number | null>(user?.wallet_balance ?? null);
   const [loading, setLoading]  = useState(balance === null);
@@ -39,7 +52,9 @@ export function useServerBalance() {
       if (!res.ok) throw new Error("Gagal mengambil saldo dari server");
       const json = await res.json();
       if (json?.success) {
-        setBalance(json.data.wallet.balance);
+        const bal = json.data.wallet.balance;
+        setBalance(bal);
+        setWalletBalance(bal);
         setError(null);
       } else {
         throw new Error(json?.message || "Format respons tidak valid");
@@ -49,7 +64,7 @@ export function useServerBalance() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setWalletBalance]);
 
   useEffect(() => {
     if (!user) {
@@ -65,9 +80,21 @@ export function useServerBalance() {
     const handleFocus = () => fetchBalance(false);
     window.addEventListener("focus", handleFocus);
 
+    // Listen balance updated custom event
+    const handleBalanceEvent = (e: Event) => {
+      const customEvt = e as CustomEvent<{ balance?: number }>;
+      if (typeof customEvt.detail?.balance === "number") {
+        setBalance(customEvt.detail.balance);
+        setWalletBalance(customEvt.detail.balance);
+      } else {
+        fetchBalance(true);
+      }
+    };
+    window.addEventListener(COIN_BALANCE_UPDATED_EVENT, handleBalanceEvent);
+
     return () => {
       window.removeEventListener("focus", handleFocus);
-      // Tidak ada interval untuk di-clear — by design
+      window.removeEventListener(COIN_BALANCE_UPDATED_EVENT, handleBalanceEvent);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]); // hanya re-run jika user ganti (login/logout), bukan setiap render

@@ -82,6 +82,7 @@ export default async function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="alternate" hrefLang="id" href={`${baseUrl}/`} />
+        <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
       </head>
       <body className="min-h-full bg-[#0A0A0B] text-[#FFF5F8]">
         <AppShell>{children}</AppShell>

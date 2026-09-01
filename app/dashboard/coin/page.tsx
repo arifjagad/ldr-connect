@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuthStore } from "@/stores/auth-store";
+import { emitCoinBalanceUpdated } from "@/lib/hooks/use-server-balance";
 import type { CoinPackage, CoinTransaction, WalletData } from "@/lib/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -113,6 +115,21 @@ export default function CoinPage() {
   const [voucherRedeeming, setVoucherRedeeming] = useState(false);
   const [voucherRedeemMsg, setVoucherRedeemMsg] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  const setWalletBalance = useAuthStore((s) => s.setWalletBalance);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+
+  const refreshWalletAndTransactions = useCallback(async () => {
+    const [walletRes, txRes] = await Promise.all([fetch("/api/coin/balance"), fetch("/api/coin/transactions")]);
+    const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
+    const newBal = walletJson.data?.wallet?.balance;
+    if (typeof newBal === "number") {
+      setWalletBalance(newBal);
+      emitCoinBalanceUpdated(newBal);
+    }
+    setWallet(walletJson.data?.wallet ?? null);
+    setTransactions(txJson.data?.transactions ?? []);
+  }, [setWalletBalance]);
+
   // Auto-dismiss toast
   useEffect(() => {
     if (!status && !error) return;
@@ -213,13 +230,6 @@ export default function CoinPage() {
     load();
   }, []);
 
-  const refreshWalletAndTransactions = useCallback(async () => {
-    const [walletRes, txRes] = await Promise.all([fetch("/api/coin/balance"), fetch("/api/coin/transactions")]);
-    const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
-    setWallet(walletJson.data?.wallet ?? null);
-    setTransactions(txJson.data?.transactions ?? []);
-  }, []);
-
   // ── Voucher: check ──────────────────────────────────────────────────────────
   async function handleCheckVoucher(e: FormEvent) {
     e.preventDefault();
@@ -315,6 +325,35 @@ export default function CoinPage() {
     const paymentUrl = meta?.payment_url as string | undefined;
     if (paymentUrl) window.open(paymentUrl, "_blank");
     else setError("Link pembayaran tidak ditemukan, silakan buat topup baru.");
+  }
+
+  async function handleCancelPending(tx: CoinTransaction) {
+    if (cancellingId !== null) return;
+    const ok = window.confirm("Apakah kamu yakin ingin membatalkan transaksi top up ini? Voucher yang digunakan akan dikembalikan.");
+    if (!ok) return;
+
+    setCancellingId(tx.id);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const res = await fetch("/api/coin/cancel-topup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transaction_id: tx.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.message || "Gagal membatalkan transaksi");
+      } else {
+        setStatus(json.message || "Transaksi berhasil dibatalkan");
+        await refreshWalletAndTransactions();
+      }
+    } catch {
+      setError("Terjadi kesalahan jaringan saat membatalkan transaksi");
+    } finally {
+      setCancellingId(null);
+    }
   }
 
   // ── Discount label helper ────────────────────────────────────────────────────
@@ -637,12 +676,23 @@ export default function CoinPage() {
                       </p>
                     )}
                     {tx.payment_status === "pending" && tx.type === "topup" && (
-                      <button
-                        onClick={() => handlePayPending(tx)}
-                        className="mt-3 w-full rounded-lg bg-[#34D399]/10 py-2 text-xs font-semibold text-[#34D399] transition hover:bg-[#34D399]/20"
-                      >
-                        Lanjutkan Pembayaran
-                      </button>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handlePayPending(tx)}
+                          className="flex-1 rounded-lg bg-[#34D399]/10 py-2 text-xs font-semibold text-[#34D399] transition hover:bg-[#34D399]/20"
+                        >
+                          Lanjutkan Pembayaran
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCancelPending(tx)}
+                          disabled={cancellingId === tx.id}
+                          className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
+                        >
+                          {cancellingId === tx.id ? "..." : "Batalkan"}
+                        </button>
+                      </div>
                     )}
                   </div>
                 );

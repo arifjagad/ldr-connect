@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 
+import { Logo } from "@/components/ui/Logo";
+
 const navLinks: { href: string; label: string }[] = [];
 
 export function Navbar() {
@@ -14,10 +16,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0A0A0B]/85 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <span className="text-base font-black text-[#FFF5F8]">LDR-Connect</span>
-          <span className="h-2 w-2 animate-pulse rounded-full bg-[#FF3D7F]" />
-        </Link>
+        <Logo href="/" size="md" />
 
         {/* Nav Links */}
         <nav className="hidden items-center gap-6 md:flex">

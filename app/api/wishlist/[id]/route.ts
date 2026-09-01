@@ -47,16 +47,29 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const serviceClient = createServiceClient();
 
+  const { data: profile } = await serviceClient
+    .from("users")
+    .select("partner_id, status")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || profile.status !== "linked" || !profile.partner_id) {
+    return NextResponse.json({ success: false, message: "Kamu belum terhubung dengan partner", data: null }, { status: 400 });
+  }
+
+  const coupleId = user.id < profile.partner_id ? user.id : profile.partner_id;
+
   const { data, error } = await serviceClient
     .from("wishlists")
     .update(updates)
     .eq("id", id)
     .eq("created_by", user.id) // hanya owner
+    .eq("couple_id", coupleId) // pastikan milik relasi aktif saat ini
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ success: false, message: error.message, data: null }, { status: 500 });
+  if (error || !data) {
+    return NextResponse.json({ success: false, message: error?.message || "Wishlist tidak ditemukan atau tidak memiliki akses", data: null }, { status: error ? 500 : 404 });
   }
 
   return NextResponse.json({ success: true, message: "Wishlist diperbarui!", data });
@@ -76,11 +89,24 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
 
   const serviceClient = createServiceClient();
 
+  const { data: profile } = await serviceClient
+    .from("users")
+    .select("partner_id, status")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || profile.status !== "linked" || !profile.partner_id) {
+    return NextResponse.json({ success: false, message: "Kamu belum terhubung dengan partner", data: null }, { status: 400 });
+  }
+
+  const coupleId = user.id < profile.partner_id ? user.id : profile.partner_id;
+
   const { error } = await serviceClient
     .from("wishlists")
     .delete()
     .eq("id", id)
-    .eq("created_by", user.id);
+    .eq("created_by", user.id)
+    .eq("couple_id", coupleId);
 
   if (error) {
     return NextResponse.json({ success: false, message: error.message, data: null }, { status: 500 });

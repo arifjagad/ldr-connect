@@ -20,12 +20,30 @@ export async function GET() {
 
   const serviceClient = createServiceClient();
 
-  const { data: session } = await serviceClient
+  // Ambil data profile user untuk mengetahui partner_id
+  const { data: profile } = await serviceClient
+    .from("users")
+    .select("partner_id")
+    .eq("id", user.id)
+    .single();
+
+  const partnerId = profile?.partner_id;
+  const coupleId = partnerId ? [user.id, partnerId].sort()[0] : null;
+
+  // Bangun query filter yang mendukung pencarian by couple_id atau host_user_id
+  let query = serviceClient
     .from("game_sessions")
     .select("id, session_code, game_type, status, host_user_id, partner_user_id, expires_at")
-    .or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
     .in("status", ["waiting", "playing"])
-    .gt("expires_at", new Date().toISOString())
+    .gt("expires_at", new Date().toISOString());
+
+  if (coupleId) {
+    query = query.or(`couple_id.eq.${coupleId},host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`);
+  } else {
+    query = query.or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`);
+  }
+
+  const { data: session } = await query
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

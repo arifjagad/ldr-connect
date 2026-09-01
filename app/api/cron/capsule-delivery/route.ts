@@ -11,13 +11,12 @@ import { sendPushToUser } from "@/lib/push";
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const serviceClient = createServiceClient();
-  const nowWib = new Date(Date.now() + 7 * 60 * 60 * 1000); // UTC+7 (WIB)
-  const today = nowWib.toISOString().split("T")[0]; // YYYY-MM-DD (WIB)
+  const nowIso = new Date().toISOString();
 
   // Ambil semua capsule yang sudah waktunya dibuka tapi masih locked
   const { data: capsules, error } = await serviceClient
@@ -25,7 +24,7 @@ export async function GET(req: NextRequest) {
     .select("id, receiver_id, sender_id, opens_at, users!capsules_sender_id_fkey(name)")
     .eq("status", "locked")
     .eq("is_active", true)
-    .lte("opens_at", today);
+    .lte("opens_at", nowIso);
 
   if (error) {
     console.error("[cron/capsule-delivery] DB error:", error.message);

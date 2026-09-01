@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/ui/Logo";
 
 export function Footer() {
   return (
@@ -7,10 +8,7 @@ export function Footer() {
         <div className="flex flex-col gap-10 md:flex-row md:justify-between">
           {/* Brand */}
           <div className="max-w-xs">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-base font-black text-[#FFF5F8]">LDR-Connect</span>
-              <span className="h-2 w-2 rounded-full bg-[#FF3D7F]" />
-            </Link>
+            <Logo href="/" size="md" />
             <p className="mt-3 text-sm leading-relaxed text-[#5C5470]">
               Platform game couple #1 untuk pasangan jarak jauh. Main bareng, walau beda kota.
             </p>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/ui/Logo";
 
 const navItems = [
   {
@@ -84,11 +85,9 @@ export function AdminShell({
       {/* Sidebar */}
       <aside className="flex w-56 flex-col border-r border-white/6 bg-[#111113]">
         {/* Logo */}
-        <div className="border-b border-white/6 px-5 py-5">
-          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[#5C5470]">
-            LDR-Connect
-          </p>
-          <p className="mt-0.5 text-sm font-semibold text-[#FFF5F8]">Admin Panel</p>
+        <div className="border-b border-white/6 px-5 py-4">
+          <Logo href="/admin/dashboard" size="sm" />
+          <p className="mt-1 text-[11px] font-semibold text-[#FF6B9D]">Admin Panel</p>
         </div>
 
         {/* Nav */}

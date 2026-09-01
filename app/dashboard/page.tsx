@@ -65,66 +65,62 @@ const navItems = [
   {
     href: "/dashboard/games",
     label: "Games",
-    sublabel: "Mainkan bersama",
-    gradient: "from-[#FF3D7F]/20 to-[#FF6B9D]/5",
-    border: "border-[#FF3D7F]/20 hover:border-[#FF3D7F]/50",
-    iconBg: "bg-[#FF3D7F]/20",
+    sublabel: "Mainkan bersama pasangan",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF3D7F" strokeWidth="1.8">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="2" y="6" width="20" height="12" rx="3" />
         <path d="M6 12h4M8 10v4M15 11h2M15 13h2" strokeLinecap="round" />
       </svg>
     ),
-    tag: "Hot",
-    tagColor: "bg-[#FF3D7F]/20 text-[#FF6B9D]",
+    tag: "POPULAR",
+    glowColor: "from-[#FF3D7F]/15 via-transparent to-transparent",
+    accentColor: "text-[#FF6B9D]",
+    borderHover: "hover:border-[#FF3D7F]/50",
   },
   {
     href: "/dashboard/coin",
     label: "Coin Topup",
-    sublabel: "Isi saldo kamu",
-    gradient: "from-[#34D399]/15 to-[#6EE7B7]/5",
-    border: "border-[#34D399]/20 hover:border-[#34D399]/50",
-    iconBg: "bg-[#34D399]/20",
+    sublabel: "Isi saldo coin kamu",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="1.8">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="10" />
         <path d="M12 6v2M12 16v2M8.5 9.5a3.5 3.5 0 0 1 7 0c0 2-3.5 3-3.5 5M12 17h.01" strokeLinecap="round" />
       </svg>
     ),
     tag: null,
-    tagColor: "",
+    glowColor: "from-[#FFB3CC]/10 via-transparent to-transparent",
+    accentColor: "text-[#FFB3CC]",
+    borderHover: "hover:border-[#FFB3CC]/40",
   },
   {
     href: "/dashboard/couple",
     label: "Couple Connection",
-    sublabel: "Kelola partner",
-    gradient: "from-[#818CF8]/15 to-[#A78BFA]/5",
-    border: "border-[#818CF8]/20 hover:border-[#818CF8]/50",
-    iconBg: "bg-[#818CF8]/20",
+    sublabel: "Kelola status pasangan",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="1.8">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
     ),
     tag: null,
-    tagColor: "",
+    glowColor: "from-[#FF3D7F]/15 via-transparent to-transparent",
+    accentColor: "text-[#FF6B9D]",
+    borderHover: "hover:border-[#FF3D7F]/50",
   },
   {
     href: "/dashboard/anniversaries",
     label: "Anniversary Tracker",
-    sublabel: "Momen berharga",
-    gradient: "from-[#F472B6]/15 to-[#E879F9]/5",
-    border: "border-[#F472B6]/20 hover:border-[#F472B6]/50",
-    iconBg: "bg-[#F472B6]/20",
+    sublabel: "Pengingat momen penting",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F472B6" strokeWidth="1.8">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="4" width="18" height="18" rx="3" />
         <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
         <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeWidth="2.5" strokeLinecap="round" />
       </svg>
     ),
     tag: null,
-    tagColor: "",
+    glowColor: "from-[#FFB3CC]/10 via-transparent to-transparent",
+    accentColor: "text-[#FFB3CC]",
+    borderHover: "hover:border-[#FFB3CC]/40",
   },
 ];
 
@@ -470,32 +466,24 @@ export default function DashboardPage() {
       {/* ── Stats Row ── */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         {/* Coin Balance */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111113] p-5.5 transition hover:border-[#FF3D7F]/30">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#5C5470]">
                 Coin Balance
               </p>
-              <p className="mt-2 text-3xl font-bold tabular-nums text-[#FFF5F8]">
+              <p className="mt-2 text-3xl font-extrabold tabular-nums text-[#FFF5F8]">
                 {wallet?.balance ?? 0}
               </p>
               <p className="mt-1 text-xs text-[#5C5470]">coins tersedia</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#34D399]/15">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v2M12 16v2M9 9h4a1 1 0 0 1 0 2H9M9 13h5a1 1 0 0 1 0 2H9" strokeLinecap="round" />
-              </svg>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#FF3D7F]/25 bg-[#FF3D7F]/10 text-base">
+              🪙
             </div>
           </div>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full blur-2xl"
-            style={{ background: "rgba(52,211,153,0.1)" }}
-          />
           <Link
             href="/dashboard/coin"
-            className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[#34D399] hover:text-[#6EE7B7] transition"
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[#FF6B9D] hover:text-[#FF3D7F] transition"
           >
             Top up sekarang
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -505,40 +493,35 @@ export default function DashboardPage() {
         </div>
 
         {/* Status Couple */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#111113] p-5.5 transition hover:border-[#FF3D7F]/30">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">
-                Status
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#5C5470]">
+                Status Hubungan
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <span
                   className={`inline-flex h-2 w-2 rounded-full ${
-                    isLinked ? "bg-[#34D399] shadow-[0_0_8px_#34D399]" : "bg-[#5C5470]"
+                    isLinked ? "bg-emerald-400 shadow-[0_0_8px_#34D399]" : "bg-[#5C5470]"
                   }`}
                 />
                 <p className="text-2xl font-bold capitalize text-[#FFF5F8]">
-                  {user?.status}
+                  {isLinked ? "Linked" : "Single"}
                 </p>
               </div>
               <p className="mt-1 text-xs text-[#5C5470]">
                 {isLinked ? `Terhubung dengan ${partner?.name}` : "Belum ada partner"}
               </p>
             </div>
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isLinked ? "bg-[#FF3D7F]/15" : "bg-white/5"}`}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isLinked ? "#FF3D7F" : "#5C5470"} strokeWidth="1.8">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[#FF3D7F]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill={isLinked ? "#FF3D7F" : "none"} stroke="#FF3D7F" strokeWidth="2">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
             </div>
           </div>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full blur-2xl"
-            style={{ background: isLinked ? "rgba(255,61,127,0.08)" : "transparent" }}
-          />
           <Link
             href="/dashboard/couple"
-            className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[#9B93B0] hover:text-[#FFF5F8] transition"
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-[#9B93B0] hover:text-[#FFF5F8] transition"
           >
             {isLinked ? "Lihat partner" : "Hubungkan sekarang"}
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -548,15 +531,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Profile */}
-        <Link href="/dashboard/profile" className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5 transition hover:border-white/15">
+        <Link href="/dashboard/profile" className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#111113] p-5.5 transition hover:border-[#FF3D7F]/30">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-[#FF3D7F]/30 to-[#818CF8]/30 text-xl font-bold text-[#FFF5F8]">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#FF3D7F]/30 bg-[#FF3D7F]/15 text-lg font-black text-[#FFF5F8]">
               {user?.name?.[0]?.toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-semibold text-[#FFF5F8]">{user?.name}</p>
+              <p className="truncate text-base font-bold text-[#FFF5F8]">{user?.name}</p>
               <p className="truncate text-xs text-[#5C5470]">{user?.email}</p>
-              <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-[#9B93B0] transition group-hover:text-[#FFF5F8]">
+              <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-[#9B93B0] transition group-hover:text-[#FF6B9D]">
                 Edit profil
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="transition-transform group-hover:translate-x-0.5">
                   <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -570,11 +553,11 @@ export default function DashboardPage() {
       {/* ── Couple Code + Partner ── */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2">
         {/* Couple Code */}
-        <div className="flex flex-col rounded-2xl border border-[#FF3D7F]/15 bg-linear-to-br from-[#FF3D7F]/8 to-transparent p-5">
-          <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">
+        <div className="flex flex-col rounded-2xl border border-white/10 bg-[#111113] p-6 transition hover:border-[#FF3D7F]/30">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#5C5470]">
             Couple Code Kamu
           </p>
-          <p className="mt-3 font-mono text-3xl font-bold tracking-[0.15em] text-[#FF6B9D]">
+          <p className="mt-3 font-mono text-3xl font-extrabold tracking-[0.15em] text-[#FF6B9D]">
             {coupleCode || "—"}
           </p>
           <p className="mt-2 text-xs text-[#5C5470]">
@@ -587,31 +570,25 @@ export default function DashboardPage() {
 
         {/* Partner */}
         {partner ? (
-          <div className="relative overflow-hidden flex flex-col rounded-2xl border border-[#818CF8]/20 bg-linear-to-br from-[#818CF8]/10 to-transparent p-5">
-            {/* glow */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl"
-              style={{ background: "rgba(129,140,248,0.15)" }}
-            />
-            <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Partner</p>
+          <div className="relative overflow-hidden flex flex-col rounded-2xl border border-white/10 bg-[#111113] p-6 transition hover:border-[#FF3D7F]/30">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#5C5470]">Partner</p>
             <div className="mt-4 flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-[#818CF8]/30 to-[#F472B6]/30 text-2xl font-bold text-[#FFF5F8]">
+              <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl border border-[#FF3D7F]/30 bg-[#FF3D7F]/15 text-xl font-bold text-[#FFF5F8]">
                 {partner.name?.[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="truncate font-semibold text-[#FFF5F8]">{partner.name}</p>
+                <p className="truncate font-bold text-[#FFF5F8]">{partner.name}</p>
                 <p className="truncate text-xs text-[#5C5470]">{partner.email}</p>
-                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#34D399]/25 bg-[#34D399]/10 px-2.5 py-0.5 text-[10px] font-medium text-[#34D399]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#34D399] shadow-[0_0_6px_#34D399]" />
+                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34D399]" />
                   Terhubung
                 </span>
               </div>
             </div>
-            <div className="mt-4 border-t border-white/6 pt-4">
+            <div className="mt-4 border-t border-white/5 pt-4">
               <Link
                 href="/dashboard/couple"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#9B93B0] transition hover:text-[#FFF5F8]"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9B93B0] transition hover:text-[#FF6B9D]"
               >
                 Kelola koneksi
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -621,10 +598,10 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
-            <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Partner</p>
+          <div className="flex flex-col rounded-2xl border border-white/10 bg-[#111113] p-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#5C5470]">Partner</p>
             <div className="mt-4 flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/3 text-[#5C5470]">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/5 text-[#5C5470]">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
@@ -638,7 +615,7 @@ export default function DashboardPage() {
             <div className="mt-4">
               <Link
                 href="/dashboard/couple"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#818CF8]/30 bg-[#818CF8]/10 px-3 py-2 text-xs font-medium text-[#818CF8] transition hover:border-[#818CF8]/50 hover:bg-[#818CF8]/20"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#FF3D7F]/40 bg-[#FF3D7F]/15 px-3.5 py-2 text-xs font-bold text-[#FF6B9D] transition hover:bg-[#FF3D7F]/25 hover:border-[#FF3D7F]/60"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -738,35 +715,49 @@ export default function DashboardPage() {
 
       {/* ── Quick Access Cards ── */}
       <div>
-        <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#5C5470]">
-          Menu Utama
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#5C5470]">
+            Menu Utama
+          </p>
+          <span className="text-[11px] text-[#5C5470]">Pilih fitur untuk memulai</span>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`group relative overflow-hidden rounded-2xl border bg-linear-to-br ${item.gradient} ${item.border} p-5 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg`}
+              className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-linear-to-b ${item.glowColor} bg-[#121215] p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#FF3D7F]/10 ${item.borderHover}`}
             >
-              <div className="flex items-start justify-between">
-                <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${item.iconBg}`}>
-                  {item.icon}
+              {/* Top Row: Icon & Tag */}
+              <div>
+                <div className="flex items-start justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 text-[#FF3D7F] shadow-inner transition-all duration-300 group-hover:scale-110 group-hover:border-[#FF3D7F]/50 group-hover:text-[#FF6B9D] group-hover:shadow-[0_0_16px_#FF3D7F30]">
+                    {item.icon}
+                  </div>
+                  {item.tag ? (
+                    <span className="rounded-full border border-[#FF3D7F]/40 bg-[#FF3D7F]/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#FF6B9D] shadow-xs">
+                      {item.tag}
+                    </span>
+                  ) : null}
                 </div>
-                {item.tag ? (
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${item.tagColor}`}>
-                    {item.tag}
-                  </span>
-                ) : null}
+
+                <div className="mt-5">
+                  <h3 className="text-base font-bold text-[#FFF5F8] transition-colors group-hover:text-[#FF6B9D]">
+                    {item.label}
+                  </h3>
+                  <p className="mt-1 text-xs leading-relaxed text-[#9B93B0]">
+                    {item.sublabel}
+                  </p>
+                </div>
               </div>
-              <div className="mt-4">
-                <p className="font-semibold text-[#FFF5F8]">{item.label}</p>
-                <p className="mt-0.5 text-xs text-[#9B93B0]">{item.sublabel}</p>
-              </div>
-              <div className="mt-3 flex items-center gap-1 text-xs font-medium text-[#5C5470] transition group-hover:text-[#9B93B0]">
-                Buka
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="transition-transform group-hover:translate-x-0.5">
-                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+
+              {/* Bottom Action */}
+              <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4 text-xs font-semibold text-[#5C5470] transition-colors group-hover:text-[#FFF5F8]">
+                <span>Buka fitur</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/5 transition-all duration-300 group-hover:translate-x-1 group-hover:bg-[#FF3D7F] group-hover:text-white">
+                  →
+                </span>
               </div>
             </Link>
           ))}

@@ -25,6 +25,12 @@ export function TapTimingGame({ duration = 10, startedAt, bonusActive = false, o
   const onCompleteRef = useRef(onComplete);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
+  // Scoring kontinu: tepat di tengah (dist=0) = 100, tiap 1% jauh = -2 poin, minimum 10
+  const calcScore = (pos: number) => {
+    const dist = Math.abs(pos - 50);
+    return Math.max(10, Math.round(100 - dist * 2));
+  };
+
   const finish = useCallback((s: number, pos: number) => {
     if (completedRef.current) return;
     completedRef.current = true;

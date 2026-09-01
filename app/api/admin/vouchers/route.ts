@@ -28,8 +28,8 @@ export async function GET() {
   const { data, error } = await supabase
     .from("vouchers")
     .select(`
-      id, code, coin_value, max_uses, uses_remaining,
-      valid_from, valid_until, is_active, created_at,
+      id, code, type, coin_value, discount_type, discount_value, max_discount, min_purchase,
+      max_uses, uses_remaining, valid_from, valid_until, is_active, created_at,
       voucher_redemptions ( count )
     `)
     .order("created_at", { ascending: false });

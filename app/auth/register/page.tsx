@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/components/ui/Toast";
+import { Logo } from "@/components/ui/Logo";
 import type { AuthUser } from "@/lib/types";
 
 export default function RegisterPage() {
@@ -56,69 +57,112 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6">
-      <div className="rounded-3xl border border-rose-800/40 bg-[#121420] p-8 shadow-2xl shadow-rose-950/30">
-        <p className="mb-2 text-sm uppercase tracking-[0.22em] text-rose-300/70">
-          LDR-Connect
-        </p>
-        <h1 className="mb-6 text-3xl font-bold text-rose-50">Create Account</h1>
+    <div className="min-h-screen bg-[#0A0A0B] text-[#FFF5F8] flex flex-col justify-between">
+      {/* Top Navigation */}
+      <header className="w-full border-b border-white/5 bg-[#0A0A0B]/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <Logo href="/" size="md" />
 
-        <form className="space-y-4" onSubmit={onSubmit}>
-          <label className="block text-sm text-rose-100/80">
-            Nama
-            <input
-              type="text"
-              required
-              autoComplete="name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-rose-50 outline-none ring-0 transition focus:border-rose-400"
-              placeholder="Nama kamu"
-            />
-          </label>
-
-          <label className="block text-sm text-rose-100/80">
-            Email
-            <input
-              type="email"
-              required
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-rose-50 outline-none ring-0 transition focus:border-rose-400"
-              placeholder="you@example.com"
-            />
-          </label>
-
-          <label className="block text-sm text-rose-100/80">
-            Password
-            <input
-              type="password"
-              required
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-rose-50 outline-none ring-0 transition focus:border-rose-400"
-              placeholder="Minimal 6 karakter"
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-rose-500 px-4 py-3 font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+          <Link
+            href="/"
+            className="text-xs font-medium text-[#9B93B0] transition-colors hover:text-[#FFF5F8]"
           >
-            {loading ? "Creating account..." : "Register"}
-          </button>
-        </form>
-
-        <p className="mt-5 text-sm text-rose-100/70">
-          Sudah punya akun?{" "}
-          <Link className="font-semibold text-rose-300 hover:text-rose-200" href="/auth/login">
-            Login di sini
+            Kembali ke Beranda
           </Link>
-        </p>
-      </div>
-    </main>
+        </div>
+      </header>
+
+      {/* Main Register Card */}
+      <main className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[460px]">
+          <div className="rounded-3xl border border-white/10 bg-[#111113] p-8 sm:p-10 shadow-2xl">
+            {/* Header Badge & Title */}
+            <div className="text-center">
+              <span className="inline-block rounded-full border border-[#FF3D7F]/30 bg-[#FF3D7F]/10 px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#FF6B9D]">
+                LDR-CONNECT
+              </span>
+              <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight text-[#FFF5F8]">
+                Create Account
+              </h1>
+              <p className="mt-2 text-xs sm:text-sm text-[#9B93B0]">
+                Daftar sekarang untuk mulai bermain dengan pasanganmu.
+              </p>
+            </div>
+
+            {/* Form */}
+            <form className="mt-8 space-y-5" onSubmit={onSubmit}>
+              <div>
+                <label className="block text-xs font-semibold text-[#FFF5F8]">
+                  Nama Lengkap
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-3.5 text-sm text-[#FFF5F8] placeholder-[#5C5470] outline-none transition focus:border-[#FF3D7F] focus:ring-1 focus:ring-[#FF3D7F]"
+                  placeholder="Nama kamu"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#FFF5F8]">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-3.5 text-sm text-[#FFF5F8] placeholder-[#5C5470] outline-none transition focus:border-[#FF3D7F] focus:ring-1 focus:ring-[#FF3D7F]"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#FFF5F8]">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-3.5 text-sm text-[#FFF5F8] placeholder-[#5C5470] outline-none transition focus:border-[#FF3D7F] focus:ring-1 focus:ring-[#FF3D7F]"
+                  placeholder="Minimal 6 karakter"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-xl bg-[#FF3D7F] py-3.5 text-sm font-bold text-white shadow-lg shadow-[#FF3D7F]/20 transition-all hover:bg-[#FF6B9D] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Memproses..." : "Daftar Sekarang"}
+              </button>
+            </form>
+
+            {/* Footer text */}
+            <p className="mt-6 text-center text-xs text-[#9B93B0]">
+              Sudah punya akun?{" "}
+              <Link
+                href="/auth/login"
+                className="font-bold text-[#FF6B9D] transition-colors hover:text-[#FF3D7F]"
+              >
+                Masuk di sini
+              </Link>
+            </p>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer copyright */}
+      <footer className="py-6 text-center text-[11px] text-[#5C5470]">
+        © {new Date().getFullYear()} LDR-Connect. All rights reserved.
+      </footer>
+    </div>
   );
 }

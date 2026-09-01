@@ -11,6 +11,7 @@ import { Navbar } from "@/components/landing/Navbar";
 import { GameInviteNotification } from "@/components/GameInviteNotification";
 import { ToastContainer } from "@/components/ui/Toast";
 import { PushPromptBanner } from "@/components/ui/PushPromptBanner";
+import { Logo } from "@/components/ui/Logo";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
@@ -189,12 +190,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="mx-auto grid w-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
 
               {/* Brand — col 1, left */}
-              <Link href="/dashboard" className="group shrink-0">
-                <p className="text-[10px] text-[#5C5470]">LDR-Connect</p>
-                <p className="text-sm font-semibold text-[#F5F0FF] group-hover:text-[#FF6B9D] transition">
-                  {user ? `Hi, ${user.name} 👋` : "Dashboard"}
-                </p>
-              </Link>
+              <Logo href="/dashboard" size="sm" className="shrink-0" />
 
               {/* ── Desktop nav (≥ 1024px) — col 2, truly centered ─────── */}
               <nav className="hidden lg:flex items-center gap-1.5">
