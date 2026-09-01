@@ -56,11 +56,12 @@ function StatusBadge({ status }: { status: CoinTransaction["payment_status"] }) 
   );
 }
 
-function TypeBadge({ type, metadata }: { type: CoinTransaction["type"]; metadata: CoinTransaction["metadata"] }) {
+function TypeBadge({ type, metadata, status }: { type: CoinTransaction["type"]; metadata: CoinTransaction["metadata"]; status?: CoinTransaction["payment_status"] }) {
   const reason = metadata?.reason as string | undefined;
   const isRefund = reason === "session_expired_refund";
   const isGame   = reason === "game_session_created" || reason === "game_session_joined";
   const isVoucher = reason === "voucher_redemption";
+  const isFailed = status === "failed";
 
   const iconUp = (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -82,6 +83,8 @@ function TypeBadge({ type, metadata }: { type: CoinTransaction["type"]; metadata
     </svg>
   );
 
+  if (isFailed)
+    return <span className="flex items-center gap-1 text-xs font-medium text-red-400">{iconUp} Top Up (Gagal)</span>;
   if (isVoucher)
     return <span className="flex items-center gap-1 text-xs font-medium text-[#A78BFA]">{iconGift} Voucher</span>;
   if (isRefund)
@@ -651,11 +654,18 @@ export default function CoinPage() {
                 const isRefund    = reason === "session_expired_refund";
                 const isGame      = reason === "game_session_created" || reason === "game_session_joined";
                 const gameLabel   = gameType === "tod" ? "Truth or Dare" : gameType === "snake_ladder" ? "Ular Tangga" : null;
-                const amountColor = isRefund ? "text-[#60A5FA]" : tx.type === "topup" ? "text-[#34D399]" : "text-[#FF6B9D]";
+                const isFailed    = tx.payment_status === "failed";
+                const amountColor = isFailed
+                  ? "text-[#F87171] line-through opacity-75"
+                  : isRefund
+                  ? "text-[#60A5FA]"
+                  : tx.type === "topup"
+                  ? "text-[#34D399]"
+                  : "text-[#FF6B9D]";
                 return (
                   <div key={tx.id} className="rounded-xl border border-white/[0.07] bg-[#18181C] p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <TypeBadge type={tx.type} metadata={tx.metadata} />
+                      <TypeBadge type={tx.type} metadata={tx.metadata} status={tx.payment_status} />
                       <StatusBadge status={tx.payment_status} />
                     </div>
                     <div className="mt-2 flex items-baseline gap-1.5">
