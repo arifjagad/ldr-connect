@@ -17,38 +17,45 @@ export default function LoginPage() {
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
 
-    // 1. Login via server-side route (includes rate limiting + session age cookie)
-    const loginRes = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      // 1. Login via server-side route (includes rate limiting + session age cookie)
+      const loginRes = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!loginRes.ok) {
       const json = await loginRes.json().catch(() => ({}));
-      const msg = json.message || "Login gagal, coba lagi.";
-      toast.error("Gagal Masuk", msg);
+
+      if (!loginRes.ok) {
+        const msg = json.message || "Login gagal, periksa email dan password.";
+        toast.error("Gagal Masuk", msg);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Fetch profile + wallet untuk disimpan di store
+      const res = await fetch("/api/auth/me");
+      let profile: AuthUser | null = null;
+      if (res.ok) {
+        const meJson = await res.json();
+        profile = meJson.data as AuthUser;
+        setUser(profile);
+      }
+
+      toast.success("Berhasil Masuk", `Selamat datang kembali, ${profile?.name || "User"}!`);
+
+      // 3. Redirect berdasarkan role
+      const redirectTo = profile?.is_admin ? "/admin/dashboard" : "/dashboard";
+      window.location.href = redirectTo;
+    } catch (err: any) {
+      console.error("[login] Error:", err);
+      toast.error("Terjadi Kesalahan", "Gagal menghubungi server. Coba lagi.");
       setLoading(false);
-      return;
     }
-
-    // 2. Fetch profile + wallet untuk disimpan di store
-    const res = await fetch("/api/auth/me");
-    let profile: AuthUser | null = null;
-    if (res.ok) {
-      const json = await res.json();
-      profile = json.data as AuthUser;
-      setUser(profile);
-    }
-
-    toast.success("Berhasil Masuk", `Selamat datang kembali, ${profile?.name || "User"}!`);
-
-    // 3. Redirect berdasarkan role
-    const redirectTo = profile?.is_admin ? "/admin/dashboard" : "/dashboard";
-    router.push(redirectTo);
-    router.refresh();
   }
 
   return (

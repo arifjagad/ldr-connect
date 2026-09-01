@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { createServiceClient } from "@/lib/supabase/server";
 
 const SESSION_COOKIE_NAME = "ldr_session_age";
 const SESSION_MAX_AGE_SECONDS = 24 * 60 * 60; // 24 jam
@@ -68,19 +69,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 3. Attempt login ke Supabase Auth
-  const supabase = await createClient();
-  const { error: signInError } = await supabase.auth.signInWithPassword({
+  // 3. Attempt login ke Supabase Auth & tangkap session cookies secara eksplisit
+  const cookiesToSet: Array<{ name: string; value: string; options: any }> = [];
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(toSet) {
+          toSet.forEach((c) => cookiesToSet.push(c));
+        },
+      },
+    }
+  );
+
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
-  if (signInError) {
+  if (signInError || !signInData.session) {
     // Login gagal — rate limit sudah dicatat di langkah 2 (check + insert)
     const message =
-      signInError.message === "Invalid login credentials"
+      signInError?.message === "Invalid login credentials"
         ? "Email atau password salah"
-        : signInError.message;
+        : (signInError?.message || "Login gagal");
 
     return NextResponse.json(
       { success: false, message, data: null },
@@ -99,25 +116,36 @@ export async function POST(request: NextRequest) {
   }
 
   // 5. Concurrent session block: sign out semua sesi LAIN yang aktif
-  //    Sesi terbaru (baru saja login) tetap berjalan normal.
   try {
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    if (currentUser?.id) {
-      // signOut scope 'others' → terminasi semua refresh token lain milik user ini
-      await serviceClient.auth.admin.signOut(currentUser.id, "others" as never);
+    const currentUserId = signInData.user.id;
+    if (currentUserId) {
+      await serviceClient.auth.admin.signOut(currentUserId, "others" as never);
     }
   } catch (e) {
-    // Non-critical — jika gagal, login tetap berhasil
     console.error("[login] concurrent session sign-out failed:", e);
   }
 
-  // 6. Set session age cookie untuk session timeout di middleware
+  // 6. Buat response dan attach SEMUA auth cookie + ldr_session_age
   const sessionTimestamp = Date.now().toString();
 
   const response = NextResponse.json({
     success: true,
     message: "Login berhasil",
-    data: null,
+    data: {
+      user: {
+        id: signInData.user.id,
+        email: signInData.user.email,
+      },
+    },
+  });
+
+  // Tulis semua cookie auth Supabase ke headers response Netlify
+  cookiesToSet.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, {
+      ...options,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
   });
 
   response.cookies.set(SESSION_COOKIE_NAME, sessionTimestamp, {
