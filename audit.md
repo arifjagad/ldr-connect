@@ -16,6 +16,7 @@ Dokumen ini berisi hasil audit komprehensif terhadap arsitektur backend, autenti
 | 4 | **Framework Compatibility** | Dynamic Route Next.js 16 `params` Promise Handling | `app/api/**/*.ts` | 🟢 **Selesai (Sudah Aman)** |
 | 5 | **Payment & Wallet** | Signature Verification & Idempotency Webhook Midtrans | `app/api/coin/webhook/route.ts` | 🟢 **Selesai (Aman & Tested)** |
 | 6 | **Game Engine** | Turn Hijacking & Concurrency Lock RPC Game | `app/api/game/**` & DB RPC Functions | 🟢 **Selesai (Aman & Tested)** |
+| 7 | **Authentication & Deployment** | Cookie Sync, Server-First Login & Sliding Window Session di Serverless | `app/api/auth/login/route.ts`, `app/auth/login/page.tsx`, `middleware.ts` | 🟢 **Selesai (Fixed & Tested)** |
 
 ---
 
