@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/components/ui/Toast";
 import { Logo } from "@/components/ui/Logo";
@@ -21,23 +22,31 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. Login via server-side route (includes rate limiting + session age cookie)
-      const loginRes = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+      // 1. Direct Supabase Auth login on client (syncs cookies & local session directly)
+      const supabase = createClient();
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      const json = await loginRes.json().catch(() => ({}));
-
-      if (!loginRes.ok) {
-        const msg = json.message || "Login gagal, periksa email dan password.";
+      if (signInError || !signInData.session) {
+        const msg =
+          signInError?.message === "Invalid login credentials"
+            ? "Email atau password salah"
+            : (signInError?.message || "Login gagal, periksa email dan password.");
         toast.error("Gagal Masuk", msg);
         setLoading(false);
         return;
       }
 
-      // 2. Fetch profile + wallet untuk disimpan di store
+      // 2. Sync server session & rate limiting cleanup via API
+      fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      }).catch(() => {});
+
+      // 3. Fetch profile + wallet untuk disimpan di store
       const res = await fetch("/api/auth/me");
       let profile: AuthUser | null = null;
       if (res.ok) {
@@ -48,9 +57,10 @@ export default function LoginPage() {
 
       toast.success("Berhasil Masuk", `Selamat datang kembali, ${profile?.name || "User"}!`);
 
-      // 3. Redirect berdasarkan role
+      // 4. Redirect berdasarkan role
       const redirectTo = profile?.is_admin ? "/admin/dashboard" : "/dashboard";
-      window.location.href = redirectTo;
+      router.push(redirectTo);
+      router.refresh();
     } catch (err: any) {
       console.error("[login] Error:", err);
       toast.error("Terjadi Kesalahan", "Gagal menghubungi server. Coba lagi.");

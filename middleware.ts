@@ -56,7 +56,7 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const sessionAgeCookie = request.cookies.get(SESSION_COOKIE_NAME);
     const sessionTimestamp = sessionAgeCookie ? parseInt(sessionAgeCookie.value, 10) : null;
-    const isExpired = !sessionTimestamp || Date.now() - sessionTimestamp > SESSION_MAX_MS;
+    const isExpired = sessionTimestamp !== null && !isNaN(sessionTimestamp) && Date.now() - sessionTimestamp > SESSION_MAX_MS;
 
     if (isExpired) {
       await supabase.auth.signOut();
