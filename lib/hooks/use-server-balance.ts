@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/stores/auth-store";
+import { createClient } from "@/lib/supabase/client";
 
 /**
  * Hook untuk mendapatkan saldo coin dari server.
@@ -92,9 +93,34 @@ export function useServerBalance() {
     };
     window.addEventListener(COIN_BALANCE_UPDATED_EVENT, handleBalanceEvent);
 
+    // Supabase Realtime: subscribe to wallet balance changes for this user
+    const supabase = createClient();
+    const walletChannel = supabase
+      .channel(`wallet-balance-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "wallets",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newWallet = payload.new as { balance?: number } | null;
+          if (typeof newWallet?.balance === "number") {
+            setBalance(newWallet.balance);
+            setWalletBalance(newWallet.balance);
+          } else {
+            fetchBalance(true);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener(COIN_BALANCE_UPDATED_EVENT, handleBalanceEvent);
+      supabase.removeChannel(walletChannel);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]); // hanya re-run jika user ganti (login/logout), bukan setiap render

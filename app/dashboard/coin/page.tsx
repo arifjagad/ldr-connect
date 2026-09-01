@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthStore } from "@/stores/auth-store";
+import { createClient } from "@/lib/supabase/client";
 import { emitCoinBalanceUpdated } from "@/lib/hooks/use-server-balance";
 import type { CoinPackage, CoinTransaction, WalletData } from "@/lib/types";
 
@@ -236,6 +237,54 @@ export default function CoinPage() {
     }
     load();
   }, []);
+
+  // Supabase Realtime: subscribe to wallet balance & transactions for live updates
+  const currentUser = useAuthStore((s) => s.user);
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel(`dashboard-coin-${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "wallets",
+          filter: `user_id=eq.${currentUser.id}`,
+        },
+        (payload) => {
+          const newWallet = payload.new as { balance?: number; updated_at?: string } | null;
+          if (typeof newWallet?.balance === "number") {
+            setWallet((prev) =>
+              prev
+                ? { ...prev, balance: newWallet.balance!, updated_at: newWallet.updated_at ?? prev.updated_at }
+                : { user_id: currentUser.id, balance: newWallet.balance!, updated_at: newWallet.updated_at ?? new Date().toISOString() }
+            );
+            setWalletBalance(newWallet.balance);
+            emitCoinBalanceUpdated(newWallet.balance);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "coin_transactions",
+          filter: `user_id=eq.${currentUser.id}`,
+        },
+        async () => {
+          await refreshWalletAndTransactions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id, refreshWalletAndTransactions, setWalletBalance]);
 
   // ── Voucher: check ──────────────────────────────────────────────────────────
   async function handleCheckVoucher(e: FormEvent) {
