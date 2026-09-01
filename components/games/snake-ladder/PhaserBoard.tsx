@@ -163,7 +163,7 @@ export function PhaserBoard({
         }
 
         create() {
-          this.cameras.main.setBackgroundColor(0x0d0d14);
+          this.cameras.main.setBackgroundColor(0xFCFBF7);
           this.drawCells();
           this.drawLadders();
           this.drawSnakes();
@@ -222,51 +222,49 @@ export function PhaserBoard({
             const ly = y - CELL / 2;
 
             if (sq === 100) {
-              g.fillStyle(0xFFD700, 0.88);
+              g.fillStyle(0xFEF3C7, 1);
               g.fillRect(lx + 1, ly + 1, CELL - 2, CELL - 2);
-              g.lineStyle(1.5, 0xFFD700, 0.6);
+              g.lineStyle(1.5, 0xFDE68A, 1);
             } else if (bc.snakes.some((s) => s.from === sq)) {
-              g.fillStyle(0xEF4444, 0.22);
+              g.fillStyle(0xFEF2F2, 1);
               g.fillRect(lx + 1, ly + 1, CELL - 2, CELL - 2);
-              g.lineStyle(1, 0xEF4444, 0.3);
+              g.lineStyle(1, 0xFECACA, 1);
             } else if (bc.ladders.some((l) => l.from === sq)) {
-              g.fillStyle(0x22C55E, 0.22);
+              g.fillStyle(0xEBF9EB, 1);
               g.fillRect(lx + 1, ly + 1, CELL - 2, CELL - 2);
-              g.lineStyle(1, 0x22C55E, 0.3);
+              g.lineStyle(1, 0xBBF7D0, 1);
             } else if (bc.challenges.some((c) => c.square === sq)) {
-              g.fillStyle(0xFBBF24, 0.16);
+              g.fillStyle(0xFEF3C7, 1);
               g.fillRect(lx + 1, ly + 1, CELL - 2, CELL - 2);
-              g.lineStyle(1, 0xFBBF24, 0.22);
+              g.lineStyle(1, 0xFDE68A, 1);
             } else {
               const idx = sq - 1;
               const row = Math.floor(idx / 10);
               const col = idx % 10;
               const light = (row + col) % 2 === 0;
-              if (light) {
-                g.fillStyle(0xffffff, 0.04);
-                g.fillRect(lx + 1, ly + 1, CELL - 2, CELL - 2);
-              }
-              g.lineStyle(1, 0xffffff, 0.06);
+              g.fillStyle(light ? 0xffffff : 0xFCFBF7, 1);
+              g.fillRect(lx + 1, ly + 1, CELL - 2, CELL - 2);
+              g.lineStyle(1, 0xE7E5E4, 1);
             }
             g.strokeRect(lx, ly, CELL, CELL);
 
             if (sq === 100) {
               this.add.text(x, y + 13, "100", {
-                fontSize: "9px", color: "#1a1a1a",
-                fontStyle: "bold", fontFamily: "monospace",
+                fontSize: "9px", color: "#D97706",
+                fontStyle: "bold", fontFamily: "sans-serif",
               }).setOrigin(0.5).setDepth(1);
               this.add.text(x, y - 11, "🏆", { fontSize: "14px" })
                 .setOrigin(0.5).setDepth(2);
             } else if (sq === 1) {
               this.add.text(x, y + 8, "1", {
-                fontSize: "8px", color: "#9B93B0", fontFamily: "monospace",
+                fontSize: "8px", color: "#C84B31", fontStyle: "bold", fontFamily: "sans-serif",
               }).setOrigin(0.5).setDepth(1);
               this.add.text(x, y - 7, "START", {
-                fontSize: "5.5px", color: "#5C5470", fontFamily: "monospace",
+                fontSize: "5.5px", color: "#78716C", fontStyle: "bold", fontFamily: "sans-serif",
               }).setOrigin(0.5).setDepth(2);
             } else {
               this.add.text(x, y, `${sq}`, {
-                fontSize: "8px", color: "#3d3555", fontFamily: "monospace",
+                fontSize: "8px", color: "#78716C", fontFamily: "sans-serif",
               }).setOrigin(0.5).setDepth(1);
             }
 
@@ -274,7 +272,7 @@ export function PhaserBoard({
             if (chal) {
               this.add.text(lx + CELL - 2, ly + 2, chal.type === "dare" ? "⚡" : "✦", {
                 fontSize: "9px",
-                color: chal.type === "dare" ? "#FBBF24" : "#818CF8",
+                color: chal.type === "dare" ? "#D97706" : "#2563EB",
               }).setOrigin(1, 0).setDepth(2);
             }
           }
@@ -385,12 +383,12 @@ export function PhaserBoard({
             return this.add.container(0, 0, [g, txt]).setDepth(20);
           };
 
-          this.hPion = mkPion(0xFF3D7F, "H");
-          this.pPion = mkPion(0x818CF8, "P");
+          this.hPion = mkPion(0xC84B31, "H");
+          this.pPion = mkPion(0x2563EB, "P");
 
           const myPion = role === "host" ? this.hPion : this.pPion;
           const dot = this.add.graphics();
-          dot.fillStyle(0xFFD700, 1);
+          dot.fillStyle(0xD97706, 1);
           dot.fillCircle(8, -8, 3.5);
           dot.lineStyle(0.8, 0xffffff, 0.8);
           dot.strokeCircle(8, -8, 3.5);
@@ -418,7 +416,7 @@ export function PhaserBoard({
         type: Phaser.AUTO,
         width: S,
         height: S,
-        backgroundColor: 0x0d0d14,
+        backgroundColor: 0xFCFBF7,
         parent: divRef.current,
         scene: BoardScene,
         antialias: true,
@@ -469,21 +467,21 @@ export function PhaserBoard({
     <div className="w-full space-y-3">
       <div
         ref={divRef}
-        className="w-full mx-auto rounded-2xl overflow-hidden border border-white/10"
+        className="w-full mx-auto rounded-2xl overflow-hidden border border-[#E7E5E4] shadow-xl shadow-black/2 bg-white"
         style={{ maxWidth: S }}
       />
 
-      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 text-[10px] text-[#5C5470]">
+      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 text-[10px] text-[#78716C]">
         <span className="flex items-center gap-1">🐍 Kepala ular (turun)</span>
         <span className="flex items-center gap-1">🪜 Bawah tangga (naik)</span>
         <span className="flex items-center gap-1">⚡ Dare</span>
         <span className="flex items-center gap-1">✦ Truth</span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-[#FF3D7F]" />
+          <span className="inline-block h-2 w-2 rounded-full bg-[#C84B31]" />
           H = Host{myRole === "host" ? " (kamu ★)" : ""}
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-full bg-[#818CF8]" />
+          <span className="inline-block h-2 w-2 rounded-full bg-[#2563EB]" />
           P = Partner{myRole === "partner" ? " (kamu ★)" : ""}
         </span>
       </div>

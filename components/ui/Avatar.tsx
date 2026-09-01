@@ -27,10 +27,10 @@ export function Avatar({ name, avatarUrl, size = "md", className = "" }: AvatarP
 
   const baseClass = `
     shrink-0 overflow-hidden rounded-full
-    ${ring} ring-white/10
+    ${ring} ring-[#FBDCD5]
     flex items-center justify-center font-bold
-    bg-gradient-to-br from-[#FF3D7F]/30 to-[#818CF8]/30
-    ${text} text-[#FFF5F8]
+    bg-[#FDF4F2]
+    ${text} text-[#C84B31]
     ${className}
   `.trim();
 

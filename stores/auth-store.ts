@@ -18,6 +18,7 @@ import type { AuthUser } from "@/lib/types";
 type AuthState = {
   user: AuthUser | null;
   setUser: (user: AuthUser) => void;
+  setWalletBalance: (balance: number) => void;
   clearAuth: () => void;
 };
 
@@ -26,6 +27,8 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       setUser: (user) => set({ user }),
+      setWalletBalance: (balance) =>
+        set((state) => (state.user ? { user: { ...state.user, wallet_balance: balance } } : state)),
       clearAuth: () => set({ user: null }),
     }),
     {

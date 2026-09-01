@@ -9,6 +9,12 @@ interface Props {
   onComplete: (score: number, timeTaken: number, metadata?: Record<string, unknown>) => void;
 }
 
+// Skor kontinu: 100 saat pos=50, berkurang linear hingga 0 saat |pos-50| >= 50
+function calcScore(pos: number): number {
+  const dist = Math.abs(pos - 50);
+  return Math.max(0, Math.round(100 - (dist / 50) * 100));
+}
+
 export function TapTimingGame({ duration = 10, startedAt, bonusActive = false, onComplete }: Props) {
   const [position, setPosition] = useState(0);
   const [tapped, setTapped]     = useState(false);
@@ -85,12 +91,12 @@ export function TapTimingGame({ duration = 10, startedAt, bonusActive = false, o
   return (
     <div className="flex flex-col items-center gap-6 select-none">
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">⚡ Perfect Tap</p>
-        <p className="mt-1 text-xs text-[#5C5470]">Tap saat bar tepat di <span className="text-red-400">garis merah</span> di tengah!</p>
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">⚡ Perfect Tap</p>
+        <p className="mt-1 text-xs text-[#78716C]">Tap saat bar tepat di <span className="font-bold text-[#C84B31]">garis merah</span> di tengah!</p>
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706]">
           +50 BONUS AKTIF!
         </div>
       )}
@@ -99,27 +105,27 @@ export function TapTimingGame({ duration = 10, startedAt, bonusActive = false, o
         <span
           className={`text-sm font-bold tabular-nums ${
             timeLeft <= 5
-              ? "text-red-400 animate-pulse"
+              ? "text-red-500 animate-pulse"
               : timeLeft <= 10
-              ? "text-yellow-400"
-              : "text-[#FFF5F8]"
+              ? "text-[#D97706]"
+              : "text-[#1F1D1B]"
           }`}
         >
           {timeLeft}s
         </span>
       </div>
 
-      <div className="relative w-full h-12 rounded-xl bg-[#18181C] border border-white/10 overflow-hidden">
+      <div className="relative w-full h-12 rounded-2xl bg-[#FCFBF7] border border-[#E7E5E4] overflow-hidden shadow-inner">
         {/* Garis tengah — satu-satunya target */}
-        <div className="absolute inset-y-0 left-1/2 -translate-x-px w-0.5 bg-red-500/80"
-             style={{ boxShadow: "0 0 6px #EF4444" }} />
+        <div className="absolute inset-y-0 left-1/2 -translate-x-px w-0.5 bg-[#C84B31]"
+             style={{ boxShadow: "0 0 6px #C84B31" }} />
         {/* Moving bar */}
         <div
           className="absolute top-2 bottom-2 w-3 rounded-full transition-none"
           style={{
             left: `calc(${position}% - 6px)`,
             backgroundColor: barColor,
-            boxShadow: `0 0 12px ${barColor}`,
+            boxShadow: `0 0 10px ${barColor}`,
           }}
         />
       </div>
@@ -127,14 +133,14 @@ export function TapTimingGame({ duration = 10, startedAt, bonusActive = false, o
       {!tapped ? (
         <button
           onClick={handleTap}
-          className="w-full py-5 rounded-2xl bg-[#818CF8] hover:bg-[#A78BFA] text-white text-xl font-bold transition active:scale-95"
+          className="w-full py-4 rounded-2xl bg-[#C84B31] hover:bg-[#B33E26] text-white text-lg font-bold shadow-xs transition active:scale-95 cursor-pointer"
         >
           TAP!
         </button>
       ) : (
-        <div className="w-full py-5 rounded-2xl bg-white/5 border border-white/10 text-center">
-          <p className="text-3xl font-bold text-[#FFF5F8]">{score}</p>
-          <p className="text-xs text-[#9B93B0] mt-1">
+        <div className="w-full py-4 rounded-2xl bg-white border border-[#E7E5E4] text-center shadow-xl shadow-black/2">
+          <p className="text-3xl font-serif font-bold text-[#1F1D1B]">{score}</p>
+          <p className="text-xs text-[#78716C] mt-1 font-semibold">
             {(score ?? 0) >= 98 ? "Sempurna! 🎯" : (score ?? 0) >= 80 ? "Bagus! ✨" : (score ?? 0) >= 60 ? "Lumayan 👍" : "Coba lagi..."}
           </p>
         </div>

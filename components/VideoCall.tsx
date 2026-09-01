@@ -214,21 +214,21 @@ export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps
 
   if (minimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl border border-white/10 bg-[#0E0E12]/95 px-4 py-2.5 shadow-2xl backdrop-blur-sm">
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl border border-[#E7E5E4] bg-white/95 px-4 py-2.5 shadow-2xl shadow-black/10 backdrop-blur-md">
         <span
           className={`h-2 w-2 rounded-full ${
             status === "connected"
-              ? "bg-[#34D399] shadow-[0_0_6px_#34D399]"
+              ? "bg-[#10B981] shadow-[0_0_6px_#10B981]"
               : status === "connecting" || status === "fetching-room"
-              ? "animate-pulse bg-[#FBBF24]"
-              : "bg-red-400"
+              ? "animate-pulse bg-[#D97706]"
+              : "bg-red-500"
           }`}
         />
-        <span className="text-xs font-medium text-[#9B93B0]">{statusLabel}</span>
+        <span className="text-xs font-semibold text-[#78716C]">{statusLabel}</span>
         <button
           type="button"
           onClick={() => setMinimized(false)}
-          className="ml-1 rounded-lg border border-white/10 bg-white/5 p-1.5 text-[#9B93B0] transition hover:bg-white/10"
+          className="ml-1 rounded-lg border border-[#E7E5E4] bg-[#FCFBF7] p-1.5 text-[#78716C] transition hover:bg-white hover:text-[#1F1D1B] cursor-pointer shadow-2xs"
           title="Buka video"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -242,27 +242,27 @@ export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps
   // ── Full panel ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex w-64 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0E0E12]/95 shadow-2xl backdrop-blur-sm">
+    <div className="fixed bottom-6 right-6 z-50 flex w-64 flex-col overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-2xl shadow-black/10 backdrop-blur-md">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/[0.07] px-3 py-2">
+      <div className="flex items-center justify-between border-b border-[#F5F5F4] px-3 py-2 bg-[#FCFBF7]">
         <div className="flex items-center gap-2">
           <span
             className={`h-1.5 w-1.5 rounded-full ${
               status === "connected"
-                ? "bg-[#34D399] shadow-[0_0_5px_#34D399]"
+                ? "bg-[#10B981] shadow-[0_0_5px_#10B981]"
                 : status === "connecting" || status === "fetching-room"
-                ? "animate-pulse bg-[#FBBF24]"
-                : "bg-red-400"
+                ? "animate-pulse bg-[#D97706]"
+                : "bg-red-500"
             }`}
           />
-          <span className="text-[10px] font-medium text-[#5C5470]">
+          <span className="text-[10px] font-semibold text-[#78716C]">
             {statusLabel}
           </span>
         </div>
         <button
           type="button"
           onClick={() => setMinimized(true)}
-          className="rounded-lg p-1 text-[#5C5470] transition hover:bg-white/5 hover:text-[#9B93B0]"
+          className="rounded-lg p-1 text-[#78716C] transition hover:bg-white hover:text-[#1F1D1B] cursor-pointer"
           title="Perkecil"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -272,7 +272,7 @@ export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps
       </div>
 
       {/* Video area */}
-      <div className="relative aspect-video w-full bg-[#111113]">
+      <div className="relative aspect-video w-full bg-[#1F1D1B]">
         {status === "connected" && hasRemote ? (
           <video
             ref={remoteVideoRef}
@@ -284,21 +284,21 @@ export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps
           <div className="flex h-full flex-col items-center justify-center gap-2 px-3">
             {(status === "fetching-room" || status === "connecting") && (
               <>
-                <svg className="animate-spin text-[#5C5470]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="animate-spin text-[#C84B31]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                 </svg>
-                <span className="text-center text-[10px] text-[#5C5470]">{statusLabel}</span>
+                <span className="text-center text-[10px] text-[#A8A29E]">{statusLabel}</span>
               </>
             )}
             {status === "connected" && !hasRemote && (
               <>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#818CF8]/15 text-lg">👤</div>
-                <span className="text-[10px] text-[#5C5470]">Menunggu partner…</span>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg text-white">👤</div>
+                <span className="text-[10px] text-[#A8A29E]">Menunggu partner…</span>
               </>
             )}
             {status === "error" && (
               <>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF3D7F" strokeWidth="2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 <span className="text-center text-[10px] leading-relaxed text-red-400">{errorMsg}</span>
@@ -309,13 +309,13 @@ export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps
 
         {/* Local video PiP */}
         {status === "connected" && !videoMuted && (
-          <div className="absolute bottom-2 left-2 h-16 w-20 overflow-hidden rounded-lg border border-white/10 bg-[#111113]">
+          <div className="absolute bottom-2 left-2 h-16 w-20 overflow-hidden rounded-lg border border-white/20 bg-[#1F1D1B]">
             <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
           </div>
         )}
         {status === "connected" && videoMuted && (
-          <div className="absolute bottom-2 left-2 flex h-16 w-20 items-center justify-center rounded-lg border border-white/10 bg-[#1A1A20]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C5470" strokeWidth="2">
+          <div className="absolute bottom-2 left-2 flex h-16 w-20 items-center justify-center rounded-lg border border-white/20 bg-[#292524]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" strokeWidth="2">
               <line x1="1" y1="1" x2="23" y2="23" />
               <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34" />
             </svg>
@@ -324,14 +324,14 @@ export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between border-t border-white/[0.07] px-3 py-2">
+      <div className="flex items-center justify-between border-t border-[#F5F5F4] px-3 py-2 bg-white">
         <button
           type="button"
           onClick={toggleAudio}
           disabled={status !== "connected"}
           title={audioMuted ? "Unmute mikrofon" : "Mute mikrofon"}
-          className={`flex h-8 w-8 items-center justify-center rounded-xl transition disabled:opacity-40 ${
-            audioMuted ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-white/5 text-[#9B93B0] hover:bg-white/10"
+          className={`flex h-8 w-8 items-center justify-center rounded-xl transition disabled:opacity-40 cursor-pointer ${
+            audioMuted ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-[#FCFBF7] border border-[#E7E5E4] text-[#78716C] hover:text-[#1F1D1B] hover:bg-white"
           }`}
         >
           {audioMuted ? (
@@ -355,8 +355,8 @@ export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps
           onClick={toggleVideo}
           disabled={status !== "connected"}
           title={videoMuted ? "Nyalakan kamera" : "Matikan kamera"}
-          className={`flex h-8 w-8 items-center justify-center rounded-xl transition disabled:opacity-40 ${
-            videoMuted ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-white/5 text-[#9B93B0] hover:bg-white/10"
+          className={`flex h-8 w-8 items-center justify-center rounded-xl transition disabled:opacity-40 cursor-pointer ${
+            videoMuted ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-[#FCFBF7] border border-[#E7E5E4] text-[#78716C] hover:text-[#1F1D1B] hover:bg-white"
           }`}
         >
           {videoMuted ? (
@@ -376,7 +376,7 @@ export function VideoCall({ sessionCode, game = "tod", onLeave }: VideoCallProps
           type="button"
           onClick={leaveCall}
           title="Tutup video call"
-          className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/15 text-red-400 transition hover:bg-red-500/25"
+          className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-50 border border-red-200 text-red-600 transition hover:bg-red-100 cursor-pointer"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
             <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />

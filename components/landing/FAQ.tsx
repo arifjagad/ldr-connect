@@ -5,27 +5,23 @@ import { useState } from "react";
 const faqs = [
   {
     q: "Apa itu LDR-Connect?",
-    a: "LDR-Connect adalah platform game online khusus untuk pasangan yang menjalani hubungan jarak jauh. Kami menyediakan mini-games romantis seperti Truth or Dare yang bisa dimainkan bersama secara real-time, kapanpun dan dimanapun.",
+    a: "LDR-Connect adalah platform interaktif yang dibuat khusus untuk membantu pasangan jarak jauh menjaga kehangatan hubungan melalui mini-games real-time dan generator pertanyaan berbasis AI.",
   },
   {
-    q: "Bagaimana sistem coin bekerja?",
-    a: "Kamu beli coin sekali, lalu gunakan untuk memulai sesi game. Tidak ada biaya langganan bulanan. 1 sesi Truth or Dare cukup 1 coin. Tersedia paket 20, 50, 100, hingga 200 coin sesuai kebutuhan.",
+    q: "Bagaimana sistem koin bekerja?",
+    a: "Setiap sesi game membutuhkan koin (biasanya 1 atau 2 koin per sesi). Kalian mendapatkan 5 koin gratis setiap hari hanya dengan login, dan bisa melakukan top-up dengan harga sangat terjangkau jika ingin kencan maraton.",
   },
   {
-    q: "Apakah pasangan saya juga harus punya akun?",
-    a: "Ya, pasanganmu perlu daftar akun juga. Setelah itu, kalian bisa saling link menggunakan couple code — kode unik 10 karakter yang digenerate otomatis untuk akunmu. Proses linking cukup satu kali.",
+    q: "Apakah pasangan saya juga harus memiliki akun?",
+    a: "Ya. Kalian berdua perlu mendaftar dan saling menautkan akun menggunakan kode unik privat agar game kalian tersinkronisasi secara real-time.",
   },
   {
-    q: "Apakah pertanyaan di Truth or Dare selalu sama?",
-    a: "Tidak! Pertanyaan diambil dari pool yang terus bertambah — ada dari admin, dari komunitas user (setelah disetujui), dan yang di-generate oleh AI secara unik. Kamu juga bisa submit pertanyaan sendiri.",
+    q: "Apakah obrolan dan data kami aman?",
+    a: "Keamanan privasi kalian adalah prioritas kami. Semua chat, jawaban kuis, dan data penghubung akun sepenuhnya dienkripsi dan tidak akan pernah dibagikan ke pihak ketiga.",
   },
   {
-    q: "Bagaimana cara memulai sesi game?",
-    a: "Setelah akun kalian ter-link, masuk ke Dashboard → Games → pilih Truth or Dare → buat sesi baru. Kamu akan dapat kode sesi yang bisa dibagikan ke pasangan untuk join. Sesi langsung dimulai saat pasangan bergabung.",
-  },
-  {
-    q: "Apa yang terjadi jika pasangan tidak join dalam 10 menit?",
-    a: "Tenang, coinmu aman! Jika pasangan tidak join dalam 10 menit setelah sesi dibuat, coin yang dipotong di awal akan dikembalikan otomatis ke dompetmu.",
+    q: "Bisakah kami bermain sambil melakukan panggilan video?",
+    a: "Tentu saja! Platform kami dirancang untuk mendukung multitasking sehingga kalian bisa membuka LDR-Connect berdampingan dengan aplikasi video call favorit kalian.",
   },
 ];
 
@@ -33,55 +29,53 @@ export function FAQ() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-6 py-20 lg:px-8">
-      <div className="mb-10">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#FF6B9D]">
-          ✦ FAQ
-        </p>
-        <h2 className="text-4xl font-black leading-[1.05] tracking-tight text-[#FFF5F8] lg:text-5xl">
-          Masih ada
-          <br />
-          pertanyaan? <span className="text-[#FF3D7F]">Ini</span>
-          <br />
-          <span className="text-[#FF3D7F]">jawabannya.</span>
-        </h2>
-      </div>
-
-      <div className="space-y-3">
-        {faqs.map((faq, i) => (
-          <div
-            key={i}
-            className={`overflow-hidden rounded-2xl border transition-all duration-300 ${
-              open === i
-                ? "border-[#FF3D7F40] bg-[#FF3D7F08]"
-                : "border-[#FF3D7F12] bg-[#111113] hover:border-[#FF3D7F25]"
-            }`}
-          >
-            <button
-              type="button"
-              className="flex w-full items-center justify-between px-6 py-5 text-left"
-              onClick={() => setOpen(open === i ? null : i)}
-            >
-              <span className="pr-8 text-sm font-bold text-[#FFF5F8]">{faq.q}</span>
-              <span
-                className={`flex-shrink-0 text-[#FF3D7F] transition-transform duration-300 ${
-                  open === i ? "rotate-45" : "rotate-0"
-                }`}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              </span>
-            </button>
-
-            {open === i && (
-              <div className="px-6 pb-5">
-                <p className="text-sm leading-relaxed text-[#9B93B0]">{faq.a}</p>
-              </div>
-            )}
+    <section className="border-t border-[#E7E5E4] bg-[#FCFBF7] py-20 lg:py-24">
+      <div className="mx-auto w-full max-w-6xl px-6">
+        <div className="grid gap-12 lg:grid-cols-[1fr_1.6fr]">
+          {/* Left Title */}
+          <div>
+            <span className="text-[10px] font-semibold tracking-wider text-[#C84B31] uppercase">
+              Pertanyaan Umum
+            </span>
+            <h2 className="font-editorial mt-3 text-3xl font-normal leading-snug tracking-tight text-[#1F1D1B] sm:text-4xl">
+              Masih ada <br />
+              pertanyaan? Ini <br />
+              jawabannya.
+            </h2>
+            <p className="mt-4 text-xs leading-relaxed text-[#78716C]">
+              Kami merangkum semua yang perlu kalian ketahui tentang keamanan, koin, dan cara terbaik memulai kencan LDR yang berkesan.
+            </p>
           </div>
-        ))}
+
+          {/* Right Accordion */}
+          <div className="divide-y divide-[#E7E5E4] border-y border-[#E7E5E4]">
+            {faqs.map((faq, idx) => {
+              const isOpen = open === idx;
+              return (
+                <div key={idx} className="py-4">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(isOpen ? null : idx)}
+                    className="flex w-full items-center justify-between text-left transition-colors"
+                  >
+                    <span className="text-sm font-semibold text-[#1F1D1B]">
+                      {faq.q}
+                    </span>
+                    <span className="ml-4 text-base font-light text-[#78716C]">
+                      {isOpen ? "−" : "+"}
+                    </span>
+                  </button>
+
+                  {isOpen && (
+                    <div className="mt-3 pr-6 text-xs leading-relaxed text-[#78716C]">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
   );

@@ -155,10 +155,10 @@ export function MathDashGame({ duration = 30, startedAt, bonusActive = false, on
   // ── Done screen ───────────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-4 py-4">
-        <p className="text-sm font-medium text-[#9B93B0]">🔢 Math Dash</p>
-        <p className="text-5xl font-bold text-[#FFF5F8]">{correctCount}/{QUESTIONS_PER_ROUND}</p>
-        <p className="text-sm text-[#9B93B0]">jawaban benar</p>
+      <div className="flex flex-col items-center gap-4 py-4 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🔢 Math Dash</p>
+        <p className="text-5xl font-serif font-bold text-[#1F1D1B]">{correctCount}/{QUESTIONS_PER_ROUND}</p>
+        <p className="text-xs font-semibold text-[#78716C]">jawaban benar</p>
         <div className="flex flex-wrap gap-1 justify-center mt-1">
           {answers.map((ok, i) => (
             <span key={i} className={`text-base ${ok ? "opacity-100" : "opacity-30"}`}>
@@ -176,37 +176,37 @@ export function MathDashGame({ duration = 30, startedAt, bonusActive = false, on
   return (
     <div className="flex flex-col gap-4 select-none">
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">🔢 Math Dash</p>
-        <p className="mt-1 text-xs text-[#5C5470]">Jawab soal matematika secepat mungkin!</p>
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🔢 Math Dash</p>
+        <p className="mt-1 text-xs text-[#78716C]">Jawab soal matematika secepat mungkin!</p>
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400 text-center">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706] text-center">
           +50 BONUS AKTIF!
         </div>
       )}
 
       {/* Counter + timer */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-[#818CF8]">{current + 1}/{QUESTIONS_PER_ROUND}</span>
+        <span className="text-xs font-bold text-[#C84B31]">{current + 1}/{QUESTIONS_PER_ROUND}</span>
         <span className={`text-sm font-bold tabular-nums ${
-          urgent ? "text-red-400 animate-pulse" : timeLeft <= 10 ? "text-yellow-400" : "text-[#FFF5F8]"
+          urgent ? "text-red-500 animate-pulse" : timeLeft <= 10 ? "text-[#D97706]" : "text-[#1F1D1B]"
         }`}>
           {timeLeft}s
         </span>
       </div>
 
       {/* Timer bar */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E7E5E4]">
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{
             width: `${timerPct}%`,
             background: urgent
-              ? "linear-gradient(90deg,#EF4444,#F97316)"
+              ? "#EF4444"
               : timeLeft <= 10
-              ? "linear-gradient(90deg,#FBBF24,#F97316)"
-              : "linear-gradient(90deg,#818CF8,#A78BFA)",
+              ? "#D97706"
+              : "#C84B31",
           }}
         />
       </div>
@@ -218,8 +218,8 @@ export function MathDashGame({ duration = 30, startedAt, bonusActive = false, on
             key={i}
             className={`h-1 flex-1 rounded-full transition-all ${
               i < answers.length
-                ? answers[i] ? "bg-green-500" : "bg-red-500"
-                : i === current ? "bg-[#818CF8]" : "bg-white/10"
+                ? answers[i] ? "bg-emerald-500" : "bg-red-500"
+                : i === current ? "bg-[#C84B31]" : "bg-[#E7E5E4]"
             }`}
           />
         ))}
@@ -227,18 +227,18 @@ export function MathDashGame({ duration = 30, startedAt, bonusActive = false, on
 
       {/* Problem card */}
       <div
-        className={`rounded-2xl border p-6 text-center transition-all duration-200 ${
-          feedback === "correct" ? "border-green-500/40 bg-green-500/10 scale-[1.01]"
-          : feedback === "wrong"   ? "border-red-500/40 bg-red-500/10 scale-[0.99]"
-          : "border-white/10 bg-white/5"
+        className={`rounded-2xl border p-6 text-center transition-all duration-200 shadow-sm ${
+          feedback === "correct" ? "border-emerald-200 bg-emerald-50 scale-[1.01]"
+          : feedback === "wrong"   ? "border-red-200 bg-red-50 scale-[0.99]"
+          : "border-[#E7E5E4] bg-white"
         }`}
       >
-        <p className="text-4xl font-bold text-[#FFF5F8] tracking-wide">
-          {problem.text} = <span className="text-[#818CF8]">?</span>
+        <p className="text-4xl font-serif font-bold text-[#1F1D1B] tracking-wide">
+          {problem.text} = <span className="text-[#C84B31]">?</span>
         </p>
         <div className="min-h-[24px] mt-2">
           {feedback && (
-            <p className={`text-sm font-bold ${feedback === "correct" ? "text-green-400" : "text-red-400"}`}>
+            <p className={`text-xs font-bold ${feedback === "correct" ? "text-emerald-600" : "text-red-600"}`}>
               {feedback === "correct" ? "✓ Benar!" : `✗ Salah! Jawabannya: ${problem.answer}`}
             </p>
           )}
@@ -255,12 +255,12 @@ export function MathDashGame({ duration = 30, startedAt, bonusActive = false, on
               key={i}
               onClick={() => handleAnswer(opt)}
               disabled={isSelected}
-              className={`py-4 rounded-2xl border font-bold text-xl transition-all active:scale-95 ${
+              className={`py-3.5 rounded-2xl border font-bold text-xl transition-all active:scale-95 cursor-pointer shadow-2xs ${
                 isSelected && isCorrectOpt
-                  ? "border-green-500/60 bg-green-500/15 text-green-300"
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                   : isSelected && !isCorrectOpt
-                  ? "border-white/5 bg-transparent text-[#5C5470]"
-                  : "border-white/15 bg-white/5 text-[#FFF5F8] hover:border-[#818CF8]/40 hover:bg-[#818CF8]/10"
+                  ? "border-[#E7E5E4] bg-[#FCFBF7] text-[#A8A29E]"
+                  : "border-[#E7E5E4] bg-white text-[#1F1D1B] hover:border-[#C84B31] hover:bg-[#FDF4F2]"
               }`}
             >
               {opt}

@@ -11,48 +11,37 @@ interface ChallengeModalProps {
 
 export function ChallengeModal({ challenge, myRole, isConfirming, onConfirm }: ChallengeModalProps) {
   const isMyChallengeToComplete = challenge.player === myRole;
-  const isPartnerChallenge = !isMyChallengeToComplete;
-
   const isTruth = challenge.type === "truth";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
       <div className="w-full max-w-md animate-[scale-in_0.25s_cubic-bezier(0.34,1.56,0.64,1)]">
-        <div
-          className="rounded-3xl border p-6"
-          style={{
-            background: isTruth
-              ? "linear-gradient(135deg, #1a1035 0%, #0f0f1a 100%)"
-              : "linear-gradient(135deg, #1a0a18 0%, #0f0f1a 100%)",
-            borderColor: isTruth ? "rgba(129,140,248,0.3)" : "rgba(255,61,127,0.3)",
-          }}
-        >
+        <div className="rounded-3xl border border-[#E7E5E4] bg-white p-6 shadow-2xl">
           {/* Badge type */}
           <div className="flex items-center justify-center gap-2 mb-5">
             <span
-              className="rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest"
-              style={{
-                background: isTruth ? "rgba(129,140,248,0.15)" : "rgba(255,61,127,0.15)",
-                color: isTruth ? "#818CF8" : "#FF6B9D",
-                border: `1px solid ${isTruth ? "rgba(129,140,248,0.3)" : "rgba(255,61,127,0.3)"}`,
-              }}
+              className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest border ${
+                isTruth
+                  ? "bg-[#EEF2FF] text-[#4F46E5] border-[#E0E7FF]"
+                  : "bg-[#FDF4F2] text-[#C84B31] border-[#FBDCD5]"
+              }`}
             >
               {isTruth ? "✦ Truth" : "⚡ Dare"}
             </span>
-            <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] text-[#5C5470]">
+            <span className="rounded-full bg-[#FCFBF7] border border-[#E7E5E4] px-2.5 py-1 text-[10px] font-semibold text-[#78716C]">
               {challenge.category}
             </span>
           </div>
 
           {/* Kotak pertanyaan */}
           <div
-            className="rounded-2xl border p-5 mb-5 text-center"
-            style={{
-              background: isTruth ? "rgba(129,140,248,0.05)" : "rgba(255,61,127,0.05)",
-              borderColor: isTruth ? "rgba(129,140,248,0.15)" : "rgba(255,61,127,0.1)",
-            }}
+            className={`rounded-2xl border p-5 mb-5 text-center ${
+              isTruth
+                ? "bg-[#EEF2FF]/40 border-[#E0E7FF]"
+                : "bg-[#FDF4F2]/50 border-[#FBDCD5]"
+            }`}
           >
-            <p className="text-base font-medium leading-relaxed text-[#FFF5F8]">
+            <p className="font-serif text-lg font-bold leading-relaxed text-[#1F1D1B]">
               {challenge.question}
             </p>
           </div>
@@ -60,18 +49,18 @@ export function ChallengeModal({ challenge, myRole, isConfirming, onConfirm }: C
           {/* Status */}
           {isMyChallengeToComplete ? (
             <div className="text-center space-y-3">
-              <p className="text-sm font-semibold text-[#FFF5F8]">Ini tantanganmu!</p>
-              <p className="text-xs text-[#9B93B0]">
+              <p className="text-sm font-bold text-[#1F1D1B]">Ini tantanganmu!</p>
+              <p className="text-xs text-[#78716C]">
                 {isTruth
                   ? "Jawab pertanyaan ini dengan jujur kepada pasanganmu."
                   : "Lakukan tantangan ini dan tunjukkan kepada pasanganmu."}
               </p>
               {challenge.roll_again && (
-                <p className="text-xs font-medium text-yellow-400">
+                <p className="text-xs font-semibold text-[#D97706]">
                   ★ Kamu mendapat angka 6 — setelah tantangan selesai, kamu boleh lempar dadu lagi!
                 </p>
               )}
-              <div className="flex items-center justify-center gap-2 mt-2 text-xs text-[#5C5470]">
+              <div className="flex items-center justify-center gap-2 mt-2 text-xs text-[#78716C]">
                 <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                 </svg>
@@ -80,28 +69,19 @@ export function ChallengeModal({ challenge, myRole, isConfirming, onConfirm }: C
             </div>
           ) : (
             <div className="text-center space-y-3">
-              <p className="text-sm font-semibold text-[#FFF5F8]">Tantangan pasanganmu!</p>
-              <p className="text-xs text-[#9B93B0]">
+              <p className="text-sm font-bold text-[#1F1D1B]">Tantangan pasanganmu!</p>
+              <p className="text-xs text-[#78716C]">
                 Pastikan pasanganmu sudah {isTruth ? "menjawab pertanyaan" : "menyelesaikan tantangan"} dengan benar.
               </p>
               {challenge.roll_again && (
-                <p className="text-xs font-medium text-yellow-400">
+                <p className="text-xs font-semibold text-[#D97706]">
                   ★ Pasanganmu dapat angka 6 — setelah ini dia boleh lempar dadu lagi!
                 </p>
               )}
               <button
                 onClick={onConfirm}
                 disabled={isConfirming}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold text-white transition"
-                style={{
-                  background: isTruth
-                    ? "linear-gradient(90deg, #818CF8, #A78BFA)"
-                    : "linear-gradient(90deg, #FF3D7F, #FF6B9D)",
-                  boxShadow: isTruth
-                    ? "0 4px 20px rgba(129,140,248,0.35)"
-                    : "0 4px 20px rgba(255,61,127,0.35)",
-                  opacity: isConfirming ? 0.7 : 1,
-                }}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-5 py-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:opacity-60 cursor-pointer"
               >
                 {isConfirming ? (
                   <>

@@ -145,27 +145,27 @@ function LadderSvg({ from, to }: { from: number; to: number }) {
 
 // ── Warna kotak ──────────────────────────────────────────────────────────
 function getCellStyle(sq: number, config: SnakeBoardConfig): React.CSSProperties {
-  if (sq === 100) return { background: "linear-gradient(135deg, #FFD700, #FFA500)", border: "2px solid rgba(255,215,0,0.6)" };
-  if (sq === 1)   return { background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.18)" };
-  if (config.snakes.some((s) => s.from === sq))   return { background: "rgba(239,68,68,0.18)",  border: "1px solid rgba(239,68,68,0.4)" };
-  if (config.ladders.some((l) => l.from === sq))  return { background: "rgba(34,197,94,0.18)",  border: "1px solid rgba(34,197,94,0.4)" };
-  if (config.challenges.some((c) => c.square === sq)) return { background: "rgba(251,191,36,0.13)", border: "1px solid rgba(251,191,36,0.32)" };
+  if (sq === 100) return { background: "#FEF3C7", border: "1.5px solid #FDE68A" };
+  if (sq === 1)   return { background: "#FDF4F2", border: "1px solid #FBDCD5" };
+  if (config.snakes.some((s) => s.from === sq))   return { background: "#FEF2F2", border: "1px solid #FECACA" };
+  if (config.ladders.some((l) => l.from === sq))  return { background: "#EBF9EB", border: "1px solid #BBF7D0" };
+  if (config.challenges.some((c) => c.square === sq)) return { background: "#FEF3C7", border: "1px solid #FDE68A" };
 
   const idx = sq - 1;
   const row = Math.floor(idx / 10);
   const col = idx % 10;
   const isLight = (row + col) % 2 === 0;
   return {
-    background: isLight ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.2)",
-    border: "1px solid rgba(255,255,255,0.05)",
+    background: isLight ? "#FFFFFF" : "#FCFBF7",
+    border: "1px solid #E7E5E4",
   };
 }
 
 // ── Build cell label ──────────────────────────────────────────────────────
 function CellLabel({ sq }: { sq: number }) {
-  if (sq === 100) return <span className="text-[7px] font-black text-yellow-300 leading-none">100</span>;
-  if (sq === 1)   return <span className="text-[8px] font-bold text-[#9B93B0] leading-none">1</span>;
-  return <span className="text-[7px] font-medium text-[#5C5470] leading-none">{sq}</span>;
+  if (sq === 100) return <span className="text-[7px] font-black text-[#D97706] leading-none">100</span>;
+  if (sq === 1)   return <span className="text-[8px] font-bold text-[#C84B31] leading-none">1</span>;
+  return <span className="text-[7px] font-medium text-[#78716C] leading-none">{sq}</span>;
 }
 
 // ── Main component ────────────────────────────────────────────────────────
@@ -217,8 +217,8 @@ export function SnakeBoard({ boardConfig, gameState, hostUserId, currentUserId }
   return (
     <div className="relative w-full" style={{ maxWidth: 520 }}>
       {/* Board grid */}
-      <div className="grid rounded-2xl overflow-hidden border border-white/10"
-           style={{ gridTemplateColumns: "repeat(10, 1fr)", background: "#0d0d14" }}>
+      <div className="grid rounded-2xl overflow-hidden border border-[#E7E5E4] shadow-xl shadow-black/2 bg-white"
+           style={{ gridTemplateColumns: "repeat(10, 1fr)" }}>
         {cells}
       </div>
 
@@ -237,22 +237,22 @@ export function SnakeBoard({ boardConfig, gameState, hostUserId, currentUserId }
         ))}
       </svg>
 
-      {/* Pion Host (pink) */}
+      {/* Pion Host (terracotta) */}
       {hostPct && (
         <div className="absolute transition-all duration-500 ease-in-out pointer-events-none"
              style={{ left: `${hostPct.left}%`, top: `${hostPct.top}%`, transform: "translate(-50%, -50%)", zIndex: 10 }}>
           <div className="relative">
-            <div className="h-5 w-5 rounded-full bg-[#FF3D7F] border-2 border-white shadow-[0_0_10px_rgba(255,61,127,0.9)] flex items-center justify-center">
+            <div className="h-5 w-5 rounded-full bg-[#C84B31] border-2 border-white shadow-md flex items-center justify-center">
               <span className="text-[7px] font-bold text-white">H</span>
             </div>
             {myRole === "host" && (
-              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-yellow-400 border border-white animate-pulse" />
+              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#D97706] border border-white animate-pulse" />
             )}
           </div>
         </div>
       )}
 
-      {/* Pion Partner (indigo) */}
+      {/* Pion Partner (blue) */}
       {partnerPct && (
         <div className="absolute transition-all duration-500 ease-in-out pointer-events-none"
              style={{
@@ -262,27 +262,27 @@ export function SnakeBoard({ boardConfig, gameState, hostUserId, currentUserId }
                zIndex: 10,
              }}>
           <div className="relative">
-            <div className="h-5 w-5 rounded-full bg-[#818CF8] border-2 border-white shadow-[0_0_10px_rgba(129,140,248,0.9)] flex items-center justify-center">
+            <div className="h-5 w-5 rounded-full bg-[#2563EB] border-2 border-white shadow-md flex items-center justify-center">
               <span className="text-[7px] font-bold text-white">P</span>
             </div>
             {myRole === "partner" && (
-              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-yellow-400 border border-white animate-pulse" />
+              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#D97706] border border-white animate-pulse" />
             )}
           </div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="mt-3 flex flex-wrap justify-center gap-3 text-[10px] text-[#5C5470]">
+      <div className="mt-3 flex flex-wrap justify-center gap-3 text-[10px] text-[#78716C]">
         <span className="flex items-center gap-1"><span>🐍</span> Kepala ular (turun)</span>
         <span className="flex items-center gap-1"><span>🪜</span> Bawah tangga (naik)</span>
         <span className="flex items-center gap-1"><span>⚡</span> Dare</span>
         <span className="flex items-center gap-1"><span>✦</span> Truth</span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#FF3D7F] inline-block" /> Host
+          <span className="h-2.5 w-2.5 rounded-full bg-[#C84B31] inline-block" /> Host
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#818CF8] inline-block" /> Partner
+          <span className="h-2.5 w-2.5 rounded-full bg-[#2563EB] inline-block" /> Partner
         </span>
       </div>
     </div>

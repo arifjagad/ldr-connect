@@ -28,14 +28,14 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-[#9B93B0] transition hover:border-[#FF3D7F]/40 hover:bg-[#FF3D7F]/10 hover:text-[#FF6B9D]"
+      className="flex items-center gap-1.5 rounded-lg border border-[#E7E5E4] bg-white px-3 py-1.5 text-xs font-semibold text-[#1F1D1B] shadow-2xs transition hover:border-[#C84B31] hover:bg-[#FDF4F2] hover:text-[#C84B31]"
     >
       {copied ? (
         <>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          Copied!
+          Tersalin!
         </>
       ) : (
         <>
@@ -43,7 +43,7 @@ function CopyButton({ text }: { text: string }) {
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
-          Copy
+          Salin Kode
         </>
       )}
     </button>
@@ -52,10 +52,10 @@ function CopyButton({ text }: { text: string }) {
 
 function SkeletonCard({ className = "" }: { className?: string }) {
   return (
-    <div className={`animate-pulse rounded-2xl bg-white/[0.04] ${className}`}>
-      <div className="p-5 space-y-3">
-        <div className="h-3 w-24 rounded bg-white/10" />
-        <div className="h-6 w-32 rounded bg-white/10" />
+    <div className={`animate-pulse rounded-2xl border border-[#E7E5E4] bg-white p-6 ${className}`}>
+      <div className="space-y-3">
+        <div className="h-3 w-24 rounded bg-[#E7E5E4]/60" />
+        <div className="h-7 w-32 rounded bg-[#E7E5E4]/80" />
       </div>
     </div>
   );
@@ -64,67 +64,55 @@ function SkeletonCard({ className = "" }: { className?: string }) {
 const navItems = [
   {
     href: "/dashboard/games",
-    label: "Games",
-    sublabel: "Mainkan bersama",
-    gradient: "from-[#FF3D7F]/20 to-[#FF6B9D]/5",
-    border: "border-[#FF3D7F]/20 hover:border-[#FF3D7F]/50",
-    iconBg: "bg-[#FF3D7F]/20",
+    label: "Game Rooms",
+    sublabel: "Mainkan bersama pasangan",
+    tag: "Populer",
+    tagColor: "bg-[#FDF4F2] text-[#C84B31] border border-[#E7E5E4]",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF3D7F" strokeWidth="1.8">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C84B31" strokeWidth="1.8">
         <rect x="2" y="6" width="20" height="12" rx="3" />
         <path d="M6 12h4M8 10v4M15 11h2M15 13h2" strokeLinecap="round" />
       </svg>
     ),
-    tag: "Hot",
-    tagColor: "bg-[#FF3D7F]/20 text-[#FF6B9D]",
   },
   {
     href: "/dashboard/coin",
-    label: "Coin Topup",
-    sublabel: "Isi saldo kamu",
-    gradient: "from-[#34D399]/15 to-[#6EE7B7]/5",
-    border: "border-[#34D399]/20 hover:border-[#34D399]/50",
-    iconBg: "bg-[#34D399]/20",
+    label: "Saldo Koin",
+    sublabel: "Isi ulang saldo instan",
+    tag: null,
+    tagColor: "",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="1.8">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="1.8">
         <circle cx="12" cy="12" r="10" />
         <path d="M12 6v2M12 16v2M8.5 9.5a3.5 3.5 0 0 1 7 0c0 2-3.5 3-3.5 5M12 17h.01" strokeLinecap="round" />
       </svg>
     ),
-    tag: null,
-    tagColor: "",
   },
   {
     href: "/dashboard/couple",
-    label: "Couple Connection",
-    sublabel: "Kelola partner",
-    gradient: "from-[#818CF8]/15 to-[#A78BFA]/5",
-    border: "border-[#818CF8]/20 hover:border-[#818CF8]/50",
-    iconBg: "bg-[#818CF8]/20",
+    label: "Koneksi Pasangan",
+    sublabel: "Kelola status & pasangan",
+    tag: null,
+    tagColor: "",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="1.8">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C84B31" strokeWidth="1.8">
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
     ),
-    tag: null,
-    tagColor: "",
   },
   {
     href: "/dashboard/anniversaries",
     label: "Anniversary Tracker",
-    sublabel: "Momen berharga",
-    gradient: "from-[#F472B6]/15 to-[#E879F9]/5",
-    border: "border-[#F472B6]/20 hover:border-[#F472B6]/50",
-    iconBg: "bg-[#F472B6]/20",
+    sublabel: "Catat momen berharga",
+    tag: null,
+    tagColor: "",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F472B6" strokeWidth="1.8">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C84B31" strokeWidth="1.8">
         <rect x="3" y="4" width="18" height="18" rx="3" />
         <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
         <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" strokeWidth="2.5" strokeLinecap="round" />
       </svg>
     ),
-    tag: null,
-    tagColor: "",
   },
 ];
 
@@ -134,12 +122,14 @@ const GAME_LABELS: Record<string, string> = {
   tod:          "Truth or Dare",
   snake_ladder: "Ular Tangga",
   dare_derby:   "Dare Derby",
+  quoridor:     "Quoridor",
 };
 
 const GAME_ROUTES: Record<string, string> = {
   tod:          "/dashboard/games/tod",
   snake_ladder: "/dashboard/games/snake-ladder",
   dare_derby:   "/dashboard/games/dare-derby",
+  quoridor:     "/dashboard/games/quoridor",
 };
 
 export default function DashboardPage() {
@@ -174,7 +164,6 @@ export default function DashboardPage() {
           .single();
 
         if (profileError || !profile) {
-          // Profil belum terbuat (trigger belum jalan) — arahkan user re-login
           setError(
             profileError?.code === "PGRST116"
               ? "Profil belum tersedia. Coba logout lalu login kembali."
@@ -207,7 +196,7 @@ export default function DashboardPage() {
           updated_at: wallets?.updated_at ?? profile.created_at,
         });
 
-        // Load anniversaries aktif milik pasangan (RLS handles couple visibility)
+        // Load anniversaries aktif milik pasangan
         const { data: annData } = await supabase
           .from("anniversaries")
           .select("*")
@@ -221,14 +210,14 @@ export default function DashboardPage() {
           setUpcomingAnniversaries(sorted);
         }
 
-        // Cek active session di semua game (untuk banner "sedang dalam game")
+        // Cek active session di semua game
         try {
           const sessionRes = await fetch("/api/game/session/any-active");
           const sessionJson = await sessionRes.json();
           setActiveSession(sessionJson?.data?.session ?? null);
         } catch { /* ignore */ }
 
-        // Cek apakah user sudah pernah main game (onboarding step)
+        // Cek apakah user sudah pernah main game
         try {
           const { count } = await supabase
             .from("game_sessions")
@@ -272,7 +261,7 @@ export default function DashboardPage() {
     loadData();
   }, [setUser]);
 
-  // Realtime: update banner saat status sesi berubah (cancelled / completed)
+  // Realtime: update banner saat status sesi berubah
   useEffect(() => {
     if (!activeSession) return;
     const supabase = createClient();
@@ -292,8 +281,7 @@ export default function DashboardPage() {
     return () => { supabase.removeChannel(channel); };
   }, [activeSession?.session_code]);
 
-  // Timer: hapus banner saat join window habis — hanya untuk status 'waiting'
-  // (untuk 'playing', expires_at sudah lewat sejak partner join, jadi tidak boleh dicek)
+  // Timer: hapus banner saat join window habis (status waiting)
   useEffect(() => {
     if (!activeSession?.expires_at || activeSession.status !== "waiting") return;
     const msLeft = new Date(activeSession.expires_at).getTime() - Date.now();
@@ -306,11 +294,11 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-6 py-12 lg:px-8">
-        <div className="mb-10 space-y-3">
-          <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
-          <div className="h-10 w-64 animate-pulse rounded bg-white/10" />
-          <div className="h-4 w-48 animate-pulse rounded bg-white/10" />
+      <main className="mx-auto w-full max-w-6xl px-6 py-10 lg:px-8">
+        <div className="mb-8 space-y-2">
+          <div className="h-4 w-28 animate-pulse rounded bg-[#E7E5E4]" />
+          <div className="h-9 w-64 animate-pulse rounded bg-[#E7E5E4]" />
+          <div className="h-4 w-48 animate-pulse rounded bg-[#E7E5E4]" />
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <SkeletonCard />
@@ -322,455 +310,446 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-      {/* ambient glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-[420px] w-[700px] -translate-x-1/2 rounded-full blur-[120px]"
-        style={{ background: "radial-gradient(ellipse, rgba(255,61,127,0.12) 0%, transparent 70%)" }}
-      />
+    <main className="min-h-screen bg-[#FCFBF7] text-[#1F1D1B]">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
 
-      {/* ── Header greeting ── */}
-      <div className="mb-10">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
-          User Dashboard
-        </p>
-        <h1 className="mt-2 text-2xl sm:text-4xl font-bold tracking-tight text-[#FFF5F8]">
-          Welcome back,{" "}
-          <span
-            style={{
-              backgroundImage: "linear-gradient(90deg, #FF6B9D, #FF3D7F)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            {user?.name}
-          </span>{" "}
-          👋
-        </h1>
-        <p className="mt-2 text-sm text-[#5C5470]">
-          Semua yang kamu butuhkan ada di sini.
-        </p>
-      </div>
-
-      {error ? (
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          {error}
-        </div>
-      ) : null}
-
-      {/* ── Onboarding Checklist (untuk user baru) ── */}
-      {(() => {
-        const steps = [
-          {
-            id: "partner",
-            done: isLinked,
-            label: "Hubungkan partner",
-            desc: "Masukkan couple code pasanganmu",
-            href: "/dashboard/couple",
-            icon: (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-            ),
-          },
-          {
-            id: "coin",
-            done: (wallet?.balance ?? 0) >= 3,
-            label: "Top up coin",
-            desc: "Minimal 3 coin untuk mulai game",
-            href: "/dashboard/coin",
-            icon: (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v2M12 16v2M9 9h4a1 1 0 0 1 0 2H9M9 13h5a1 1 0 0 1 0 2H9" strokeLinecap="round" />
-              </svg>
-            ),
-          },
-          {
-            id: "game",
-            done: hasPlayedGame,
-            label: "Main game pertama",
-            desc: "Coba Truth or Dare bersama pasangan",
-            href: "/dashboard/games",
-            icon: (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="2" y="6" width="20" height="12" rx="3" />
-                <path d="M6 12h4M8 10v4M15 11h2M15 13h2" strokeLinecap="round" />
-              </svg>
-            ),
-          },
-        ];
-        const doneCount = steps.filter((s) => s.done).length;
-        // Sembunyikan checklist jika semua sudah done
-        if (doneCount === steps.length) return null;
-        return (
-          <div className="mb-6 overflow-hidden rounded-2xl border border-[#818CF8]/20 bg-[#818CF8]/5">
-            <div className="flex items-center justify-between border-b border-white/[0.05] px-5 py-3.5">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-[#FFF5F8]">Mulai perjalananmu 🚀</span>
-                <span className="rounded-full bg-[#818CF8]/20 px-2 py-0.5 text-[10px] font-bold text-[#818CF8]">
-                  {doneCount}/{steps.length}
-                </span>
-              </div>
-              {/* Progress bar */}
-              <div className="h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
-                <div
-                  className="h-full rounded-full bg-[#818CF8] transition-all duration-500"
-                  style={{ width: `${(doneCount / steps.length) * 100}%` }}
-                />
-              </div>
+        {/* ── Header greeting ── */}
+        <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="inline-flex items-center rounded-full border border-[#E7E5E4] bg-[#FDF4F2] px-3 py-0.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#C84B31]">
+                User Dashboard
+              </span>
             </div>
-            <div className="divide-y divide-white/[0.04]">
-              {steps.map((step) => (
-                <Link
-                  key={step.id}
-                  href={step.href}
-                  className={`flex items-center gap-3 px-5 py-3 transition hover:bg-white/[0.03] ${step.done ? "opacity-50" : ""}`}
-                >
-                  {/* Checkbox */}
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                    step.done
-                      ? "border-[#34D399] bg-[#34D399]/20 text-[#34D399]"
-                      : "border-white/20 bg-white/5 text-[#5C5470]"
-                  }`}>
-                    {step.done ? (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    ) : (
-                      step.icon
-                    )}
+            <h1 className="font-editorial mt-2 text-3xl font-normal tracking-tight text-[#1F1D1B] sm:text-4xl">
+              Welcome back,{" "}
+              <span className="text-[#C84B31] italic">
+                {user?.name}
+              </span>
+            </h1>
+            <p className="mt-1 text-xs text-[#78716C]">
+              Kelola koneksi, koin, dan mulai bermain bersama pasanganmu.
+            </p>
+          </div>
+
+          <Link
+            href="/dashboard/games"
+            className="inline-flex items-center gap-1.5 self-start rounded-full bg-[#C84B31] px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26]"
+          >
+            <span>🎮</span>
+            Mulai Main Game
+          </Link>
+        </div>
+
+        {error ? (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {error}
+          </div>
+        ) : null}
+
+        {/* ── Onboarding Checklist (untuk user baru) ── */}
+        {(() => {
+          const steps = [
+            {
+              id: "partner",
+              done: isLinked,
+              label: "Hubungkan partner",
+              desc: "Masukkan couple code pasanganmu",
+              href: "/dashboard/couple",
+              icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              ),
+            },
+            {
+              id: "coin",
+              done: (wallet?.balance ?? 0) >= 3,
+              label: "Top up koin",
+              desc: "Minimal 3 koin untuk mulai game",
+              href: "/dashboard/coin",
+              icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v2M12 16v2M9 9h4a1 1 0 0 1 0 2H9M9 13h5a1 1 0 0 1 0 2H9" strokeLinecap="round" />
+                </svg>
+              ),
+            },
+            {
+              id: "game",
+              done: hasPlayedGame,
+              label: "Main game pertama",
+              desc: "Coba Truth or Dare bersama pasangan",
+              href: "/dashboard/games",
+              icon: (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="6" width="20" height="12" rx="3" />
+                  <path d="M6 12h4M8 10v4M15 11h2M15 13h2" strokeLinecap="round" />
+                </svg>
+              ),
+            },
+          ];
+          const doneCount = steps.filter((s) => s.done).length;
+          if (doneCount === steps.length) return null;
+          return (
+            <div className="mb-8 overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-xs">
+              <div className="flex items-center justify-between border-b border-[#F5F5F4] bg-[#FCFBF7] px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#1F1D1B]">Langkah Memulai 🚀</span>
+                  <span className="rounded-full border border-[#E7E5E4] bg-[#FDF4F2] px-2 py-0.5 text-[10px] font-bold text-[#C84B31]">
+                    {doneCount}/{steps.length} Selesai
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-medium ${step.done ? "text-[#5C5470] line-through" : "text-[#FFF5F8]"}`}>
-                      {step.label}
-                    </p>
+                </div>
+                {/* Progress bar */}
+                <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[#E7E5E4]">
+                  <div
+                    className="h-full rounded-full bg-[#C84B31] transition-all duration-500"
+                    style={{ width: `${(doneCount / steps.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <div className="divide-y divide-[#F5F5F4]">
+                {steps.map((step) => (
+                  <Link
+                    key={step.id}
+                    href={step.href}
+                    className={`flex items-center gap-3 px-5 py-3 transition hover:bg-[#FCFBF7] ${step.done ? "opacity-60" : ""}`}
+                  >
+                    {/* Checkbox */}
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                      step.done
+                        ? "border-[#10B981] bg-[#EBF9EB] text-[#10B981]"
+                        : "border-[#E7E5E4] bg-[#FCFBF7] text-[#78716C]"
+                    }`}>
+                      {step.done ? (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                          <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        step.icon
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold ${step.done ? "text-[#78716C] line-through" : "text-[#1F1D1B]"}`}>
+                        {step.label}
+                      </p>
+                      {!step.done && (
+                        <p className="text-[11px] text-[#78716C]">{step.desc}</p>
+                      )}
+                    </div>
                     {!step.done && (
-                      <p className="text-[11px] text-[#5C5470]">{step.desc}</p>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2">
+                        <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     )}
-                  </div>
-                  {!step.done && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C5470" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </Link>
-              ))}
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
-      {/* ── Stats Row ── */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        {/* Coin Balance */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">
-                Coin Balance
-              </p>
-              <p className="mt-2 text-3xl font-bold tabular-nums text-[#FFF5F8]">
-                {wallet?.balance ?? 0}
-              </p>
-              <p className="mt-1 text-xs text-[#5C5470]">coins tersedia</p>
-            </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#34D399]/15">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v2M12 16v2M9 9h4a1 1 0 0 1 0 2H9M9 13h5a1 1 0 0 1 0 2H9" strokeLinecap="round" />
-              </svg>
-            </div>
-          </div>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full blur-2xl"
-            style={{ background: "rgba(52,211,153,0.1)" }}
-          />
-          <Link
-            href="/dashboard/coin"
-            className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[#34D399] hover:text-[#6EE7B7] transition"
-          >
-            Top up sekarang
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        </div>
-
-        {/* Status Couple */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">
-                Status
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <span
-                  className={`inline-flex h-2 w-2 rounded-full ${
-                    isLinked ? "bg-[#34D399] shadow-[0_0_8px_#34D399]" : "bg-[#5C5470]"
-                  }`}
-                />
-                <p className="text-2xl font-bold capitalize text-[#FFF5F8]">
-                  {user?.status}
+        {/* ── Stats Row ── */}
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          {/* Coin Balance */}
+          <div className="relative overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xs transition-all hover:border-[#D6D3D1]">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">
+                  Saldo Koin
                 </p>
+                <div className="mt-2 flex items-baseline gap-1.5">
+                  <span className="font-editorial text-4xl font-normal text-[#1F1D1B]">
+                    {wallet?.balance ?? 0}
+                  </span>
+                  <span className="text-xs font-medium text-[#78716C]">koin</span>
+                </div>
               </div>
-              <p className="mt-1 text-xs text-[#5C5470]">
-                {isLinked ? `Terhubung dengan ${partner?.name}` : "Belum ada partner"}
-              </p>
-            </div>
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isLinked ? "bg-[#FF3D7F]/15" : "bg-white/5"}`}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isLinked ? "#FF3D7F" : "#5C5470"} strokeWidth="1.8">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-            </div>
-          </div>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full blur-2xl"
-            style={{ background: isLinked ? "rgba(255,61,127,0.08)" : "transparent" }}
-          />
-          <Link
-            href="/dashboard/couple"
-            className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[#9B93B0] hover:text-[#FFF5F8] transition"
-          >
-            {isLinked ? "Lihat partner" : "Hubungkan sekarang"}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        </div>
-
-        {/* Profile */}
-        <Link href="/dashboard/profile" className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113] p-5 transition hover:border-white/15">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-[#FF3D7F]/30 to-[#818CF8]/30 text-xl font-bold text-[#FFF5F8]">
-              {user?.name?.[0]?.toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-semibold text-[#FFF5F8]">{user?.name}</p>
-              <p className="truncate text-xs text-[#5C5470]">{user?.email}</p>
-              <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-[#9B93B0] transition group-hover:text-[#FFF5F8]">
-                Edit profil
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="transition-transform group-hover:translate-x-0.5">
-                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </p>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* ── Couple Code + Partner ── */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2">
-        {/* Couple Code */}
-        <div className="flex flex-col rounded-2xl border border-[#FF3D7F]/15 bg-linear-to-br from-[#FF3D7F]/8 to-transparent p-5">
-          <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">
-            Couple Code Kamu
-          </p>
-          <p className="mt-3 font-mono text-3xl font-bold tracking-[0.15em] text-[#FF6B9D]">
-            {coupleCode || "—"}
-          </p>
-          <p className="mt-2 text-xs text-[#5C5470]">
-            Bagikan ke pasanganmu agar bisa terhubung.
-          </p>
-          <div className="mt-4">
-            {coupleCode ? <CopyButton text={coupleCode} /> : null}
-          </div>
-        </div>
-
-        {/* Partner */}
-        {partner ? (
-          <div className="relative overflow-hidden flex flex-col rounded-2xl border border-[#818CF8]/20 bg-linear-to-br from-[#818CF8]/10 to-transparent p-5">
-            {/* glow */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl"
-              style={{ background: "rgba(129,140,248,0.15)" }}
-            />
-            <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Partner</p>
-            <div className="mt-4 flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-[#818CF8]/30 to-[#F472B6]/30 text-2xl font-bold text-[#FFF5F8]">
-                {partner.name?.[0]?.toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-[#FFF5F8]">{partner.name}</p>
-                <p className="truncate text-xs text-[#5C5470]">{partner.email}</p>
-                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#34D399]/25 bg-[#34D399]/10 px-2.5 py-0.5 text-[10px] font-medium text-[#34D399]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#34D399] shadow-[0_0_6px_#34D399]" />
-                  Terhubung
-                </span>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#FDE68A] bg-[#FEF3C7]">
+                <span className="text-lg">🪙</span>
               </div>
             </div>
-            <div className="mt-4 border-t border-white/6 pt-4">
+            <div className="mt-4 border-t border-[#F5F5F4] pt-3">
               <Link
-                href="/dashboard/couple"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#9B93B0] transition hover:text-[#FFF5F8]"
+                href="/dashboard/coin"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#C84B31] transition hover:text-[#B33E26]"
               >
-                Kelola koneksi
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                Top up koin sekarang →
               </Link>
             </div>
           </div>
-        ) : (
-          <div className="flex flex-col rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
-            <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Partner</p>
-            <div className="mt-4 flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/3 text-[#5C5470]">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              </div>
+
+          {/* Status Couple */}
+          <div className="relative overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xs transition-all hover:border-[#D6D3D1]">
+            <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-[#9B93B0]">Belum ada partner</p>
-                <p className="text-xs text-[#5C5470]">Hubungkan menggunakan couple code</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">
+                  Status Pasangan
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <span
+                    className={`inline-flex h-2 w-2 rounded-full ${
+                      isLinked ? "bg-[#10B981]" : "bg-[#78716C]"
+                    }`}
+                  />
+                  <p className="font-editorial text-2xl font-normal capitalize text-[#1F1D1B]">
+                    {isLinked ? "Terhubung" : "Belum Terhubung"}
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-[#78716C]">
+                  {isLinked ? `Bersama ${partner?.name}` : "Hubungkan akun kalian"}
+                </p>
+              </div>
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
+                isLinked ? "border-[#BBF7D0] bg-[#EBF9EB] text-[#10B981]" : "border-[#E7E5E4] bg-[#FCFBF7] text-[#78716C]"
+              }`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
               </div>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 border-t border-[#F5F5F4] pt-3">
               <Link
                 href="/dashboard/couple"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#818CF8]/30 bg-[#818CF8]/10 px-3 py-2 text-xs font-medium text-[#818CF8] transition hover:border-[#818CF8]/50 hover:bg-[#818CF8]/20"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#1F1D1B] transition hover:text-[#C84B31]"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                </svg>
-                Hubungkan Partner
+                {isLinked ? "Kelola pasangan →" : "Hubungkan sekarang →"}
+              </Link>
+            </div>
+          </div>
+
+          {/* Profile Card */}
+          <Link
+            href="/dashboard/profile"
+            className="group relative overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xs transition-all hover:border-[#D6D3D1]"
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FDF4F2] border border-[#E7E5E4] font-bold text-[#C84B31]">
+                {user?.name?.[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">Akun Saya</p>
+                <p className="truncate text-base font-bold text-[#1F1D1B]">{user?.name}</p>
+                <p className="truncate text-xs text-[#78716C]">{user?.email}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between border-t border-[#F5F5F4] pt-3 text-xs font-semibold text-[#78716C] transition group-hover:text-[#C84B31]">
+              <span>Pengaturan Profil</span>
+              <span>→</span>
+            </div>
+          </Link>
+        </div>
+
+        {/* ── Couple Code + Partner ── */}
+        <div className="mb-8 grid gap-4 sm:grid-cols-2">
+          {/* Couple Code */}
+          <div className="flex flex-col justify-between rounded-2xl border border-[#E7E5E4] bg-[#FDF4F2] p-6 shadow-xs">
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#C84B31]">
+                  Couple Code Kamu
+                </p>
+                <span className="rounded-full border border-[#E7E5E4] bg-white px-2 py-0.5 text-[10px] font-bold text-[#78716C]">
+                  ID Pasangan
+                </span>
+              </div>
+              <p className="mt-3 font-mono text-3xl font-bold tracking-[0.15em] text-[#C84B31]">
+                {coupleCode || "—"}
+              </p>
+              <p className="mt-2 text-xs text-[#78716C]">
+                Bagikan kode ini ke pasanganmu untuk menghubungkan akun kalian.
+              </p>
+            </div>
+            <div className="mt-5">
+              {coupleCode ? <CopyButton text={coupleCode} /> : null}
+            </div>
+          </div>
+
+          {/* Partner */}
+          {partner ? (
+            <div className="flex flex-col justify-between rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xs">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">
+                  Partner Terhubung
+                </p>
+                <div className="mt-3 flex items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FDF4F2] border border-[#E7E5E4] text-xl font-bold text-[#C84B31]">
+                    {partner.name?.[0]?.toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-bold text-[#1F1D1B]">{partner.name}</p>
+                    <p className="truncate text-xs text-[#78716C]">{partner.email}</p>
+                    <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-[#BBF7D0] bg-[#EBF9EB] px-2.5 py-0.5 text-[10px] font-semibold text-[#1D7D1D]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" />
+                      Terhubung
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 border-t border-[#F5F5F4] pt-3">
+                <Link
+                  href="/dashboard/couple"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#1F1D1B] transition hover:text-[#C84B31]"
+                >
+                  Kelola koneksi pasangan →
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col justify-between rounded-2xl border border-dashed border-[#E7E5E4] bg-white p-6 shadow-xs">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">
+                  Partner
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-[#E7E5E4] bg-[#FCFBF7] text-[#78716C]">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#1F1D1B]">Belum ada partner terhubung</p>
+                    <p className="text-[11px] text-[#78716C]">Masukkan couple code pasanganmu</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 border-t border-[#F5F5F4] pt-3">
+                <Link
+                  href="/dashboard/couple"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#C84B31] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#B33E26]"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                  </svg>
+                  Hubungkan Sekarang
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Active Session Banner ── */}
+        {activeSession && (
+          <div className="mb-8 overflow-hidden rounded-2xl border border-[#E7E5E4] bg-[#FDF4F2] p-5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white border border-[#E7E5E4] text-2xl shadow-2xs">
+                  🎮
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[#1F1D1B]">
+                    {activeSession.host_user_id === user?.id
+                      ? "Kamu sedang menunggu partner di game"
+                      : "Partner mengajakmu bermain!"}
+                  </p>
+                  <p className="text-xs text-[#78716C]">
+                    {GAME_LABELS[activeSession.game_type] ?? activeSession.game_type} · Kode Sesi: <span className="font-mono font-bold text-[#C84B31]">{activeSession.session_code}</span>
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={activeSession.host_user_id === user?.id
+                  ? (GAME_ROUTES[activeSession.game_type] ?? "/dashboard/games")
+                  : `${GAME_ROUTES[activeSession.game_type] ?? "/dashboard/games"}?join=${activeSession.session_code}`}
+                className="shrink-0 rounded-lg bg-[#C84B31] px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26]"
+              >
+                {activeSession.host_user_id === user?.id ? "Kembali ke Game" : "Join Sekarang →"}
               </Link>
             </div>
           </div>
         )}
-      </div>
 
-      {/* ── Active Session Banner ── */}
-      {activeSession && (
-        <div className={`mb-6 overflow-hidden rounded-2xl border p-4 ${
-          activeSession.host_user_id === user?.id
-            ? "border-[#818CF8]/30 bg-[#818CF8]/8"
-            : "border-[#FF3D7F]/30 bg-[#FF3D7F]/8"
-        }`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">
-                {activeSession.host_user_id === user?.id ? "🎮" : "👾"}
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-[#FFF5F8]">
-                  {activeSession.host_user_id === user?.id
-                    ? "Kamu sedang menunggu partner di game"
-                    : "Partner mengajakmu bermain!"}
-                </p>
-                <p className="text-xs text-[#9B93B0]">
-                  {GAME_LABELS[activeSession.game_type] ?? activeSession.game_type} · Kode: <span className="font-mono font-bold">{activeSession.session_code}</span>
-                </p>
-              </div>
+        {/* ── Anniversary Widget ── */}
+        {upcomingAnniversaries.length > 0 && (
+          <div className="mb-8">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">
+                Momen Terdekat
+              </p>
+              <Link href="/dashboard/anniversaries" className="text-xs font-semibold text-[#C84B31] transition hover:underline">
+                Lihat semua →
+              </Link>
             </div>
-            <Link
-              href={activeSession.host_user_id === user?.id
-                ? (GAME_ROUTES[activeSession.game_type] ?? "/dashboard/games")
-                : `${GAME_ROUTES[activeSession.game_type] ?? "/dashboard/games"}?join=${activeSession.session_code}`}
-              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white transition ${
-                activeSession.host_user_id === user?.id
-                  ? "bg-[#818CF8] hover:bg-[#A78BFA]"
-                  : "bg-[#FF3D7F] hover:bg-[#FF6B9D]"
-              }`}
-            >
-              {activeSession.host_user_id === user?.id ? "Kembali" : "Join Sekarang"}
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* ── Anniversary Widget ── */}
-      {upcomingAnniversaries.length > 0 && (
-        <div className="mb-6">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">
-              Momen Terdekat
-            </p>
-            <Link href="/dashboard/anniversaries" className="text-xs text-[#9B93B0] hover:text-[#FFF5F8] transition">
-              Lihat semua →
-            </Link>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {upcomingAnniversaries.map((ann) => {
-              const days = daysUntil(ann.date);
-              const isToday = days === 0;
-              return (
-                <div
-                  key={ann.id}
-                  className={`relative overflow-hidden rounded-2xl border p-4 ${
-                    isToday
-                      ? "border-[#F472B6]/40 bg-[#F472B6]/10"
-                      : days <= 7
-                      ? "border-yellow-500/25 bg-yellow-500/5"
-                      : "border-white/[0.07] bg-[#111113]"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium text-[#9B93B0]">{ann.title}</p>
-                      <p className={`mt-1 text-2xl font-bold tabular-nums ${
-                        isToday ? "text-[#F472B6]" : days <= 7 ? "text-yellow-400" : "text-[#FFF5F8]"
-                      }`}>
-                        {isToday ? "🎉" : days}
-                      </p>
-                      <p className="text-[10px] text-[#5C5470]">
-                        {isToday ? "Hari ini!" : `hari lagi`}
-                      </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {upcomingAnniversaries.map((ann) => {
+                const days = daysUntil(ann.date);
+                const isToday = days === 0;
+                return (
+                  <div
+                    key={ann.id}
+                    className={`relative overflow-hidden rounded-2xl border p-5 shadow-xs transition-all ${
+                      isToday
+                        ? "border-[#E7E5E4] bg-[#FDF4F2]"
+                        : "border-[#E7E5E4] bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-[#1F1D1B]">{ann.title}</p>
+                        <p className="font-editorial mt-1 text-3xl font-normal text-[#C84B31]">
+                          {isToday ? "Hari Ini!" : days}
+                        </p>
+                        <p className="text-[10px] text-[#78716C]">
+                          {isToday ? "Selamat merayakan!" : "hari lagi"}
+                        </p>
+                      </div>
+                      <span className="text-xl shrink-0">{isToday ? "🎉" : "📅"}</span>
                     </div>
-                    <span className="text-xl shrink-0">{isToday ? "🎊" : days <= 7 ? "⏳" : "📅"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Quick Access Cards ── */}
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">
+              Fitur & Menu Utama
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group relative flex flex-col justify-between rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xs transition-all duration-200 hover:border-[#D6D3D1] hover:shadow-md"
+              >
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FCFBF7] border border-[#F5F5F4]">
+                      {item.icon}
+                    </div>
+                    {item.tag ? (
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${item.tagColor}`}>
+                        {item.tag}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-sm font-bold text-[#1F1D1B] group-hover:text-[#C84B31] transition">
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-xs text-[#78716C]">{item.sublabel}</p>
                   </div>
                 </div>
-              );
-            })}
+
+                <div className="mt-5 flex items-center gap-1 border-t border-[#F5F5F4] pt-3 text-xs font-semibold text-[#78716C] transition group-hover:text-[#C84B31]">
+                  <span>Buka menu</span>
+                  <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* ── Quick Access Cards ── */}
-      <div>
-        <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#5C5470]">
-          Menu Utama
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`group relative overflow-hidden rounded-2xl border bg-linear-to-br ${item.gradient} ${item.border} p-5 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg`}
-            >
-              <div className="flex items-start justify-between">
-                <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${item.iconBg}`}>
-                  {item.icon}
-                </div>
-                {item.tag ? (
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${item.tagColor}`}>
-                    {item.tag}
-                  </span>
-                ) : null}
-              </div>
-              <div className="mt-4">
-                <p className="font-semibold text-[#FFF5F8]">{item.label}</p>
-                <p className="mt-0.5 text-xs text-[#9B93B0]">{item.sublabel}</p>
-              </div>
-              <div className="mt-3 flex items-center gap-1 text-xs font-medium text-[#5C5470] transition group-hover:text-[#9B93B0]">
-                Buka
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="transition-transform group-hover:translate-x-0.5">
-                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-            </Link>
-          ))}
-        </div>
       </div>
     </main>
   );

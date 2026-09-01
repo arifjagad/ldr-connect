@@ -23,34 +23,39 @@ export default async function AdminTransactionsPage() {
   const transactions = await getTransactions();
 
   const statusStyle: Record<string, string> = {
-    paid: "bg-[#34D399]/10 text-[#34D399]",
-    pending: "bg-yellow-500/10 text-yellow-400",
-    failed: "bg-red-500/10 text-red-400",
+    paid: "bg-[#EBF9EB] text-[#10B981] border border-[#10B981]/20",
+    pending: "bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]",
+    failed: "bg-red-50 text-red-600 border border-red-200",
   };
 
   return (
-    <div className="px-8 py-8">
+    <div className="px-6 py-8 sm:px-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#FFF5F8]">Transaksi</h1>
-        <p className="mt-1 text-sm text-[#5C5470]">{transactions.length} transaksi terbaru</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C84B31]">
+          Keuangan
+        </p>
+        <h1 className="mt-1 font-serif text-2xl font-bold tracking-tight text-[#1F1D1B] sm:text-3xl">
+          Riwayat Transaksi
+        </h1>
+        <p className="mt-1 text-xs text-[#78716C]">{transactions.length} transaksi terbaru</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113]">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+        <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-white/[0.06]">
-              <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-[#5C5470]">User</th>
-              <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-[#5C5470]">Reference</th>
-              <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-[#5C5470]">Tipe</th>
-              <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-[#5C5470]">Jumlah</th>
-              <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-[#5C5470]">Status</th>
-              <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-widest text-[#5C5470]">Waktu</th>
+            <tr className="border-b border-[#E7E5E4] bg-[#FCFBF7]">
+              <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[#78716C]">User</th>
+              <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[#78716C]">Reference</th>
+              <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[#78716C]">Tipe</th>
+              <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[#78716C]">Jumlah</th>
+              <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[#78716C]">Status</th>
+              <th className="px-5 py-3.5 font-bold uppercase tracking-wider text-[#78716C]">Waktu</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.04]">
+          <tbody className="divide-y divide-[#E7E5E4]">
             {transactions.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-[#5C5470]">
+                <td colSpan={6} className="py-12 text-center text-xs text-[#78716C]">
                   Belum ada transaksi
                 </td>
               </tr>
@@ -58,31 +63,35 @@ export default async function AdminTransactionsPage() {
             {transactions.map((tx) => {
               const u = tx.users as unknown as { name: string; email: string } | null;
               return (
-                <tr key={tx.id} className="hover:bg-white/[0.02]">
-                  <td className="px-5 py-3.5">
-                    <p className="font-medium text-[#FFF5F8]">{u?.name ?? "—"}</p>
-                    <p className="text-xs text-[#5C5470]">{u?.email ?? ""}</p>
+                <tr key={tx.id} className="transition hover:bg-[#FCFBF7]">
+                  <td className="px-5 py-4">
+                    <p className="font-bold text-[#1F1D1B]">{u?.name ?? "—"}</p>
+                    <p className="text-[11px] text-[#78716C]">{u?.email ?? ""}</p>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className="font-mono text-[11px] text-[#5C5470]">{tx.payment_reference ?? "—"}</span>
+                  <td className="px-5 py-4">
+                    <span className="font-mono text-xs text-[#78716C]">{tx.payment_reference ?? "—"}</span>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`text-xs font-semibold ${tx.type === "topup" ? "text-[#34D399]" : "text-[#FF6B9D]"}`}>
+                  <td className="px-5 py-4">
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                      tx.type === "topup"
+                        ? "bg-[#EBF9EB] text-[#10B981] border border-[#10B981]/20"
+                        : "bg-[#FDF4F2] text-[#C84B31] border border-[#FBDCD5]"
+                    }`}>
                       {tx.type}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`font-mono font-bold ${tx.type === "topup" ? "text-[#34D399]" : "text-[#FF6B9D]"}`}>
+                  <td className="px-5 py-4">
+                    <span className={`font-mono text-xs font-bold ${tx.type === "topup" ? "text-[#10B981]" : "text-[#C84B31]"}`}>
                       {tx.type === "topup" ? "+" : "-"}{tx.amount}
                     </span>
-                    <span className="ml-1 text-xs text-[#5C5470]">coin</span>
+                    <span className="ml-1 text-[11px] text-[#78716C]">coin</span>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase ${statusStyle[tx.payment_status] ?? ""}`}>
+                  <td className="px-5 py-4">
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${statusStyle[tx.payment_status] ?? ""}`}>
                       {tx.payment_status}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-[#5C5470]">
+                  <td className="px-5 py-4 text-xs font-semibold text-[#78716C]">
                     {new Date(tx.created_at).toLocaleDateString("id-ID", {
                       day: "numeric",
                       month: "short",

@@ -10,6 +10,7 @@ import { useServerBalance } from "@/lib/hooks/use-server-balance";
 import { Navbar } from "@/components/landing/Navbar";
 import { GameInviteNotification } from "@/components/GameInviteNotification";
 import { ToastContainer } from "@/components/ui/Toast";
+import { DialogContainer } from "@/components/ui/Dialog";
 import { PushPromptBanner } from "@/components/ui/PushPromptBanner";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
@@ -48,7 +49,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isAuthPage      = pathname.startsWith("/auth");
   const isDashboardPage = pathname.startsWith("/dashboard");
-  const isPublicPage    = !isAuthPage && !isDashboardPage;
+  const isAdminPage     = pathname.startsWith("/admin");
+  const isPublicPage    = !isAuthPage && !isDashboardPage && !isAdminPage;
 
   // Apakah halaman saat ini masuk sub-menu "Lainnya"
   const moreActive = moreNavItems.some(
@@ -170,12 +172,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (isDashboardPage && !sessionReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0E0E12]">
+      <div className="flex min-h-screen items-center justify-center bg-[#FCFBF7]">
         <div className="flex flex-col items-center gap-4">
-          <svg className="animate-spin text-[#FF3D7F]" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg className="animate-spin text-[#C84B31]" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
           </svg>
-          <p className="text-xs text-[#5C5470]">Memverifikasi sesi...</p>
+          <p className="text-xs font-medium text-[#78716C]">Memverifikasi sesi...</p>
         </div>
       </div>
     );
@@ -185,15 +187,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <>
       {isDashboardPage ? (
         <>
-          <header className="sticky top-0 z-40 border-b border-white/5 bg-[#141417]/90 backdrop-blur">
+          <header className="sticky top-0 z-40 border-b border-[#E7E5E4] bg-[#FCFBF7]/90 backdrop-blur-md">
             <div className="mx-auto grid w-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
 
               {/* Brand — col 1, left */}
-              <Link href="/dashboard" className="group shrink-0">
-                <p className="text-[10px] text-[#5C5470]">LDR-Connect</p>
-                <p className="text-sm font-semibold text-[#F5F0FF] group-hover:text-[#FF6B9D] transition">
-                  {user ? `Hi, ${user.name} 👋` : "Dashboard"}
-                </p>
+              <Link href="/dashboard" className="flex items-center gap-2 group shrink-0">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#C84B31] text-xs font-bold text-white shadow-xs">
+                  ♥
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[#78716C]">LDR-Connect</p>
+                  <p className="text-sm font-bold text-[#1F1D1B] group-hover:text-[#C84B31] transition">
+                    {user ? `Hi, ${user.name} 👋` : "Dashboard"}
+                  </p>
+                </div>
               </Link>
 
               {/* ── Desktop nav (≥ 1024px) — col 2, truly centered ─────── */}
@@ -205,8 +212,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`rounded-full px-3 py-1.5 text-sm transition ${
-                        active ? "bg-[#FF3D7F] text-white" : "bg-white/5 text-[#9B93B0] hover:bg-white/10 hover:text-[#F5F0FF]"
+                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? "bg-[#C84B31] text-white shadow-xs"
+                          : "bg-white border border-[#E7E5E4] text-[#78716C] hover:text-[#1F1D1B] hover:border-[#D6D3D1] hover:bg-[#FCFBF7]"
                       }`}
                     >
                       {item.label}
@@ -223,8 +232,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   <button
                     type="button"
-                    className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-sm transition ${
-                      moreActive ? "bg-[#FF3D7F] text-white" : "bg-white/5 text-[#9B93B0] hover:bg-white/10 hover:text-[#F5F0FF]"
+                    className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                      moreActive
+                        ? "bg-[#C84B31] text-white shadow-xs"
+                        : "bg-white border border-[#E7E5E4] text-[#78716C] hover:text-[#1F1D1B] hover:border-[#D6D3D1] hover:bg-[#FCFBF7]"
                     }`}
                   >
                     Lainnya
@@ -240,20 +251,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {/* Floating submenu */}
                   {moreOpen && (
                     <div className="absolute left-0 top-full pt-2">
-                      <div className="w-44 rounded-xl border border-white/10 bg-[#1A1A22] shadow-2xl shadow-black/50 overflow-hidden p-1">
+                      <div className="w-44 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/[0.04] overflow-hidden p-1.5">
                         {moreNavItems.map((item) => {
                           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                           return (
                             <Link
                               key={item.href}
                               href={item.href}
-                              className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition ${
+                              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition ${
                                 active
-                                  ? "bg-[#FF3D7F]/15 font-medium text-[#FF6B9D]"
-                                  : "text-[#9B93B0] hover:bg-white/5 hover:text-[#F5F0FF]"
+                                  ? "bg-[#FDF4F2] font-semibold text-[#C84B31]"
+                                  : "text-[#78716C] hover:bg-[#FCFBF7] hover:text-[#1F1D1B]"
                               }`}
                             >
-                              {active && <span className="h-1.5 w-1.5 rounded-full bg-[#FF3D7F] shrink-0" />}
+                              {active && <span className="h-1.5 w-1.5 rounded-full bg-[#C84B31] shrink-0" />}
                               {item.label}
                             </Link>
                           );
@@ -275,7 +286,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     href="/dashboard/coin"
                     title="Saldo Coin"
-                    className="flex items-center gap-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 px-2.5 py-1.5 text-xs font-semibold text-[#FB923C] transition hover:border-[#F97316]/50 hover:bg-[#F97316]/20"
+                    className="flex items-center gap-1.5 rounded-full border border-[#FDE68A] bg-[#FEF3C7] px-3 py-1 text-xs font-bold text-[#D97706] transition hover:border-[#F59E0B] hover:bg-[#FDE68A]/60"
                   >
                     <span>🪙</span>
                     {serverBalance !== null ? serverBalance : user.wallet_balance}
@@ -287,7 +298,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <div className="flex items-center gap-1">
                     {/* Partner avatar */}
                     <div
-                      className="relative flex h-7 w-7 shrink-0 overflow-hidden items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-[#818CF8]/40 bg-[#818CF8]/20 text-[#C4B5FD]"
+                      className="relative flex h-7 w-7 shrink-0 overflow-hidden items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-[#E7E5E4] bg-[#FDF4F2] text-[#C84B31]"
                       title={`Partner: ${partnerInfo.name}`}
                     >
                       {partnerInfo.avatar_url ? (
@@ -298,14 +309,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </div>
 
                     {/* Heart — di tengah antara partner & user */}
-                    <span className="text-[10px] text-[#FF3D7F] leading-none">❤</span>
+                    <span className="text-[10px] text-[#C84B31] leading-none">❤</span>
 
                     {/* User avatar */}
                     <Link
                       href="/dashboard/profile"
                       title="Profil & Pengaturan"
-                      className={`relative flex h-8 w-8 shrink-0 overflow-hidden items-center justify-center rounded-full text-sm font-bold transition ring-2 ${
-                        pathname.startsWith("/dashboard/profile") ? "ring-[#FF3D7F]" : "ring-white/10 bg-white/10 text-[#9B93B0] hover:ring-white/30"
+                      className={`relative flex h-8 w-8 shrink-0 overflow-hidden items-center justify-center rounded-full text-xs font-bold transition ring-2 ${
+                        pathname.startsWith("/dashboard/profile") ? "ring-[#C84B31]" : "ring-[#E7E5E4] bg-white text-[#1F1D1B] hover:ring-[#C84B31]/50"
                       }`}
                     >
                       {user?.avatar_url ? (
@@ -320,8 +331,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     href="/dashboard/profile"
                     title="Profil & Pengaturan"
-                    className={`relative flex h-8 w-8 shrink-0 overflow-hidden items-center justify-center rounded-full text-sm font-bold transition ring-2 ${
-                      pathname.startsWith("/dashboard/profile") ? "ring-[#FF3D7F]" : "ring-white/10 bg-white/10 text-[#9B93B0] hover:ring-white/30"
+                    className={`relative flex h-8 w-8 shrink-0 overflow-hidden items-center justify-center rounded-full text-xs font-bold transition ring-2 ${
+                      pathname.startsWith("/dashboard/profile") ? "ring-[#C84B31]" : "ring-[#E7E5E4] bg-white text-[#1F1D1B] hover:ring-[#C84B31]/50"
                     }`}
                   >
                     {user?.avatar_url ? (
@@ -336,7 +347,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="hidden lg:block rounded-full border border-white/10 px-3 py-1.5 text-sm text-[#9B93B0] transition hover:border-white/20 hover:text-[#F5F0FF]"
+                  className="hidden lg:block rounded-full border border-[#E7E5E4] bg-white px-3.5 py-1.5 text-xs font-medium text-[#78716C] transition hover:border-[#D6D3D1] hover:bg-[#FCFBF7] hover:text-[#1F1D1B]"
                 >
                   Keluar
                 </button>
@@ -348,7 +359,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     onClick={() => setMenuOpen((v) => !v)}
                     aria-label="Menu navigasi"
                     className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
-                      menuOpen ? "border-[#FF3D7F]/40 bg-[#FF3D7F]/10 text-[#FF6B9D]" : "border-white/10 bg-white/5 text-[#9B93B0]"
+                      menuOpen ? "border-[#C84B31] bg-[#FDF4F2] text-[#C84B31]" : "border-[#E7E5E4] bg-white text-[#78716C]"
                     }`}
                   >
                     {menuOpen ? (
@@ -364,7 +375,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
                   {/* Floating submenu mobile */}
                   {menuOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-white/10 bg-[#1A1A22] shadow-2xl shadow-black/40 overflow-hidden">
+                    <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/[0.05] overflow-hidden">
                       <div className="p-1.5">
                         {allNavItems.map((item, idx) => {
                           const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
@@ -373,26 +384,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           return (
                             <div key={item.href}>
                               {isFirstMore && (
-                                <div className="mx-2 my-1.5 border-t border-white/5" />
+                                <div className="mx-2 my-1.5 border-t border-[#F5F5F4]" />
                               )}
                               <Link
                                 href={item.href}
-                                className={`flex items-center rounded-xl px-3 py-2.5 text-sm transition ${
-                                  active ? "bg-[#FF3D7F]/15 font-medium text-[#FF6B9D]" : "text-[#9B93B0] hover:bg-white/5 hover:text-[#F5F0FF]"
+                                className={`flex items-center rounded-xl px-3 py-2 text-xs font-medium transition ${
+                                  active ? "bg-[#FDF4F2] font-semibold text-[#C84B31]" : "text-[#78716C] hover:bg-[#FCFBF7] hover:text-[#1F1D1B]"
                                 }`}
                               >
-                                {active && <span className="mr-2 h-1.5 w-1.5 rounded-full bg-[#FF3D7F] shrink-0" />}
+                                {active && <span className="mr-2 h-1.5 w-1.5 rounded-full bg-[#C84B31] shrink-0" />}
                                 {item.label}
                               </Link>
                             </div>
                           );
                         })}
                       </div>
-                      <div className="border-t border-white/5 p-1.5">
+                      <div className="border-t border-[#F5F5F4] p-1.5">
                         <button
                           type="button"
                           onClick={() => { setMenuOpen(false); handleLogout(); }}
-                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-red-400/80 transition hover:bg-red-500/10 hover:text-red-400"
+                          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-red-600 transition hover:bg-red-50"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
@@ -416,6 +427,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {children}
       <ToastContainer />
+      <DialogContainer />
     </>
   );
 }

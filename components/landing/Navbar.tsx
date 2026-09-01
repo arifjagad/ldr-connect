@@ -1,47 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 
-const navLinks: { href: string; label: string }[] = [];
-
 export function Navbar() {
-  const pathname = usePathname();
   const { user } = useAuthStore();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0A0A0B]/85 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
-        {/* Logo */}
+    <header className="sticky top-0 z-50 border-b border-[#E7E5E4] bg-[#FCFBF7]/90 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+        {/* Brand */}
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-base font-black text-[#FFF5F8]">LDR-Connect</span>
-          <span className="h-2 w-2 animate-pulse rounded-full bg-[#FF3D7F]" />
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#C84B31] text-xs text-white">
+            ♥
+          </div>
+          <span className="font-semibold tracking-tight text-[#1F1D1B]">
+            LDR-Connect
+          </span>
         </Link>
 
-        {/* Nav Links */}
-        <nav className="hidden items-center gap-6 md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-sm font-bold transition-colors ${
-                pathname === link.href || pathname.startsWith(link.href + "/")
-                  ? "text-[#FF6B9D]"
-                  : "text-[#9B93B0] hover:text-[#FFF5F8]"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+        {/* Center Nav Links */}
+        <nav className="hidden items-center gap-8 md:flex">
+          <Link
+            href="/#features"
+            className="text-xs font-medium text-[#78716C] transition-colors hover:text-[#1F1D1B]"
+          >
+            Fitur
+          </Link>
+          <Link
+            href="/#games"
+            className="text-xs font-medium text-[#78716C] transition-colors hover:text-[#1F1D1B]"
+          >
+            Games
+          </Link>
+          <Link
+            href="/#testimonials"
+            className="text-xs font-medium text-[#78716C] transition-colors hover:text-[#1F1D1B]"
+          >
+            Testimoni
+          </Link>
+          <Link
+            href="/#faq"
+            className="text-xs font-medium text-[#78716C] transition-colors hover:text-[#1F1D1B]"
+          >
+            FAQ
+          </Link>
         </nav>
 
-        {/* Auth Buttons */}
+        {/* Auth CTA */}
         <div className="flex items-center gap-3">
           {user ? (
             <Link
               href="/dashboard"
-              className="rounded-full bg-[#FF3D7F] px-5 py-2 text-sm font-black text-white transition-all duration-200 hover:scale-[1.02] hover:bg-[#FF6B9D] hover:shadow-[0_0_20px_#FF3D7F50]"
+              className="rounded-full bg-[#C84B31] px-5 py-2 text-xs font-semibold text-white transition-all hover:bg-[#B33E26]"
             >
               Dashboard
             </Link>
@@ -49,13 +60,13 @@ export function Navbar() {
             <>
               <Link
                 href="/auth/login"
-                className="rounded-full border border-white/15 px-5 py-2 text-sm font-bold text-[#FFF5F8] transition-all duration-200 hover:border-[#FF3D7F40] hover:bg-[#FF3D7F08]"
+                className="px-3 py-1.5 text-xs font-medium text-[#1F1D1B] transition-colors hover:text-[#C84B31]"
               >
                 Masuk
               </Link>
               <Link
                 href="/auth/register"
-                className="rounded-full bg-[#FF3D7F] px-5 py-2 text-sm font-black text-white transition-all duration-200 hover:scale-[1.02] hover:bg-[#FF6B9D] hover:shadow-[0_0_20px_#FF3D7F50]"
+                className="rounded-full bg-[#C84B31] px-4.5 py-1.5 text-xs font-medium text-white transition-all hover:bg-[#B33E26]"
               >
                 Daftar
               </Link>

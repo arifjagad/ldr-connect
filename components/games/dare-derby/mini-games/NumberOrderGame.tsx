@@ -154,8 +154,8 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
   return (
     <div className="flex flex-col items-center gap-4 select-none">
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">🔢 Urutan Angka</p>
-        <p className="mt-1 text-xs text-[#5C5470]">
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🔢 Urutan Angka</p>
+        <p className="mt-1 text-xs text-[#78716C]">
           {phase === "show"
             ? "Perhatikan urutan angka yang menyala!"
             : phase === "input"
@@ -165,7 +165,7 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706]">
           +50 BONUS AKTIF!
         </div>
       )}
@@ -173,24 +173,24 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
       {/* Status bar */}
       <div className="flex items-center justify-between w-full">
         {phase === "show" ? (
-          <span className="text-sm font-bold text-[#818CF8] animate-pulse">
+          <span className="text-xs font-bold text-[#C84B31] animate-pulse">
             Menampilkan {showStepLabel}/{TOTAL}
           </span>
         ) : phase === "input" ? (
-          <span className="text-sm font-bold text-[#818CF8]">
+          <span className="text-xs font-bold text-[#C84B31]">
             {inputIdx}/{TOTAL}
           </span>
         ) : (
-          <span className="text-sm font-bold text-green-400">✅ Selesai!</span>
+          <span className="text-xs font-bold text-emerald-600">✅ Selesai!</span>
         )}
         {phase === "input" && (
           <span
             className={`text-sm font-bold tabular-nums ${
               timeLeft <= 5
-                ? "text-red-400 animate-pulse"
+                ? "text-red-500 animate-pulse"
                 : timeLeft <= 10
-                ? "text-yellow-400"
-                : "text-[#FFF5F8]"
+                ? "text-[#D97706]"
+                : "text-[#1F1D1B]"
             }`}
           >
             {timeLeft}s
@@ -204,8 +204,8 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
           <div
             key={i}
             className={`w-2 h-2 rounded-full transition-all ${
-              r === null   ? "bg-white/10"
-              : r === true ? "bg-green-500"
+              r === null   ? "bg-[#E7E5E4]"
+              : r === true ? "bg-emerald-500"
               : "bg-red-500"
             }`}
           />
@@ -224,14 +224,14 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
               onClick={() => handleTap(num)}
               disabled={phase !== "input"}
               className={`
-                h-16 rounded-2xl text-2xl font-bold transition-all duration-150 active:scale-95
+                h-16 rounded-2xl text-2xl font-bold transition-all duration-150 active:scale-95 cursor-pointer shadow-2xs
                 ${isHighlighted
-                  ? "bg-[#818CF8] border-2 border-[#818CF8] text-white scale-105 shadow-[0_0_20px_rgba(129,140,248,0.6)]"
+                  ? "bg-[#C84B31] border-2 border-[#C84B31] text-white scale-105 shadow-md shadow-[#C84B31]/30"
                   : isWrong
-                  ? "bg-red-500/40 border-2 border-red-500 text-red-300 scale-95"
+                  ? "bg-red-50 border-2 border-red-500 text-red-600 scale-95"
                   : phase === "input"
-                  ? "bg-white/5 border-2 border-white/15 text-[#FFF5F8] hover:border-[#818CF8]/40 hover:bg-[#818CF8]/10"
-                  : "bg-white/5 border-2 border-white/10 text-[#5C5470]"
+                  ? "bg-white border-2 border-[#E7E5E4] text-[#1F1D1B] hover:border-[#C84B31] hover:bg-[#FDF4F2]"
+                  : "bg-[#FCFBF7] border-2 border-[#E7E5E4] text-[#A8A29E]"
                 }
               `}
             >
@@ -243,8 +243,8 @@ export function NumberOrderGame({ duration = 25, startedAt, bonusActive = false,
 
       {/* Done state */}
       {phase === "done" && (
-        <div className="text-center mt-1">
-          <p className="text-sm text-[#9B93B0]">
+        <div className="w-full text-center py-3 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2 mt-1">
+          <p className="text-xs font-bold text-[#1F1D1B]">
             {results.filter(Boolean).length}/{TOTAL} benar
           </p>
         </div>

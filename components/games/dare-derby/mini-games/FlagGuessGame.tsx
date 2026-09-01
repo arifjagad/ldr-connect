@@ -359,10 +359,10 @@ export function FlagGuessGame({ duration = 60, startedAt, bonusActive = false, o
   // ── Done screen ─────────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-4 py-4">
-        <p className="text-sm font-medium text-[#9B93B0]">🏳️ Tebak Bendera</p>
-        <p className="text-5xl font-bold text-[#FFF5F8]">{correctCount}/{QUESTIONS_PER_ROUND}</p>
-        <p className="text-sm text-[#9B93B0]">tebakan benar</p>
+      <div className="flex flex-col items-center gap-4 py-4 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🏳️ Tebak Bendera</p>
+        <p className="text-5xl font-serif font-bold text-[#1F1D1B]">{correctCount}/{QUESTIONS_PER_ROUND}</p>
+        <p className="text-xs font-semibold text-[#78716C]">tebakan benar</p>
         <div className="flex flex-wrap gap-1 justify-center mt-1">
           {answers.map((ok, i) => (
             <span key={i} className={`text-base ${ok ? "opacity-100" : "opacity-30"}`}>
@@ -381,37 +381,37 @@ export function FlagGuessGame({ duration = 60, startedAt, bonusActive = false, o
     <div className="flex flex-col gap-4 select-none">
       {/* Header */}
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">🏳️ Tebak Bendera</p>
-        <p className="mt-1 text-xs text-[#5C5470]">Negara mana yang memiliki bendera ini?</p>
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🏳️ Tebak Bendera</p>
+        <p className="mt-1 text-xs text-[#78716C]">Negara mana yang memiliki bendera ini?</p>
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400 text-center">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706] text-center">
           +50 BONUS AKTIF!
         </div>
       )}
 
       {/* Counter + timer */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-[#818CF8]">{current + 1}/{QUESTIONS_PER_ROUND}</span>
+        <span className="text-xs font-bold text-[#C84B31]">{current + 1}/{QUESTIONS_PER_ROUND}</span>
         <span className={`text-sm font-bold tabular-nums ${
-          urgent ? "text-red-400 animate-pulse" : timeLeft <= 10 ? "text-yellow-400" : "text-[#FFF5F8]"
+          urgent ? "text-red-500 animate-pulse" : timeLeft <= 10 ? "text-[#D97706]" : "text-[#1F1D1B]"
         }`}>
           {timeLeft}s
         </span>
       </div>
 
       {/* Timer bar */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E7E5E4]">
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{
             width: `${timerPct}%`,
             background: urgent
-              ? "linear-gradient(90deg,#EF4444,#F97316)"
+              ? "#EF4444"
               : timeLeft <= 10
-              ? "linear-gradient(90deg,#FBBF24,#F97316)"
-              : "linear-gradient(90deg,#818CF8,#A78BFA)",
+              ? "#D97706"
+              : "#C84B31",
           }}
         />
       </div>
@@ -423,8 +423,8 @@ export function FlagGuessGame({ duration = 60, startedAt, bonusActive = false, o
             key={i}
             className={`h-1 flex-1 rounded-full transition-all ${
               i < answers.length
-                ? answers[i] ? "bg-green-500" : "bg-red-500"
-                : i === current ? "bg-[#818CF8]" : "bg-white/10"
+                ? answers[i] ? "bg-emerald-500" : "bg-red-500"
+                : i === current ? "bg-[#C84B31]" : "bg-[#E7E5E4]"
             }`}
           />
         ))}
@@ -432,28 +432,27 @@ export function FlagGuessGame({ duration = 60, startedAt, bonusActive = false, o
 
       {/* Flag display */}
       <div
-        className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
-          feedback === "correct" ? "border-green-500/50 bg-green-500/10 scale-[1.01]"
-          : feedback === "wrong"   ? "border-red-500/50   bg-red-500/10   scale-[0.99]"
-          : "border-white/10 bg-white/5"
+        className={`rounded-2xl border overflow-hidden transition-all duration-200 shadow-sm ${
+          feedback === "correct" ? "border-emerald-200 bg-emerald-50 scale-[1.01]"
+          : feedback === "wrong"   ? "border-red-200 bg-red-50 scale-[0.99]"
+          : "border-[#E7E5E4] bg-white"
         }`}
       >
         {/* Gambar bendera — SVG, tajam sempurna di semua resolusi */}
-        <div className="flex items-center justify-center py-5 px-6 min-h-[130px]">
+        <div className="flex items-center justify-center py-5 px-6 min-h-[130px] bg-[#FCFBF7]">
           {!imgReady ? (
-            <div className="w-[190px] h-[120px] rounded-lg bg-white/10 animate-pulse" />
+            <div className="w-[190px] h-[120px] rounded-lg bg-[#E7E5E4] animate-pulse" />
           ) : (
             <img
               key={q.code}
               src={flagUrl(q.code)}
               alt={`Bendera ${q.country}`}
-              className="rounded-md shadow-xl"
+              className="rounded-md shadow-md border border-black/5"
               style={{
                 maxHeight: 120,
                 maxWidth: 200,
                 width: "100%",
                 objectFit: "contain",
-                filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.5))",
               }}
             />
           )}
@@ -462,10 +461,10 @@ export function FlagGuessGame({ duration = 60, startedAt, bonusActive = false, o
         {/* Feedback */}
         <div className="text-center pb-3 min-h-[26px]">
           {feedback === "wrong" && (
-            <p className="text-sm font-bold text-red-400">✗ Salah! Jawabannya: {q.country}</p>
+            <p className="text-xs font-bold text-red-600">✗ Salah! Jawabannya: {q.country}</p>
           )}
           {feedback === "correct" && (
-            <p className="text-sm font-bold text-green-400">✓ Benar!</p>
+            <p className="text-xs font-bold text-emerald-600">✓ Benar!</p>
           )}
         </div>
       </div>
@@ -480,12 +479,12 @@ export function FlagGuessGame({ duration = 60, startedAt, bonusActive = false, o
               key={i}
               onClick={() => handleAnswer(opt)}
               disabled={isSelected}
-              className={`py-3 px-2 rounded-xl border text-sm font-semibold transition-all active:scale-95 leading-tight ${
+              className={`py-3 px-2 rounded-xl border text-xs font-bold transition-all active:scale-95 leading-tight cursor-pointer shadow-2xs ${
                 isSelected && isCorrectOpt
-                  ? "border-green-500/60 bg-green-500/15 text-green-300"
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-700"
                   : isSelected && !isCorrectOpt
-                  ? "border-white/5 bg-transparent text-[#5C5470]"
-                  : "border-white/15 bg-white/5 text-[#FFF5F8] hover:border-[#818CF8]/40 hover:bg-[#818CF8]/10"
+                  ? "border-[#E7E5E4] bg-[#FCFBF7] text-[#A8A29E]"
+                  : "border-[#E7E5E4] bg-white text-[#1F1D1B] hover:border-[#C84B31] hover:bg-[#FDF4F2]"
               }`}
             >
               {opt}

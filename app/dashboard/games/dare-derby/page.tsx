@@ -54,22 +54,17 @@ const COIN_COSTS: Record<number, number> = { 5: 3, 7: 4, 10: 6 };
 type PagePhase = "idle" | "setup" | "waiting" | "game" | "finished";
 type FinishReason = "completed" | "time_up" | "cancelled" | null;
 
-function fmt(s: number | null) {
-  if (s === null) return "--:--";
-  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-}
-
 // ── Dare category badge ───────────────────────────────────────────────────────
 function DareCategoryBadge({ category }: { category: string | null }) {
   const map: Record<string, string> = {
-    sweet:     "bg-green-500/20 text-green-400 border-green-500/30",
-    funny:     "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    bold:      "bg-orange-500/20 text-orange-400 border-orange-500/30",
-    challenge: "bg-red-500/20 text-red-400 border-red-500/30",
+    sweet:     "bg-[#EBF9EB] text-[#10B981] border-[#10B981]/20",
+    funny:     "bg-[#FEF3C7] text-[#D97706] border-[#FDE68A]",
+    bold:      "bg-[#FDF4F2] text-[#C84B31] border-[#FBDCD5]",
+    challenge: "bg-red-50 text-red-600 border-red-200",
   };
   if (!category) return null;
   return (
-    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${map[category] ?? ""}`}>
+    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${map[category] ?? "bg-[#FCFBF7] text-[#78716C] border-[#E7E5E4]"}`}>
       {category}
     </span>
   );
@@ -129,9 +124,6 @@ function DareDerbyContent() {
   // Timestamp server saat ronde mini-game mulai
   const roundStartedAtRef   = useRef<number | null>(null);
   const lastRoundStartRef   = useRef<string | null>(null);
-  // ⚡ Fix: track round number untuk mencegah spurious remount
-  // Game baru HANYA boleh mount saat current_round benar-benar bertambah,
-  // bukan karena updated_at berubah pada ronde yang sama.
   const lastMountedRoundRef = useRef<number | null>(null);
 
   const [roundKey, setRoundKey] = useState(0);
@@ -195,9 +187,6 @@ function DareDerbyContent() {
         s.game_state?.phase === "playing" &&
         !s.game_state.round_submissions?.host &&
         !s.game_state.round_submissions?.partner &&
-        // ⚡ Guard utama: hanya reset/mount jika ini ronde BARU
-        // Gunakan current_round sebagai ID stabil, bukan hanya updated_at
-        // Ini mencegah remount akibat realtime event ganda pada ronde yang sama
         s.game_state.current_round !== lastMountedRoundRef.current
       ) {
         lastMountedRoundRef.current = s.game_state.current_round;
@@ -217,18 +206,6 @@ function DareDerbyContent() {
     prevDDStatusRef.current = s.status;
   }, []);
 
-  /**
-   * ⚡ applyRawGameState — dipakai oleh handler API yang LANGSUNG menerima game_state
-   * (handleReadyUp, handleDareComplete, handleDareConfirm, handleDareSkip).
-   *
-   * Root cause bug "B siap duluan → B=0":
-   *   handleReadyUp mendapat game_state dari API *sebelum* Supabase realtime
-   *   menembak applySession. Akibatnya mini-game mount dengan roundStartedAtRef
-   *   dari ronde sebelumnya (bisa 90+ detik lalu) → calcRemaining=0 langsung
-   *   → finish() → onComplete(0) → skor salah terkirim ke server.
-   *
-   * Solusi: replikasi logika round-start dari applySession di sini.
-   */
   const applyRawGameState = useCallback((gs: DareDerbyGameState | null) => {
     if (
       gs?.phase === "playing" &&
@@ -529,8 +506,8 @@ function DareDerbyContent() {
       gameEmoji="🎲"
       gameSlug="dare-derby"
       gameSubtitle="Mini-game kompetitif — yang kalah dapat dare!"
-      accentColor="#F97316"
-      accentColorLight="#FB923C"
+      accentColor="#C84B31"
+      accentColorLight="#B33E26"
       phase={layoutPhase}
       // Waiting
       sessionCode={displayCode}
@@ -550,40 +527,40 @@ function DareDerbyContent() {
       // Idle
       idleContent={
         <GameIdleLayout
-          accentColor="#F97316"
-          accentColorLight="#FB923C"
+          accentColor="#C84B31"
+          accentColorLight="#B33E26"
           joinCodeInput={joinCodeInput}
           onJoinCodeChange={setJoinCodeInput}
           onJoin={handleJoin}
           joinLoading={loadingJoin}
           createContent={
             <>
-              <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#FB923C]">Buat Game Baru</p>
+              <p className="mb-5 text-xs font-bold uppercase tracking-widest text-[#C84B31]">Buat Game Baru</p>
 
               <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F97316]/15">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF4F2] text-[#C84B31] border border-[#FBDCD5]">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-semibold text-[#FFF5F8]">Kamu jadi host</p>
-                  <p className="text-xs text-[#5C5470]">Partner join pakai session code</p>
+                  <p className="font-bold text-[#1F1D1B]">Kamu jadi host</p>
+                  <p className="text-xs text-[#78716C]">Partner join pakai session code</p>
                 </div>
               </div>
 
               {/* Total rounds toggle */}
               <div className="mb-4">
-                <p className="mb-2 text-xs font-medium text-[#9B93B0]">Jumlah Ronde</p>
+                <p className="mb-2 text-xs font-semibold text-[#1F1D1B]">Jumlah Ronde</p>
                 <div className="grid grid-cols-3 gap-2">
                   {([5, 7, 10] as const).map(n => (
                     <button
                       key={n}
                       onClick={() => setTotalRounds(n)}
-                      className={`rounded-xl border py-2.5 text-xs font-bold transition ${
+                      className={`rounded-xl border py-2.5 text-xs font-bold transition cursor-pointer ${
                         totalRounds === n
-                          ? "border-[#F97316]/50 bg-[#F97316]/15 text-[#FB923C]"
-                          : "border-white/[0.07] text-[#5C5470] hover:border-white/20 hover:text-[#9B93B0]"
+                          ? "border-[#C84B31] bg-[#FDF4F2] text-[#C84B31]"
+                          : "border-[#E7E5E4] bg-white text-[#78716C] hover:border-[#D6D3D1] hover:text-[#1F1D1B]"
                       }`}
                     >
                       {n} Ronde<br />
@@ -595,16 +572,16 @@ function DareDerbyContent() {
 
               {/* Dare level */}
               <div className="mb-5">
-                <p className="mb-2 text-xs font-medium text-[#9B93B0]">Level Dare</p>
+                <p className="mb-2 text-xs font-semibold text-[#1F1D1B]">Level Dare</p>
                 <div className="flex flex-col gap-1.5">
                   {(["sweet_only", "mixed", "full_chaos"] as const).map(level => (
                     <button
                       key={level}
                       onClick={() => setDareLevel(level)}
-                      className={`rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition ${
+                      className={`rounded-xl border px-3.5 py-2.5 text-left text-xs font-bold transition cursor-pointer ${
                         dareLevel === level
-                          ? "border-[#F97316]/50 bg-[#F97316]/10 text-[#FFF5F8]"
-                          : "border-white/[0.07] text-[#5C5470] hover:border-white/20 hover:text-[#9B93B0]"
+                          ? "border-[#C84B31] bg-[#FDF4F2] text-[#C84B31]"
+                          : "border-[#E7E5E4] bg-white text-[#78716C] hover:border-[#D6D3D1] hover:text-[#1F1D1B]"
                       }`}
                     >
                       {DARE_LEVEL_LABELS[level]}
@@ -616,7 +593,7 @@ function DareDerbyContent() {
               <button
                 onClick={handleCreate}
                 disabled={loadingCreate}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_20px_rgba(249,115,22,0.35)] transition hover:bg-[#FB923C] hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-5 py-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loadingCreate ? (
                   <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -629,7 +606,7 @@ function DareDerbyContent() {
                 )}
                 {loadingCreate ? "Membuat sesi..." : `🎲 Buat Sesi — ${COIN_COSTS[totalRounds]} Coin`}
               </button>
-              <p className="mt-2 text-center text-[10px] text-[#5C5470]">Memotong {COIN_COSTS[totalRounds]} coin dari saldo kamu</p>
+              <p className="mt-2 text-center text-[11px] text-[#78716C]">Memotong {COIN_COSTS[totalRounds]} coin dari saldo kamu</p>
             </>
           }
           joinContent={
@@ -650,10 +627,10 @@ function DareDerbyContent() {
             {/* Draw Toast */}
             {showDrawToast && (
               <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-                <div className="animate-bounce-in bg-yellow-500/20 backdrop-blur-md border border-yellow-500/40 rounded-2xl px-8 py-5 flex flex-col items-center gap-2 shadow-2xl">
+                <div className="animate-bounce-in bg-[#FEF3C7] border border-[#FDE68A] rounded-2xl px-8 py-5 flex flex-col items-center gap-2 shadow-2xl">
                   <span className="text-4xl">🤝</span>
-                  <p className="text-lg font-bold text-yellow-300">Draw!</p>
-                  <p className="text-sm text-yellow-400/80">Ronde diulang sekarang...</p>
+                  <p className="text-lg font-bold text-[#92400E]">Draw!</p>
+                  <p className="text-xs text-[#B45309]">Ronde diulang sekarang...</p>
                 </div>
               </div>
             )}
@@ -662,7 +639,7 @@ function DareDerbyContent() {
             <GamePlayingHeader
               sessionCode={session.session_code}
               statusText={`Ronde ${gameState.current_round}/${session.board_config.total_rounds}`}
-              statusColor="#FFF5F8"
+              statusColor="#C84B31"
               timerSeconds={timerSeconds}
               timerTotalSeconds={20 * 60}
               partnerOnline={partnerOnline}
@@ -673,16 +650,16 @@ function DareDerbyContent() {
             />
 
             {/* Score tracker */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {(["host", "partner"] as const).map(role => {
                 const label = role === myRole ? "Kamu" : "Partner";
                 const dares = gameState.dare_counts[role];
                 const skips = gameState.skip_counts[role];
                 return (
-                  <div key={role} className={`rounded-xl border p-3 text-center ${role === myRole ? "border-[#FF3D7F]/30 bg-[#FF3D7F]/5" : "border-white/10 bg-white/5"}`}>
-                    <p className="text-xs text-[#5C5470]">{label}</p>
-                    <p className="text-lg font-bold text-[#FFF5F8]">{dares} dare</p>
-                    {skips > 0 && <p className="text-[10px] text-[#5C5470]">{skips}x skip</p>}
+                  <div key={role} className={`rounded-2xl border p-4 text-center ${role === myRole ? "border-[#FBDCD5] bg-[#FDF4F2]" : "border-[#E7E5E4] bg-white shadow-xl shadow-black/2"}`}>
+                    <p className="text-xs font-semibold text-[#78716C]">{label}</p>
+                    <p className="text-xl font-bold text-[#1F1D1B] mt-0.5">{dares} dare</p>
+                    {skips > 0 && <p className="text-[10px] font-semibold text-[#A8A29E] mt-0.5">{skips}x skip</p>}
                   </div>
                 );
               })}
@@ -690,70 +667,70 @@ function DareDerbyContent() {
 
             {/* LOBBY phase */}
             {gameState.phase === "lobby" && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex flex-col items-center gap-5">
-                <p className="text-base font-semibold text-[#FFF5F8]">Keduanya harus siap!</p>
+              <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 flex flex-col items-center gap-5 shadow-xl shadow-black/2">
+                <p className="font-serif text-xl font-bold text-[#1F1D1B]">Keduanya harus siap!</p>
                 <div className="flex gap-8">
-                  <div className="flex flex-col items-center gap-1">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 transition ${gameState.ready.host ? "border-green-500 bg-green-500/20" : "border-white/20 bg-white/5"}`}>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl border transition ${gameState.ready.host ? "border-[#10B981]/30 bg-[#EBF9EB] text-[#10B981]" : "border-[#E7E5E4] bg-[#FCFBF7] text-[#78716C]"}`}>
                       {gameState.ready.host ? "✓" : "⏳"}
                     </div>
-                    <p className="text-xs text-[#5C5470]">{myRole === "host" ? "Kamu" : "Partner"}</p>
+                    <p className="text-xs font-semibold text-[#78716C]">{myRole === "host" ? "Kamu" : "Partner"}</p>
                   </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border-2 transition ${gameState.ready.partner ? "border-green-500 bg-green-500/20" : "border-white/20 bg-white/5"}`}>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl border transition ${gameState.ready.partner ? "border-[#10B981]/30 bg-[#EBF9EB] text-[#10B981]" : "border-[#E7E5E4] bg-[#FCFBF7] text-[#78716C]"}`}>
                       {gameState.ready.partner ? "✓" : "⏳"}
                     </div>
-                    <p className="text-xs text-[#5C5470]">{myRole === "partner" ? "Kamu" : "Partner"}</p>
+                    <p className="text-xs font-semibold text-[#78716C]">{myRole === "partner" ? "Kamu" : "Partner"}</p>
                   </div>
                 </div>
                 {!myReady ? (
                   <button
                     onClick={handleReadyUp}
                     disabled={readying}
-                    className="w-full py-4 rounded-2xl bg-[#FF3D7F] hover:bg-[#FF6B9D] text-white font-bold text-lg transition disabled:opacity-50"
+                    className="w-full max-w-xs py-3.5 rounded-xl bg-[#C84B31] hover:bg-[#B33E26] text-white font-semibold text-xs transition shadow-xs disabled:opacity-50 cursor-pointer"
                   >
                     {readying ? "..." : "Siap! 🚀"}
                   </button>
                 ) : (
-                  <div className="text-sm text-[#9B93B0] animate-pulse">
-                    {partnerReady ? "Memulai..." : "Menunggu partner..."}
+                  <div className="text-xs font-semibold text-[#78716C] animate-pulse">
+                    {partnerReady ? "Memulai..." : "Menunggu partner siap..."}
                   </div>
                 )}
                 {gameState.is_replay_round && (
-                  <p className="text-xs text-yellow-400">🔁 Draw! Ronde diulang</p>
+                  <p className="text-xs font-semibold text-[#D97706]">🔁 Draw! Ronde diulang</p>
                 )}
               </div>
             )}
 
             {/* PLAYING phase */}
             {gameState.phase === "playing" && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="rounded-2xl border border-[#E7E5E4] bg-white p-5 sm:p-6 shadow-xl shadow-black/2">
                 {submitted ? (
-                  <div className="flex flex-col items-center gap-3 py-5">
+                  <div className="flex flex-col items-center gap-3 py-6">
                     {myRoundResult ? (
                       <div className="flex flex-col items-center gap-2">
-                        <span className="text-5xl font-bold text-[#FFF5F8]">{myRoundResult.score}</span>
-                        <span className="text-xs text-[#5C5470] uppercase tracking-widest">poin</span>
+                        <span className="font-mono text-5xl font-bold text-[#1F1D1B]">{myRoundResult.score}</span>
+                        <span className="text-xs font-bold text-[#78716C] uppercase tracking-widest">poin</span>
                         {bonusActive && (
-                          <span className="text-xs text-yellow-400">✨ +50 bonus sudah diterapkan</span>
+                          <span className="text-xs font-semibold text-[#D97706]">✨ +50 bonus sudah diterapkan</span>
                         )}
-                        <p className="text-xs text-[#5C5470] animate-pulse mt-2">⏳ Menunggu partner selesai...</p>
+                        <p className="text-xs font-semibold text-[#78716C] animate-pulse mt-2">⏳ Menunggu partner selesai...</p>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-3">
                         <span className="text-3xl animate-pulse">⏳</span>
-                        <p className="text-sm text-[#9B93B0]">Menunggu partner...</p>
+                        <p className="text-xs font-semibold text-[#78716C]">Menunggu partner...</p>
                       </div>
                     )}
                   </div>
                 ) : (
                   <>
                     {currentMiniGameId && (
-                      <div className="mb-4 flex items-center gap-2">
-                        <span className="text-lg">{MINIGAME_META[currentMiniGameId]?.emoji ?? "🎮"}</span>
+                      <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] p-3">
+                        <span className="text-xl">{MINIGAME_META[currentMiniGameId]?.emoji ?? "🎮"}</span>
                         <div>
-                          <p className="text-sm font-semibold text-[#FFF5F8]">{MINIGAME_META[currentMiniGameId]?.name ?? currentMiniGameId}</p>
-                          {bonusActive && <p className="text-xs text-yellow-400">+50 bonus aktif!</p>}
+                          <p className="text-xs font-bold text-[#1F1D1B]">{MINIGAME_META[currentMiniGameId]?.name ?? currentMiniGameId}</p>
+                          {bonusActive && <p className="text-[11px] font-semibold text-[#D97706]">+50 bonus aktif!</p>}
                         </div>
                       </div>
                     )}
@@ -848,7 +825,7 @@ function DareDerbyContent() {
                       />
                     )}
                     {currentMiniGameId && !MINIGAME_META[currentMiniGameId] && (
-                      <div className="text-center py-8 text-[#5C5470]">Mini-game belum tersedia</div>
+                      <div className="text-center py-8 text-xs text-[#78716C]">Mini-game belum tersedia</div>
                     )}
                   </>
                 )}
@@ -858,18 +835,20 @@ function DareDerbyContent() {
             {/* RESULT phase (dare) */}
             {gameState.phase === "result" && lastResult && (
               <div className="flex flex-col gap-4">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs text-[#5C5470] mb-3 uppercase tracking-wide">Hasil Ronde {lastResult.round_number}</p>
+                <div className="rounded-2xl border border-[#E7E5E4] bg-white p-5 shadow-xl shadow-black/2">
+                  <p className="text-xs font-bold text-[#78716C] mb-3 uppercase tracking-wider">Hasil Ronde {lastResult.round_number}</p>
                   <div className="grid grid-cols-2 gap-3">
                     {(["host", "partner"] as const).map(role => {
                       const score = role === "host" ? lastResult.host_score : lastResult.partner_score;
                       const isLoser = lastResult.loser === role;
                       const isWinner = lastResult.loser !== role && lastResult.loser !== "draw";
                       return (
-                        <div key={role} className={`rounded-xl p-3 text-center ${isLoser ? "bg-red-500/10 border border-red-500/20" : isWinner ? "bg-green-500/10 border border-green-500/20" : "bg-white/5 border border-white/10"}`}>
-                          <p className="text-xs text-[#5C5470]">{role === myRole ? "Kamu" : "Partner"}</p>
-                          <p className="text-2xl font-bold text-[#FFF5F8]">{score}</p>
-                          <p className="text-[10px] mt-1">{isLoser ? "😔 Kalah" : isWinner ? "🏆 Menang" : "🤝 Draw"}</p>
+                        <div key={role} className={`rounded-xl p-3.5 text-center ${isLoser ? "bg-red-50 border border-red-200" : isWinner ? "bg-[#EBF9EB] border border-[#10B981]/20" : "bg-[#FCFBF7] border border-[#E7E5E4]"}`}>
+                          <p className="text-xs font-semibold text-[#78716C]">{role === myRole ? "Kamu" : "Partner"}</p>
+                          <p className="font-mono text-2xl font-bold text-[#1F1D1B] mt-0.5">{score}</p>
+                          <p className={`text-[11px] font-semibold mt-1 ${isLoser ? "text-red-600" : isWinner ? "text-[#10B981]" : "text-[#D97706]"}`}>
+                            {isLoser ? "😔 Kalah" : isWinner ? "🏆 Menang" : "🤝 Draw"}
+                          </p>
                         </div>
                       );
                     })}
@@ -877,30 +856,30 @@ function DareDerbyContent() {
                 </div>
 
                 {lastResult.loser !== "draw" && lastResult.dare_content && (
-                  <div className="rounded-2xl border border-[#FF3D7F]/25 bg-[#FF3D7F]/5 p-5 flex flex-col gap-4">
+                  <div className="rounded-2xl border border-[#FBDCD5] bg-[#FDF4F2] p-6 flex flex-col gap-4 shadow-xl shadow-black/2">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🎯</span>
-                      <p className="text-sm font-semibold text-[#FFF5F8]">
+                      <p className="font-serif text-base font-bold text-[#1F1D1B]">
                         {amLoser ? "Dare untukmu!" : "Dare untuk partner!"}
                       </p>
                       <DareCategoryBadge category={lastResult.dare_category} />
                     </div>
 
-                    <p className="text-[#FFF5F8] leading-relaxed">{lastResult.dare_content}</p>
+                    <p className="text-sm font-medium text-[#1F1D1B] leading-relaxed bg-white rounded-xl p-4 border border-[#E7E5E4]">{lastResult.dare_content}</p>
 
                     {amLoser && dareStatus === "pending" && (
                       <div className="flex flex-col gap-2">
                         <button
                           onClick={handleDareComplete}
                           disabled={daringAction}
-                          className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-400 text-white font-bold transition disabled:opacity-50"
+                          className="w-full py-3 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs transition shadow-xs disabled:opacity-50 cursor-pointer"
                         >
                           {daringAction ? "..." : "Sudah Selesai ✅"}
                         </button>
                         <button
                           onClick={handleDareSkip}
                           disabled={daringAction}
-                          className="w-full py-2 rounded-xl border border-white/10 text-[#5C5470] text-sm hover:text-[#9B93B0] transition disabled:opacity-50"
+                          className="w-full py-2.5 rounded-xl border border-[#E7E5E4] bg-white text-[#78716C] text-xs font-semibold hover:text-[#1F1D1B] transition disabled:opacity-50 cursor-pointer"
                         >
                           Skip ({gameState.skip_counts[myRole as "host" | "partner"] + 1}x)
                         </button>
@@ -908,7 +887,7 @@ function DareDerbyContent() {
                     )}
 
                     {amLoser && dareStatus === "awaiting_confirm" && (
-                      <div className="text-center text-sm text-[#9B93B0] animate-pulse py-2">
+                      <div className="text-center text-xs font-semibold text-[#78716C] animate-pulse py-2">
                         Menunggu konfirmasi partner...
                       </div>
                     )}
@@ -918,14 +897,14 @@ function DareDerbyContent() {
                         <button
                           onClick={() => handleDareConfirm(true)}
                           disabled={daringAction}
-                          className="flex-1 py-3 rounded-xl bg-green-500 hover:bg-green-400 text-white font-bold transition disabled:opacity-50"
+                          className="flex-1 py-3 rounded-xl bg-[#10B981] hover:bg-[#059669] text-white font-semibold text-xs transition shadow-xs disabled:opacity-50 cursor-pointer"
                         >
                           {daringAction ? "..." : "Ya, Sudah ✅"}
                         </button>
                         <button
                           onClick={() => handleDareConfirm(false)}
                           disabled={daringAction}
-                          className="flex-1 py-3 rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 font-bold transition disabled:opacity-50"
+                          className="flex-1 py-3 rounded-xl border border-red-200 bg-white text-red-600 hover:bg-red-50 font-semibold text-xs transition disabled:opacity-50 cursor-pointer"
                         >
                           Belum 🔁
                         </button>
@@ -933,7 +912,7 @@ function DareDerbyContent() {
                     )}
 
                     {amWinner && dareStatus === "pending" && (
-                      <div className="text-center text-sm text-[#9B93B0] animate-pulse py-2">
+                      <div className="text-center text-xs font-semibold text-[#78716C] animate-pulse py-2">
                         Menunggu partner menyelesaikan dare...
                       </div>
                     )}
@@ -941,9 +920,9 @@ function DareDerbyContent() {
                 )}
 
                 {lastResult.loser === "draw" && (
-                  <div className="rounded-2xl border border-yellow-500/25 bg-yellow-500/5 p-4 text-center">
-                    <p className="text-yellow-400 font-semibold">🤝 Draw! Ronde diulang</p>
-                    <p className="text-xs text-[#5C5470] mt-1">Menunggu ronde berikutnya...</p>
+                  <div className="rounded-2xl border border-[#FDE68A] bg-[#FEF3C7] p-4 text-center">
+                    <p className="text-xs font-bold text-[#92400E]">🤝 Draw! Ronde diulang</p>
+                    <p className="text-[11px] text-[#B45309] mt-0.5">Menunggu ronde berikutnya...</p>
                   </div>
                 )}
               </div>
@@ -951,13 +930,13 @@ function DareDerbyContent() {
 
             {/* GAME OVER phase */}
             {gameState.phase === "game_over" && (
-              <div className="text-center py-4 text-sm text-[#9B93B0] animate-pulse">
+              <div className="text-center py-4 text-xs font-semibold text-[#78716C] animate-pulse">
                 Memuat hasil akhir...
               </div>
             )}
 
             {/* Surrender button */}
-            <div className="mt-6">
+            <div className="mt-4">
               <GameSurrenderButton onClick={() => setShowSurrenderConfirm(true)} />
             </div>
 
@@ -1027,21 +1006,21 @@ function DareDerbyContent() {
                 {/* Round history */}
                 {rounds.length > 0 && (
                   <div className="flex flex-col gap-1">
-                    <p className="text-xs text-[#5C5470] uppercase tracking-widest text-center mb-2">Rekap Ronde</p>
+                    <p className="text-[10px] font-bold text-[#78716C] uppercase tracking-widest text-center mb-2">Rekap Ronde</p>
                     {rounds.map((r, i) => {
                       const status = r.loser === myRole ? "Kalah" : r.loser === "draw" ? "Draw" : "Menang";
-                      const color   = r.loser === myRole ? "text-red-400" : r.loser === "draw" ? "text-yellow-400" : "text-green-400";
+                      const color   = r.loser === myRole ? "text-red-600" : r.loser === "draw" ? "text-[#D97706]" : "text-[#10B981]";
                       const icon    = r.loser === myRole ? "😔" : r.loser === "draw" ? "🤝" : "🏆";
                       return (
                         <div
                           key={i}
-                          className={`grid grid-cols-[60px_1fr_72px] items-center gap-2 py-2 text-sm ${
-                            i < rounds.length - 1 ? "border-b border-white/5" : ""
+                          className={`grid grid-cols-[60px_1fr_72px] items-center gap-2 py-1.5 text-xs ${
+                            i < rounds.length - 1 ? "border-b border-[#E7E5E4]" : ""
                           }`}
                         >
-                          <span className="text-[#5C5470] text-xs">Ronde {r.round_number}</span>
-                          <span className="text-[#9B93B0] text-xs text-center">{MINIGAME_META[r.minigame_id]?.name ?? r.minigame_id}</span>
-                          <span className={`${color} text-xs font-semibold text-right flex items-center justify-end gap-1`}>
+                          <span className="text-[#78716C] text-[11px]">Ronde {r.round_number}</span>
+                          <span className="text-[#1F1D1B] font-medium text-center">{MINIGAME_META[r.minigame_id]?.name ?? r.minigame_id}</span>
+                          <span className={`${color} font-bold text-right flex items-center justify-end gap-1`}>
                             {icon} {status}
                           </span>
                         </div>
@@ -1050,13 +1029,13 @@ function DareDerbyContent() {
                   </div>
                 )}
 
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Dare kamu</span>
-                  <span className="font-bold text-[#FFF5F8]">{myDares}</span>
+                  <span className="font-bold text-[#1F1D1B]">{myDares}</span>
                 </div>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Dare partner</span>
-                  <span className="font-bold text-[#FFF5F8]">{partnerDaresCount}</span>
+                  <span className="font-bold text-[#1F1D1B]">{partnerDaresCount}</span>
                 </div>
               </>
             }

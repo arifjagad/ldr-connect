@@ -48,13 +48,13 @@ export function Select({ value, onChange, options, placeholder = "Pilih...", cla
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-sm transition-all duration-150 ${
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition-all duration-150 cursor-pointer ${
           open
-            ? "border-[#818CF8]/50 bg-[#18181C] ring-1 ring-[#818CF8]/20"
-            : "border-white/10 bg-[#18181C] hover:border-white/20"
+            ? "border-[#C84B31] bg-white ring-2 ring-[#C84B31]/10"
+            : "border-[#E7E5E4] bg-[#FCFBF7] hover:border-[#D6D3D1] hover:bg-white"
         }`}
       >
-        <span className={selected ? "text-[#FFF5F8]" : "text-[#5C5470]"}>
+        <span className={selected ? "text-[#1F1D1B] font-bold" : "text-[#78716C]"}>
           {selected ? selected.label : placeholder}
         </span>
         <svg
@@ -62,11 +62,11 @@ export function Select({ value, onChange, options, placeholder = "Pilih...", cla
           height="14"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="currentColor"
+          stroke="#78716C"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`shrink-0 text-[#5C5470] transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180 text-[#C84B31]" : ""}`}
         >
           <path d="M6 9l6 6 6-6" />
         </svg>
@@ -74,10 +74,8 @@ export function Select({ value, onChange, options, placeholder = "Pilih...", cla
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-xl border border-white/10 bg-[#1C1C22] shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-          style={{ animation: "selectDropdown 0.15s ease" }}
-        >
-          <ul className="py-1 max-h-56 overflow-y-auto">
+        <div className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/10">
+          <ul className="py-1 max-h-56 overflow-y-auto divide-y divide-[#F5F5F4]">
             {options.map((opt) => {
               const isSelected = opt.value === value;
               return (
@@ -88,20 +86,20 @@ export function Select({ value, onChange, options, placeholder = "Pilih...", cla
                       onChange(opt.value);
                       setOpen(false);
                     }}
-                    className={`flex w-full items-center justify-between gap-3 px-3 py-2.5 text-sm transition-colors ${
+                    className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-xs font-semibold transition cursor-pointer ${
                       isSelected
-                        ? "bg-[#818CF8]/15 text-[#818CF8]"
-                        : "text-[#9B93B0] hover:bg-white/[0.05] hover:text-[#FFF5F8]"
+                        ? "bg-[#FDF4F2] text-[#C84B31]"
+                        : "text-[#1F1D1B] hover:bg-[#FCFBF7]"
                     }`}
                   >
                     <div className="text-left">
                       <span className="block font-medium">{opt.label}</span>
                       {opt.description && (
-                        <span className="block text-[10px] text-[#5C5470] mt-0.5">{opt.description}</span>
+                        <span className="block text-[10px] text-[#78716C] mt-0.5">{opt.description}</span>
                       )}
                     </div>
                     {isSelected && (
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C84B31" strokeWidth="2.5">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     )}
@@ -112,13 +110,6 @@ export function Select({ value, onChange, options, placeholder = "Pilih...", cla
           </ul>
         </div>
       )}
-
-      <style>{`
-        @keyframes selectDropdown {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }

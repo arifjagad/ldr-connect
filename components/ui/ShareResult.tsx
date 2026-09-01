@@ -20,32 +20,36 @@ const RESULT_CONFIG = {
   win: {
     emoji: "🏆",
     label: "Menang!",
-    color: "#FBBF24",
-    bg: "border-yellow-500/30 bg-yellow-500/10",
+    color: "#D97706",
+    bg: "border-[#FDE68A] bg-[#FEF3C7]/40",
+    badge: "border-[#FDE68A] bg-[#FEF3C7] text-[#D97706]",
     shareText: (game: string, summary?: string, partner?: string) =>
       `Aku baru aja menang ${game} di LDR-Connect! 🏆${partner ? ` vs ${partner}` : ""}${summary ? `\n${summary}` : ""}\n\nMain bareng pasangan kamu juga di ldr-connect.netlify.app 💕`,
   },
   lose: {
     emoji: "😅",
     label: "Kalah nih...",
-    color: "#F87171",
-    bg: "border-red-500/20 bg-red-500/8",
+    color: "#C84B31",
+    bg: "border-[#FBDCD5] bg-[#FDF4F2]",
+    badge: "border-[#FBDCD5] bg-[#FDF4F2] text-[#C84B31]",
     shareText: (game: string, summary?: string, partner?: string) =>
       `Baru main ${game} di LDR-Connect${partner ? ` sama ${partner}` : ""} dan kalah 😅${summary ? `\n${summary}` : ""}\n\nRevans besok! Main juga di ldr-connect.netlify.app 💕`,
   },
   draw: {
     emoji: "🤝",
     label: "Seri!",
-    color: "#9B93B0",
-    bg: "border-white/20 bg-white/5",
+    color: "#78716C",
+    bg: "border-[#E7E5E4] bg-[#FCFBF7]",
+    badge: "border-[#E7E5E4] bg-[#F5F5F4] text-[#78716C]",
     shareText: (game: string, summary?: string, partner?: string) =>
       `Seri di ${game}${partner ? ` bareng ${partner}` : ""} di LDR-Connect! 🤝${summary ? `\n${summary}` : ""}\n\nRematch segera! ldr-connect.netlify.app 💕`,
   },
   complete: {
     emoji: "🎉",
     label: "Selesai!",
-    color: "#34D399",
-    bg: "border-[#34D399]/25 bg-[#34D399]/8",
+    color: "#10B981",
+    bg: "border-[#10B981]/20 bg-[#EBF9EB]/40",
+    badge: "border-[#10B981]/20 bg-[#EBF9EB] text-[#10B981]",
     shareText: (game: string, summary?: string, partner?: string) =>
       `Baru selesai main ${game}${partner ? ` bareng ${partner}` : ""} di LDR-Connect! 🎉${summary ? `\n${summary}` : ""}\n\nSeru banget! Coba juga di ldr-connect.netlify.app 💕`,
   },
@@ -99,155 +103,86 @@ export function ShareResult({
       canvas.height = H;
       const ctx = canvas.getContext("2d")!;
       const cx = W / 2;
-      const SF = `'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',system-ui,sans-serif`;
+      const SF = `'Playfair Display', Georgia, serif`;
+      const SANS = `'Inter', system-ui, -apple-system, sans-serif`;
 
-      // ── BG ───────────────────────────────────────────────────
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-      bgGrad.addColorStop(0, "#0A0A0F");
-      bgGrad.addColorStop(0.5, "#0D0D15");
-      bgGrad.addColorStop(1, "#0A0A0B");
-      ctx.fillStyle = bgGrad;
+      // ── BG Ground (#FCFBF7) ───────────────────────────────────
+      ctx.fillStyle = "#FCFBF7";
       ctx.fillRect(0, 0, W, H);
 
-      // Ambient glow (result color)
-      const glow = ctx.createRadialGradient(cx, 780, 0, cx, 780, 600);
-      glow.addColorStop(0, config.color + "30");
-      glow.addColorStop(1, "transparent");
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, W, H);
+      // Top Terracotta Accent Bar
+      ctx.fillStyle = "#C84B31";
+      ctx.fillRect(0, 0, W, 12);
 
-      // Secondary purple glow bottom
-      const glow2 = ctx.createRadialGradient(cx, H - 200, 0, cx, H - 200, 400);
-      glow2.addColorStop(0, "#818CF820");
-      glow2.addColorStop(1, "transparent");
-      ctx.fillStyle = glow2;
-      ctx.fillRect(0, 0, W, H);
-
-      // ── Star particles ───────────────────────────────────────
-      const stars = [
-        [120,200,2],[320,140,1.5],[680,180,2],[900,120,1.5],[980,300,2],
-        [60,450,1],[200,380,1.5],[820,420,1],[960,500,2],[140,650,1.5],
-        [880,680,1],[50,900,2],[970,850,1.5],[200,1100,1],[900,1050,2],
-        [120,1300,1.5],[950,1250,1],[300,1500,2],[800,1480,1.5],[60,1700,1],
-        [980,1650,2],[400,1750,1.5],[700,1780,1],[200,1850,2],[850,1820,1.5],
-      ];
-      for (const [sx, sy, sr] of stars) {
-        ctx.beginPath();
-        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255,255,255,0.4)";
-        ctx.fill();
-      }
-
-      // Small hearts scattered
-      const hearts = [[180,350],[860,400],[100,800],[950,750],[200,1200],[850,1150],[140,1600],[900,1550]];
-      ctx.font = `24px ${SF}`;
-      ctx.globalAlpha = 0.15;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      for (const [hx, hy] of hearts) {
-        ctx.fillText("💕", hx, hy);
-      }
-      ctx.globalAlpha = 1;
-
-      // ── Top header bar ───────────────────────────────────────
-      const topGrad = ctx.createLinearGradient(0, 0, W, 0);
-      topGrad.addColorStop(0, "#FF3D7F");
-      topGrad.addColorStop(1, "#818CF8");
-      ctx.fillStyle = topGrad;
-      ctx.fillRect(0, 0, W, 6);
-
-      // LDR-Connect logo area
+      // ── Top header ───────────────────────────────────────────
       ctx.textBaseline = "alphabetic";
-      ctx.font = `bold 40px ${SF}`;
-      ctx.fillStyle = "#FF3D7F";
+      ctx.font = `bold 44px ${SF}`;
+      ctx.fillStyle = "#C84B31";
       ctx.textAlign = "center";
-      ctx.fillText("LDR-Connect", cx, 110);
-      ctx.font = `26px ${SF}`;
-      ctx.fillStyle = "#5C5470";
-      ctx.fillText("Game Platform Pasangan LDR 💕", cx, 148);
+      ctx.fillText("LDR-Connect", cx, 130);
+      ctx.font = `24px ${SANS}`;
+      ctx.fillStyle = "#78716C";
+      ctx.fillText("Platform Game & Jurnal Pasangan LDR", cx, 175);
 
       // ── Game badge pill ───────────────────────────────────────
-      const badgeY = 220;
+      const badgeY = 240;
       const badgeText = `${gameEmoji}  ${gameName}`;
-      ctx.font = `32px ${SF}`;
+      ctx.font = `bold 28px ${SANS}`;
       const badgeW = ctx.measureText(badgeText).width + 60;
       const badgeX = cx - badgeW / 2;
-      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(badgeX, badgeY, badgeW, 54, 27);
+      ctx.roundRect(badgeX, badgeY, badgeW, 56, 28);
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.10)";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#E7E5E4";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.roundRect(badgeX, badgeY, badgeW, 54, 27);
+      ctx.roundRect(badgeX, badgeY, badgeW, 56, 28);
       ctx.stroke();
-      ctx.fillStyle = "#9B93B0";
-      ctx.fillText(badgeText, cx, badgeY + 37);
+      ctx.fillStyle = "#1F1D1B";
+      ctx.fillText(badgeText, cx, badgeY + 38);
 
-      // ── Result glow circle ────────────────────────────────────
-      const glowCircle = ctx.createRadialGradient(cx, 580, 0, cx, 580, 180);
-      glowCircle.addColorStop(0, config.color + "40");
-      glowCircle.addColorStop(0.6, config.color + "10");
-      glowCircle.addColorStop(1, "transparent");
-      ctx.fillStyle = glowCircle;
-      ctx.beginPath();
-      ctx.arc(cx, 580, 180, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Result emoji
-      ctx.font = `160px ${SF}`;
-      ctx.fillStyle = "#FFF5F8";
+      // ── Result emoji & title ──────────────────────────────────
+      ctx.font = `140px ${SANS}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(config.emoji, cx, 570);
+      ctx.fillText(config.emoji, cx, 540);
 
       // Result label
-      ctx.font = `bold 100px ${SF}`;
+      ctx.font = `bold 90px ${SF}`;
       ctx.fillStyle = config.color;
       ctx.textBaseline = "alphabetic";
-      ctx.fillText(config.label, cx, 760);
+      ctx.fillText(config.label, cx, 710);
 
-      // ── Divider with hearts ───────────────────────────────────
-      const d1Y = 810;
-      const dGrad = ctx.createLinearGradient(80, d1Y, W - 80, d1Y);
-      dGrad.addColorStop(0, "transparent");
-      dGrad.addColorStop(0.3, "rgba(255,61,127,0.3)");
-      dGrad.addColorStop(0.7, "rgba(129,140,248,0.3)");
-      dGrad.addColorStop(1, "transparent");
-      ctx.strokeStyle = dGrad;
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(80, d1Y); ctx.lineTo(W - 80, d1Y); ctx.stroke();
+      // ── Divider ──────────────────────────────────────────────
+      const d1Y = 760;
+      ctx.strokeStyle = "#E7E5E4";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(120, d1Y); ctx.lineTo(W - 120, d1Y); ctx.stroke();
 
       // ── Player avatars section ────────────────────────────────
-      const avatarY = 960;
-      const avatarR = 80;
+      const avatarY = 930;
+      const avatarR = 85;
       const leftX = W / 2 - 220;
       const rightX = W / 2 + 220;
 
-      // helper: load image as HTMLImageElement (returns null on failure)
       async function loadImg(url: string): Promise<HTMLImageElement | null> {
         return new Promise((resolve) => {
           const img = new window.Image();
           img.crossOrigin = "anonymous";
           img.onload = () => resolve(img);
           img.onerror = () => resolve(null);
-          // Cache bust agar tidak kena CORS cache
           img.src = url.includes("?") ? url : `${url}?t=${Date.now()}`;
         });
       }
 
       async function drawAvatar(x: number, name: string, isWinner: boolean, photoUrl?: string | null) {
-        // Outer ring
-        const ringGrad = ctx.createLinearGradient(x - avatarR, avatarY - avatarR, x + avatarR, avatarY + avatarR);
-        ringGrad.addColorStop(0, isWinner ? config.color : "rgba(255,255,255,0.15)");
-        ringGrad.addColorStop(1, isWinner ? "#818CF8" : "rgba(255,255,255,0.05)");
-        ctx.strokeStyle = ringGrad;
-        ctx.lineWidth = isWinner ? 3 : 1.5;
+        ctx.strokeStyle = isWinner ? config.color : "#E7E5E4";
+        ctx.lineWidth = isWinner ? 4 : 2;
         ctx.beginPath();
-        ctx.arc(x, avatarY, avatarR + 4, 0, Math.PI * 2);
+        ctx.arc(x, avatarY, avatarR + 6, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Clip circle for photo
         ctx.save();
         ctx.beginPath();
         ctx.arc(x, avatarY, avatarR, 0, Math.PI * 2);
@@ -256,28 +191,23 @@ export function ShareResult({
         if (photoUrl) {
           const img = await loadImg(photoUrl);
           if (img) {
-            // Fill bg first
-            ctx.fillStyle = "#111113";
+            ctx.fillStyle = "#FFFFFF";
             ctx.fillRect(x - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
-            // Draw image centered & cropped
-            const size = avatarR * 2;
-            ctx.drawImage(img, x - avatarR, avatarY - avatarR, size, size);
+            ctx.drawImage(img, x - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
           } else {
-            // Fallback initials
-            ctx.fillStyle = isWinner ? config.color + "30" : "rgba(255,255,255,0.06)";
+            ctx.fillStyle = "#FDF4F2";
             ctx.fillRect(x - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
-            ctx.font = `bold 64px ${SF}`;
-            ctx.fillStyle = isWinner ? config.color : "#9B93B0";
+            ctx.font = `bold 64px ${SANS}`;
+            ctx.fillStyle = "#C84B31";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText((name?.[0] ?? "?").toUpperCase(), x, avatarY);
           }
         } else {
-          // No photo — draw initials bg + letter
-          ctx.fillStyle = isWinner ? config.color + "30" : "rgba(255,255,255,0.06)";
+          ctx.fillStyle = "#FDF4F2";
           ctx.fillRect(x - avatarR, avatarY - avatarR, avatarR * 2, avatarR * 2);
-          ctx.font = `bold 64px ${SF}`;
-          ctx.fillStyle = isWinner ? config.color : "#9B93B0";
+          ctx.font = `bold 64px ${SANS}`;
+          ctx.fillStyle = "#C84B31";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillText((name?.[0] ?? "?").toUpperCase(), x, avatarY);
@@ -285,17 +215,15 @@ export function ShareResult({
 
         ctx.restore();
 
-        // Name below
-        ctx.font = `34px ${SF}`;
-        ctx.fillStyle = isWinner ? "#FFF5F8" : "#9B93B0";
+        ctx.font = `bold 32px ${SANS}`;
+        ctx.fillStyle = isWinner ? "#1F1D1B" : "#78716C";
         ctx.textAlign = "center";
         ctx.textBaseline = "alphabetic";
         ctx.fillText(name || "—", x, avatarY + avatarR + 50);
-        // Winner crown
+
         if (isWinner) {
-          ctx.font = `40px ${SF}`;
-          ctx.textBaseline = "alphabetic";
-          ctx.fillText("👑", x, avatarY - avatarR - 10);
+          ctx.font = `40px ${SANS}`;
+          ctx.fillText("👑", x, avatarY - avatarR - 14);
         }
       }
 
@@ -306,183 +234,95 @@ export function ShareResult({
       await drawAvatar(leftX, myName || "", iAmWinner, myAvatarUrl);
       await drawAvatar(rightX, partnerName || "", isPartnerWinner, partnerAvatarUrl);
 
-      // VS or heart in center
-      if (isDraw) {
-        ctx.font = `56px ${SF}`;
-        ctx.fillStyle = "#9B93B0";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("🤝", cx, avatarY);
-      } else if (result === "complete") {
-        ctx.font = `56px ${SF}`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("❤️", cx, avatarY);
-      } else {
-        ctx.font = `bold 48px ${SF}`;
-        ctx.fillStyle = "rgba(255,255,255,0.25)";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("VS", cx, avatarY);
-      }
+      // VS
+      ctx.font = `bold 44px ${SANS}`;
+      ctx.fillStyle = "#A8A29E";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(isDraw ? "🤝" : result === "complete" ? "❤️" : "VS", cx, avatarY);
 
       // ── Stats card ─────────────────────────────────────────
-      const cardY = 1180;
+      const cardY = 1150;
       const cardPad = 80;
-      const statX = cardPad + 40;
-      const statXR = W - cardPad - 40; // right-aligned value
+      const statX = cardPad + 50;
+      const statXR = W - cardPad - 50;
 
-      // Hitung tinggi card secara dinamis
       const hasStats = stats && stats.length > 0;
-      const rowH = 58;       // tinggi per baris stat
-      const cardHeaderH = 64; // "📊 Statistik" heading
-      const cardDateH = playedAt ? 52 : 0;
+      const rowH = 64;
+      const cardHeaderH = 70;
+      const cardDateH = playedAt ? 56 : 0;
       const cardH2 = hasStats
         ? cardHeaderH + stats.length * rowH + cardDateH + 40
         : summary
-        ? 200
-        : 150;
+        ? 220
+        : 160;
 
-      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      // Card surface
+      ctx.fillStyle = "#FFFFFF";
       ctx.beginPath();
-      ctx.roundRect(cardPad, cardY, W - cardPad * 2, cardH2, 24);
+      ctx.roundRect(cardPad, cardY, W - cardPad * 2, cardH2, 28);
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.07)";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#E7E5E4";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.roundRect(cardPad, cardY, W - cardPad * 2, cardH2, 24);
+      ctx.roundRect(cardPad, cardY, W - cardPad * 2, cardH2, 28);
       ctx.stroke();
-
-      // Left accent bar
-      ctx.fillStyle = config.color;
-      ctx.beginPath();
-      ctx.roundRect(cardPad, cardY, 4, cardH2, [0, 2, 2, 0]);
-      ctx.fill();
 
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
 
       if (hasStats) {
-        // Heading
-        ctx.font = `bold 36px ${SF}`;
-        ctx.fillStyle = config.color;
-        ctx.fillText("\uD83D\uDCCA Statistik", statX, cardY + 50);
+        ctx.font = `bold 32px ${SANS}`;
+        ctx.fillStyle = "#1F1D1B";
+        ctx.fillText("📊 Statistik Permainan", statX, cardY + 54);
 
-        // Divider line bawah heading
-        ctx.strokeStyle = "rgba(255,255,255,0.05)";
+        ctx.strokeStyle = "#F5F5F4";
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(statX, cardY + 62);
-        ctx.lineTo(W - cardPad - 40, cardY + 62);
+        ctx.moveTo(statX, cardY + 68);
+        ctx.lineTo(statXR, cardY + 68);
         ctx.stroke();
 
-        // Rows
         stats.forEach((row, i) => {
-          const ry = cardY + cardHeaderH + i * rowH;
-          // Label (kiri)
-          ctx.font = `28px ${SF}`;
-          ctx.fillStyle = "#5C5470";
+          const ry = cardY + cardHeaderH + i * rowH + 20;
+          ctx.font = `26px ${SANS}`;
+          ctx.fillStyle = "#78716C";
           ctx.textAlign = "left";
           ctx.fillText(row.label, statX, ry);
-          // Value (kanan)
-          ctx.font = `bold 28px ${SF}`;
-          ctx.fillStyle = "#FFF5F8";
+
+          ctx.font = `bold 26px ${SANS}`;
+          ctx.fillStyle = "#1F1D1B";
           ctx.textAlign = "right";
           ctx.fillText(row.value, statXR, ry);
-
-          // Subtle divider between rows (except last)
-          if (i < stats.length - 1) {
-            ctx.strokeStyle = "rgba(255,255,255,0.04)";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(statX, ry + 14);
-            ctx.lineTo(statXR, ry + 14);
-            ctx.stroke();
-          }
         });
 
-        // Tanggal
         if (playedAt) {
-          const dateY = cardY + cardHeaderH + stats.length * rowH + 36;
+          const dateY = cardY + cardHeaderH + stats.length * rowH + 46;
           const d = new Date(playedAt);
           const dateLabel = d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-          ctx.font = `26px ${SF}`;
-          ctx.fillStyle = "#5C5470";
+          ctx.font = `24px ${SANS}`;
+          ctx.fillStyle = "#A8A29E";
           ctx.textAlign = "left";
-          ctx.fillText(`\uD83D\uDCC5  ${dateLabel}`, statX, dateY);
+          ctx.fillText(`🗓️  ${dateLabel}`, statX, dateY);
         }
-
       } else if (summary) {
-        ctx.font = `bold 36px ${SF}`;
-        ctx.fillStyle = config.color;
-        ctx.textAlign = "left";
-        ctx.fillText("\uD83D\uDCCA Statistik", statX, cardY + 54);
-        ctx.font = `32px ${SF}`;
-        ctx.fillStyle = "#9B93B0";
-        ctx.fillText(summary, statX, cardY + 100);
-        if (playedAt) {
-          const d = new Date(playedAt);
-          const label = d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-          ctx.font = `28px ${SF}`;
-          ctx.fillStyle = "#5C5470";
-          ctx.fillText(`🗓️  ${label}`, statX, cardY + 148);
-        }
-      } else {
-        ctx.font = `bold 34px ${SF}`;
-        ctx.fillStyle = "#9B93B0";
-        ctx.fillText(`${gameEmoji}  ${gameName}`, statX, cardY + 80);
+        ctx.font = `bold 32px ${SANS}`;
+        ctx.fillStyle = "#1F1D1B";
+        ctx.fillText("📊 Ringkasan", statX, cardY + 54);
+        ctx.font = `28px ${SANS}`;
+        ctx.fillStyle = "#78716C";
+        ctx.fillText(summary, statX, cardY + 110);
       }
 
-      // ── Tagline ───────────────────────────────────────────────
-      const tagY = 1480;
-      const taglines: Record<string, string> = {
-        win:  "Kemenangan manis buat pasangan LDR! 🏆💕",
-        lose: "Kalah hari ini, menang besok bersama! 💪❤️",
-        draw: "Seri? Berarti kalian memang serasi! 🤝💕",
-        complete: "Seru main bareng, jarak bukan halangan! 🎉❤️",
-      };
-      ctx.font = `italic 36px ${SF}`;
-      ctx.fillStyle = "rgba(255,255,255,0.25)";
-      ctx.textAlign = "center";
-      ctx.fillText(taglines[result] ?? "", cx, tagY);
-
-      // ── Bottom divider ────────────────────────────────────────
-      const botDivY = 1580;
-      const bdGrad = ctx.createLinearGradient(80, botDivY, W - 80, botDivY);
-      bdGrad.addColorStop(0, "transparent");
-      bdGrad.addColorStop(0.5, "rgba(255,255,255,0.08)");
-      bdGrad.addColorStop(1, "transparent");
-      ctx.strokeStyle = bdGrad;
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(80, botDivY); ctx.lineTo(W - 80, botDivY); ctx.stroke();
-
       // ── Bottom branding ───────────────────────────────────────
-      // Pink dot
-      ctx.beginPath();
-      ctx.arc(cx - 120, 1660, 6, 0, Math.PI * 2);
-      ctx.fillStyle = "#FF3D7F";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx + 120, 1660, 6, 0, Math.PI * 2);
-      ctx.fillStyle = "#818CF8";
-      ctx.fill();
-
-      ctx.font = `bold 44px ${SF}`;
-      ctx.fillStyle = "#FFF5F8";
+      ctx.font = `bold 40px ${SF}`;
+      ctx.fillStyle = "#1F1D1B";
       ctx.textAlign = "center";
-      ctx.fillText("LDR-Connect", cx, 1730);
-      ctx.font = `30px ${SF}`;
-      ctx.fillStyle = "#5C5470";
-      ctx.fillText("ldr-connect.netlify.app", cx, 1780);
+      ctx.fillText("LDR-Connect", cx, 1750);
+      ctx.font = `24px ${SANS}`;
+      ctx.fillStyle = "#78716C";
+      ctx.fillText("ldr-connect.netlify.app", cx, 1795);
 
-      // Bottom gradient bar
-      const botBar = ctx.createLinearGradient(0, H - 6, W, H - 6);
-      botBar.addColorStop(0, "#818CF8");
-      botBar.addColorStop(1, "#FF3D7F");
-      ctx.fillStyle = botBar;
-      ctx.fillRect(0, H - 6, W, 6);
-
-      // ── Download ──────────────────────────────────────────────
       canvas.toBlob((blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
@@ -499,15 +339,15 @@ export function ShareResult({
   }
 
   return (
-    <div className={`overflow-hidden rounded-2xl border ${config.bg}`}>
+    <div className={`overflow-hidden rounded-2xl border ${config.bg} shadow-xl shadow-black/2`}>
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-[#E7E5E4] px-4 py-3 bg-white">
         <span className="text-2xl">{config.emoji}</span>
         <div>
-          <p className="text-sm font-semibold" style={{ color: config.color }}>
+          <p className="text-xs font-bold" style={{ color: config.color }}>
             {config.label}
           </p>
-          <p className="text-xs text-[#5C5470]">
+          <p className="text-[11px] text-[#78716C]">
             {gameEmoji} {gameName}
             {summary ? ` · ${summary}` : ""}
             {partnerName ? ` · vs ${partnerName}` : ""}
@@ -516,22 +356,22 @@ export function ShareResult({
       </div>
 
       {/* Buttons */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-        <p className="mr-auto text-xs text-[#5C5470]">Bagikan momen ini:</p>
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-[#FCFBF7]">
+        <p className="mr-auto text-xs font-semibold text-[#78716C]">Bagikan momen ini:</p>
 
         {/* Download Image */}
         <button
           type="button"
           onClick={handleDownloadImage}
           disabled={generating}
-          className="flex items-center gap-1.5 rounded-xl bg-[#818CF8]/10 px-3 py-2 text-xs font-semibold text-[#818CF8] ring-1 ring-[#818CF8]/30 transition hover:bg-[#818CF8]/20 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-xl border border-[#E7E5E4] bg-white px-3 py-2 text-xs font-semibold text-[#1F1D1B] shadow-2xs transition hover:border-[#D6D3D1] disabled:opacity-50 cursor-pointer"
         >
           {generating ? (
-            <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg className="animate-spin text-[#C84B31]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
             </svg>
           ) : (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" strokeLinecap="round" />
@@ -545,7 +385,7 @@ export function ShareResult({
           href={waUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 rounded-xl bg-[#25D366]/10 px-3 py-2 text-xs font-semibold text-[#25D366] ring-1 ring-[#25D366]/30 transition hover:bg-[#25D366]/20"
+          className="flex items-center gap-1.5 rounded-xl border border-[#10B981]/20 bg-[#EBF9EB] px-3 py-2 text-xs font-bold text-[#10B981] transition hover:bg-[#10B981]/15"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
@@ -559,7 +399,7 @@ export function ShareResult({
           <button
             type="button"
             onClick={handleNativeShare}
-            className="flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-[#9B93B0] ring-1 ring-white/[0.07] transition hover:bg-white/10"
+            className="flex items-center gap-1.5 rounded-xl border border-[#E7E5E4] bg-white px-3 py-2 text-xs font-semibold text-[#78716C] shadow-2xs transition hover:border-[#D6D3D1] hover:text-[#1F1D1B] cursor-pointer"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" strokeLinecap="round" />
@@ -572,10 +412,10 @@ export function ShareResult({
           <button
             type="button"
             onClick={handleCopyText}
-            className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold ring-1 transition ${
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition cursor-pointer ${
               copied
-                ? "bg-[#34D399]/15 text-[#34D399] ring-[#34D399]/30"
-                : "bg-white/5 text-[#9B93B0] ring-white/[0.07] hover:bg-white/10"
+                ? "border-[#10B981]/20 bg-[#EBF9EB] text-[#10B981]"
+                : "border-[#E7E5E4] bg-white text-[#78716C] shadow-2xs hover:border-[#D6D3D1] hover:text-[#1F1D1B]"
             }`}
           >
             {copied ? (

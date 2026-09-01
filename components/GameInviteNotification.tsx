@@ -94,20 +94,20 @@ export function GameInviteNotification() {
 
   return (
     <div className="fixed top-20 left-4 right-4 z-50 animate-slide-in-right sm:left-auto sm:right-4 sm:w-80">
-      <div className="overflow-hidden rounded-2xl border border-[#FF3D7F]/30 bg-[#0E0E12]/95 shadow-2xl shadow-[#FF3D7F]/10 backdrop-blur-md">
-        <div className="h-0.5 bg-linear-to-r from-[#FF3D7F] to-[#818CF8]" />
+      <div className="overflow-hidden rounded-2xl border border-[#FBDCD5] bg-white shadow-2xl shadow-black/10 backdrop-blur-md">
+        <div className="h-1 bg-[#C84B31]" />
 
         <div className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FF3D7F]/15">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FDF4F2] border border-[#FBDCD5]">
                 <span className="text-lg">🎮</span>
               </div>
               <div>
-                <p className="text-xs font-bold text-[#FF6B9D] uppercase tracking-wide">
+                <p className="text-[10px] font-bold text-[#C84B31] uppercase tracking-wider">
                   Game Invite!
                 </p>
-                <p className="text-sm font-semibold text-[#FFF5F8]">
+                <p className="text-xs font-serif font-bold text-[#1F1D1B]">
                   Partner mengajakmu main
                 </p>
               </div>
@@ -115,7 +115,7 @@ export function GameInviteNotification() {
             <button
               type="button"
               onClick={() => setDismissed(true)}
-              className="shrink-0 rounded-lg p-1 text-[#5C5470] transition hover:bg-white/5 hover:text-[#9B93B0]"
+              className="shrink-0 rounded-lg p-1 text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] cursor-pointer"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
@@ -123,12 +123,12 @@ export function GameInviteNotification() {
             </button>
           </div>
 
-          <div className="mt-3 rounded-xl border border-white/[0.07] bg-white/3 px-3 py-2.5">
-            <p className="text-xs text-[#5C5470]">Game</p>
-            <p className="text-sm font-semibold text-[#FFF5F8]">
+          <div className="mt-3 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-3 py-2.5">
+            <p className="text-[10px] font-semibold text-[#78716C]">Game</p>
+            <p className="text-xs font-bold text-[#1F1D1B]">
               {GAME_LABELS[invite.game_type] ?? invite.game_type}
             </p>
-            <p className="mt-1 font-mono text-[10px] text-[#5C5470]">
+            <p className="mt-0.5 font-mono text-[10px] text-[#78716C]">
               Kode: {invite.session_code}
             </p>
           </div>
@@ -137,17 +137,17 @@ export function GameInviteNotification() {
             <button
               type="button"
               onClick={handleJoin}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#FF3D7F] py-2.5 text-xs font-bold text-white shadow-[0_4px_16px_rgba(255,61,127,0.35)] transition hover:bg-[#FF6B9D]"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#C84B31] py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] cursor-pointer"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Bergabung Sekarang
+              Gabung
             </button>
             <button
               type="button"
               onClick={() => setDismissed(true)}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-medium text-[#9B93B0] transition hover:bg-white/10"
+              className="rounded-xl border border-[#E7E5E4] bg-white px-3 text-xs font-semibold text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] cursor-pointer shadow-2xs"
             >
               Nanti
             </button>

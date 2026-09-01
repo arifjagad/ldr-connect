@@ -33,19 +33,19 @@ export function Dice({ value, rolling, disabled, onRoll }: DiceProps) {
           rolling ? "animate-spin" : ""
         } ${
           disabled
-            ? "border-white/20"
-            : "border-white/80 shadow-[0_4px_20px_rgba(255,255,255,0.2)] group-hover:shadow-[0_4px_30px_rgba(255,255,255,0.35)]"
+            ? "border-[#E7E5E4]"
+            : "border-[#FBDCD5] shadow-md shadow-black/5 group-hover:shadow-lg group-hover:border-[#C84B31]"
         }`}
         style={{ animationDuration: "0.3s" }}
       >
         <svg viewBox="0 0 100 100" className="h-full w-full p-2">
           {dots.map(([cx, cy], i) => (
-            <circle key={i} cx={cx} cy={cy} r={8} fill="#1a1a2e" />
+            <circle key={i} cx={cx} cy={cy} r={8} fill="#C84B31" />
           ))}
         </svg>
       </div>
-      <span className="text-[10px] font-medium whitespace-nowrap" style={{
-        color: rolling ? "#FF6B9D" : disabled ? "transparent" : "#9B93B0"
+      <span className="text-[10px] font-semibold whitespace-nowrap" style={{
+        color: rolling ? "#C84B31" : disabled ? "transparent" : "#78716C"
       }}>
         {rolling ? "Rolling..." : "Klik lempar"}
       </span>

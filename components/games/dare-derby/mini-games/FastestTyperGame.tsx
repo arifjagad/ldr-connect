@@ -201,19 +201,19 @@ export function FastestTyperGame({ duration = 60, startedAt, bonusActive = false
   // ── Done screen ───────────────────────────────────────────────────────────
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-4 py-4">
-        <p className="text-sm font-medium text-[#9B93B0]">⌨️ Ketik Cepat</p>
-        <p className="text-5xl font-bold text-[#FFF5F8]">{totalScore}</p>
-        <p className="text-sm text-[#9B93B0]">dari {SENTENCES_PER_ROUND * MAX_PER_SENTENCE} poin</p>
+      <div className="flex flex-col items-center gap-4 py-4 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">⌨️ Ketik Cepat</p>
+        <p className="text-5xl font-serif font-bold text-[#1F1D1B]">{totalScore}</p>
+        <p className="text-xs font-semibold text-[#78716C]">dari {SENTENCES_PER_ROUND * MAX_PER_SENTENCE} poin</p>
         <div className="flex gap-1.5 mt-1">
           {sentenceScores.map((s, i) => (
             <div key={i} className="flex flex-col items-center gap-0.5">
               <div
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
                 style={{
-                  background: s === MAX_PER_SENTENCE ? "rgba(34,197,94,0.2)"
-                    : s > 0 ? "rgba(251,191,36,0.2)" : "rgba(239,68,68,0.15)",
-                  color: s === MAX_PER_SENTENCE ? "#4ade80" : s > 0 ? "#fbbf24" : "#f87171",
+                  background: s === MAX_PER_SENTENCE ? "#EBF9EB"
+                    : s > 0 ? "#FEF3C7" : "#FEF2F2",
+                  color: s === MAX_PER_SENTENCE ? "#10B981" : s > 0 ? "#D97706" : "#EF4444",
                 }}
               >
                 {s}
@@ -230,17 +230,17 @@ export function FastestTyperGame({ duration = 60, startedAt, bonusActive = false
   // Render huruf per huruf dengan highlight real-time
   const renderLetters = () =>
     currentSentence.split("").map((char, i) => {
-      let color = "text-[#9B93B0]";
+      let color = "text-[#A8A29E]";
       if (i < input.length) {
-        color = input[i]?.toLowerCase() === char.toLowerCase() ? "text-green-400" : "text-red-400";
+        color = input[i]?.toLowerCase() === char.toLowerCase() ? "text-emerald-600 font-bold" : "text-red-500 font-bold";
       } else if (i === input.length) {
-        color = "text-[#FFF5F8]";
+        color = "text-[#1F1D1B] font-bold";
       }
       return (
         <span
           key={i}
-          className={`font-bold transition-colors duration-75 ${color} ${char === " " ? "mx-0.5" : ""}`}
-          style={{ fontSize: "1.1rem", letterSpacing: "0.02em" }}
+          className={`font-semibold transition-colors duration-75 ${color} ${char === " " ? "mx-0.5" : ""}`}
+          style={{ fontSize: "1.05rem", letterSpacing: "0.02em" }}
         >
           {char === " " ? "\u00A0" : char}
         </span>
@@ -252,40 +252,40 @@ export function FastestTyperGame({ duration = 60, startedAt, bonusActive = false
     <div className="flex flex-col gap-4 select-none">
       {/* Header */}
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">⌨️ Ketik Cepat</p>
-        <p className="mt-1 text-xs text-[#5C5470]">
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">⌨️ Ketik Cepat</p>
+        <p className="mt-1 text-xs text-[#78716C]">
           Ketik kalimat di bawah — skor berdasarkan akurasi karakter!
         </p>
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400 text-center">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706] text-center">
           +50 BONUS AKTIF!
         </div>
       )}
 
       {/* Round counter + score + timer */}
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-[#818CF8]">{current + 1}/{SENTENCES_PER_ROUND}</span>
-        <span className="text-xs font-semibold text-[#9B93B0]">
-          Poin: <span className="text-[#FFF5F8] font-bold">{totalScore}</span>/{SENTENCES_PER_ROUND * MAX_PER_SENTENCE}
+        <span className="text-xs font-bold text-[#C84B31]">{current + 1}/{SENTENCES_PER_ROUND}</span>
+        <span className="text-xs font-semibold text-[#78716C]">
+          Poin: <span className="text-[#1F1D1B] font-bold">{totalScore}</span>/{SENTENCES_PER_ROUND * MAX_PER_SENTENCE}
         </span>
-        <span className={`text-sm font-bold tabular-nums ${urgent ? "text-red-400 animate-pulse" : timeLeft <= 10 ? "text-yellow-400" : "text-[#FFF5F8]"}`}>
+        <span className={`text-sm font-bold tabular-nums ${urgent ? "text-red-500 animate-pulse" : timeLeft <= 10 ? "text-[#D97706]" : "text-[#1F1D1B]"}`}>
           {timeLeft}s
         </span>
       </div>
 
       {/* Timer bar */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E7E5E4]">
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{
             width: `${timerPct}%`,
             background: urgent
-              ? "linear-gradient(90deg, #EF4444, #F97316)"
+              ? "#EF4444"
               : timeLeft <= 10
-              ? "linear-gradient(90deg, #FBBF24, #F97316)"
-              : "linear-gradient(90deg, #818CF8, #A78BFA)",
+              ? "#D97706"
+              : "#C84B31",
           }}
         />
       </div>
@@ -298,11 +298,11 @@ export function FastestTyperGame({ duration = 60, startedAt, bonusActive = false
             className="h-1.5 flex-1 rounded-full transition-all"
             style={{
               background:
-                status[i] === "exact"   ? "#22c55e"
-                : status[i] === "partial" ? "#fbbf24"
-                : status[i] === "wrong"   ? "#ef4444"
-                : i === current           ? "#818CF8"
-                : "rgba(255,255,255,0.1)",
+                status[i] === "exact"   ? "#10B981"
+                : status[i] === "partial" ? "#D97706"
+                : status[i] === "wrong"   ? "#EF4444"
+                : i === current           ? "#C84B31"
+                : "#E7E5E4",
             }}
           />
         ))}
@@ -310,10 +310,10 @@ export function FastestTyperGame({ duration = 60, startedAt, bonusActive = false
 
       {/* Sentence card */}
       <div
-        className={`rounded-2xl border p-4 text-center transition-all duration-200 ${
-          feedback === "correct" ? "border-green-500/40 bg-green-500/10 scale-[1.01]"
-          : feedback === "wrong"   ? "border-red-500/40   bg-red-500/10   scale-[0.99]"
-          : "border-white/10 bg-white/5"
+        className={`rounded-2xl border p-4 text-center transition-all duration-200 shadow-sm ${
+          feedback === "correct" ? "border-emerald-200 bg-emerald-50 scale-[1.01]"
+          : feedback === "wrong"   ? "border-amber-200 bg-amber-50 scale-[0.99]"
+          : "border-[#E7E5E4] bg-white"
         }`}
       >
         <div className="flex justify-center flex-wrap gap-0 leading-relaxed min-h-[3rem] items-center">
@@ -322,10 +322,10 @@ export function FastestTyperGame({ duration = 60, startedAt, bonusActive = false
 
         {/* Status hint */}
         <div className="mt-2 h-5">
-          {feedback === "correct" && <p className="text-xs font-bold text-green-400">✓ Sempurna! +{MAX_PER_SENTENCE}</p>}
-          {feedback === "wrong"   && <p className="text-xs font-bold text-yellow-400">✗ Lanjut!</p>}
+          {feedback === "correct" && <p className="text-xs font-bold text-emerald-600">✓ Sempurna! +{MAX_PER_SENTENCE}</p>}
+          {feedback === "wrong"   && <p className="text-xs font-bold text-[#D97706]">✗ Lanjut!</p>}
           {feedback === null && (
-            <p className="text-[10px] text-[#5C5470]">
+            <p className="text-[10px] text-[#78716C] font-medium">
               {input.length} / {currentSentence.length} karakter
             </p>
           )}
@@ -358,9 +358,9 @@ export function FastestTyperGame({ duration = 60, startedAt, bonusActive = false
           }}
           placeholder="Ketik kalimat di atas..."
           className={`w-full rounded-xl border px-4 py-3 text-center text-sm font-medium outline-none transition ${
-            feedback === "correct" ? "border-green-500/50 bg-green-500/10 text-green-300"
-            : feedback === "wrong"  ? "border-yellow-500/50 bg-yellow-500/10 text-yellow-300"
-            : "border-white/10 bg-[#18181C] text-[#FFF5F8] focus:border-[#818CF8]/60"
+            feedback === "correct" ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+            : feedback === "wrong"  ? "border-amber-300 bg-amber-50 text-amber-800"
+            : "border-[#E7E5E4] bg-[#FCFBF7] text-[#1F1D1B] focus:border-[#C84B31] focus:bg-white focus:ring-2 focus:ring-[#C84B31]/10"
           }`}
           autoComplete="off"
           autoCapitalize="off"
@@ -375,7 +375,7 @@ export function FastestTyperGame({ duration = 60, startedAt, bonusActive = false
             }
           }}
           disabled={feedback !== null || input.trim().length === 0}
-          className="w-full py-3 rounded-xl bg-[#818CF8] hover:bg-[#A78BFA] text-white font-semibold transition active:scale-95 disabled:opacity-50"
+          className="w-full py-3 rounded-xl bg-[#C84B31] hover:bg-[#B33E26] text-white font-semibold text-xs transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
         >
           Kirim ↵
         </button>

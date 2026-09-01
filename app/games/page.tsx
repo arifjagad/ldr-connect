@@ -54,21 +54,19 @@ const games = [
 
 export default function GamesPage() {
   return (
-    <main>
+    <main className="min-h-screen bg-[#FCFBF7]">
       <div className="relative mx-auto w-full max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_#FF3D7F10_0%,_transparent_55%)]" />
-
         {/* Header */}
         <div className="relative mb-16">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#FF3D7F20] bg-[#FF3D7F10] px-4 py-2 text-xs font-semibold uppercase tracking-widest text-[#FF6B9D]">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#FBDCD5] bg-[#FDF4F2] px-4 py-2 text-xs font-semibold uppercase tracking-widest text-[#C84B31]">
             Semua Game
           </div>
-          <h1 className="text-5xl font-bold leading-[1.1] tracking-tight text-[#F5F0FF] lg:text-7xl">
+          <h1 className="text-5xl font-serif font-bold leading-[1.1] tracking-tight text-[#1F1D1B] lg:text-7xl">
             Pilih game
             <br />
-            <span className="text-[#FF3D7F]">favoritmu.</span>
+            <span className="text-[#C84B31]">favoritmu.</span>
           </h1>
-          <p className="mt-6 max-w-md text-base leading-relaxed text-[#9B93B0]">
+          <p className="mt-6 max-w-md text-base leading-relaxed text-[#78716C]">
             Semua game dirancang khusus untuk pasangan — asyik dimainkan kapanpun dan dimanapun
             kalian berada.
           </p>
@@ -79,30 +77,30 @@ export default function GamesPage() {
           {games.map((game) => (
             <div
               key={game.id}
-              className={`flex flex-col rounded-2xl border border-[#1C1C21] bg-[#141417] p-6 transition-all duration-300 ${
-                game.available ? "hover:-translate-y-1 hover:border-[#FF3D7F30]" : "opacity-60"
+              className={`flex flex-col rounded-2xl border border-[#E7E5E4] bg-white p-6 transition-all duration-300 shadow-xl shadow-black/2 ${
+                game.available ? "hover:-translate-y-1 hover:border-[#C84B31]/30 hover:shadow-2xl hover:shadow-black/5" : "opacity-60"
               }`}
             >
               <div
                 className={`mb-5 self-start rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-widest ${
                   game.available
-                    ? "border border-[#FF3D7F20] bg-[#FF3D7F10] text-[#FF6B9D]"
-                    : "border border-white/10 bg-white/5 text-[#5C5470]"
+                    ? "border border-[#FBDCD5] bg-[#FDF4F2] text-[#C84B31]"
+                    : "border border-[#E7E5E4] bg-[#FCFBF7] text-[#78716C]"
                 }`}
               >
                 {game.badge}
               </div>
 
-              <h2 className="mb-1 text-xl font-bold text-[#F5F0FF]">{game.name}</h2>
-              <p className="mb-4 text-sm font-medium text-[#FF6B9D]">{game.tagline}</p>
-              <p className="mb-6 flex-1 text-sm leading-relaxed text-[#9B93B0]">{game.desc}</p>
+              <h2 className="mb-1 text-xl font-serif font-bold text-[#1F1D1B]">{game.name}</h2>
+              <p className="mb-4 text-sm font-semibold text-[#C84B31]">{game.tagline}</p>
+              <p className="mb-6 flex-1 text-sm leading-relaxed text-[#78716C]">{game.desc}</p>
 
               <ul className="mb-6 space-y-2">
                 {game.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-xs text-[#9B93B0]">
+                  <li key={f} className="flex items-center gap-2 text-xs text-[#78716C]">
                     <span
                       className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                        game.available ? "bg-[#FF3D7F]" : "bg-[#5C5470]"
+                        game.available ? "bg-[#C84B31]" : "bg-[#A8A29E]"
                       }`}
                     />
                     {f}
@@ -110,10 +108,10 @@ export default function GamesPage() {
                 ))}
               </ul>
 
-              <div className="flex items-center justify-between border-t border-white/5 pt-4">
+              <div className="flex items-center justify-between border-t border-[#E7E5E4] pt-4">
                 <span
-                  className={`text-sm font-semibold ${
-                    game.available ? "text-[#FF6B9D]" : "text-[#5C5470]"
+                  className={`text-sm font-bold ${
+                    game.available ? "text-[#C84B31]" : "text-[#78716C]"
                   }`}
                 >
                   {game.cost}
@@ -121,12 +119,12 @@ export default function GamesPage() {
                 {game.available ? (
                   <Link
                     href={game.href}
-                    className="rounded-full bg-[#FF3D7F] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] hover:bg-[#FF6B9D]"
+                    className="rounded-full bg-[#C84B31] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:scale-[1.02] hover:bg-[#B33E26] cursor-pointer shadow-xs"
                   >
                     Main sekarang
                   </Link>
                 ) : (
-                  <span className="rounded-full border border-white/10 px-4 py-2 text-xs text-[#5C5470]">
+                  <span className="rounded-full border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2 text-xs font-semibold text-[#78716C]">
                     Coming soon
                   </span>
                 )}

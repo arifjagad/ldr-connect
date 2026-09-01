@@ -53,16 +53,16 @@ export default function JoinPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0A0A0B] px-4">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/15">
+      <div className="flex min-h-screen items-center justify-center bg-[#FCFBF7] px-4">
+        <div className="max-w-sm w-full rounded-2xl border border-[#E7E5E4] bg-white p-6 text-center shadow-xl shadow-black/2">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FEF2F2] border border-red-200">
             <span className="text-3xl">❌</span>
           </div>
-          <p className="text-base font-semibold text-white">Sesi Tidak Ditemukan</p>
-          <p className="mt-2 text-sm text-[#9B93B0]">{error}</p>
+          <p className="text-base font-serif font-bold text-[#1F1D1B]">Sesi Tidak Ditemukan</p>
+          <p className="mt-2 text-xs leading-relaxed text-[#78716C]">{error}</p>
           <button
             onClick={() => router.replace("/dashboard/games")}
-            className="mt-6 rounded-xl bg-[#818CF8] px-6 py-2.5 text-sm font-medium text-white"
+            className="mt-6 w-full rounded-xl bg-[#C84B31] py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] cursor-pointer"
           >
             Ke Halaman Games
           </button>
@@ -72,13 +72,13 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0A0A0B]">
-      <div className="text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#818CF8]/15">
+    <div className="flex min-h-screen items-center justify-center bg-[#FCFBF7] px-4">
+      <div className="max-w-sm w-full rounded-2xl border border-[#E7E5E4] bg-white p-6 text-center shadow-xl shadow-black/2">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FDF4F2] border border-[#FBDCD5]">
           <span className="text-3xl">🎮</span>
         </div>
-        <p className="text-sm font-medium text-[#9B93B0]">Mengarahkan ke game…</p>
-        <p className="mt-1 font-mono text-xs text-[#5C5470]">{code}</p>
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">Mengarahkan ke game…</p>
+        <p className="mt-1 font-mono text-xs text-[#78716C]">{code}</p>
       </div>
     </div>
   );

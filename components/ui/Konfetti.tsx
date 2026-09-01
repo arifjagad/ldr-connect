@@ -21,8 +21,8 @@ type Particle = {
 };
 
 const COLORS = [
-  "#FF3D7F", "#FF6B9D", "#818CF8", "#A78BFA",
-  "#34D399", "#FBBF24", "#F97316", "#60A5FA",
+  "#C84B31", "#E05A47", "#D97706", "#F59E0B",
+  "#10B981", "#2563EB", "#F43F5E", "#FDE68A",
 ];
 
 /**

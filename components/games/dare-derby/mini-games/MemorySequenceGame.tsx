@@ -123,12 +123,12 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
   return (
     <div className="flex flex-col items-center gap-5 select-none">
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">🧠 Ingat Urutan</p>
-        <p className="mt-1 text-xs text-[#5C5470]">Ingat dan ulangi urutan warna!</p>
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🧠 Ingat Urutan</p>
+        <p className="mt-1 text-xs text-[#78716C]">Ingat dan ulangi urutan warna!</p>
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706]">
           +50 BONUS AKTIF!
         </div>
       )}
@@ -144,9 +144,9 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
               key={i}
               className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-150 ${
                 isActive   ? `${c.bg} border-transparent`
-                : isWrong  ? "bg-red-500/30 border-red-500 text-red-400"
-                : isAnswered ? "bg-green-500/30 border-green-500 text-green-400"
-                : "bg-transparent border-white/20"
+                : isWrong  ? "bg-red-100 border-red-500 text-red-600"
+                : isAnswered ? "bg-emerald-100 border-emerald-500 text-emerald-700"
+                : "bg-white border-[#E7E5E4]"
               }`}
               style={isActive ? { boxShadow: `0 0 12px ${c.glow}` } : undefined}
             >
@@ -157,20 +157,20 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
       </div>
 
       {phase === "showing" && (
-        <p className="text-sm text-[#9B93B0] animate-pulse">Perhatikan urutannya...</p>
+        <p className="text-xs font-semibold text-[#78716C] animate-pulse">Perhatikan urutannya...</p>
       )}
 
       {phase === "input" && (
         <>
           <div className="flex items-center justify-between w-full">
-            <span className="text-sm font-bold text-[#818CF8]">{userInput.length}/{SEQ_LEN}</span>
+            <span className="text-xs font-bold text-[#C84B31]">{userInput.length}/{SEQ_LEN}</span>
             <span
               className={`text-sm font-bold tabular-nums ${
                 timeLeft <= 5
-                  ? "text-red-400 animate-pulse"
+                  ? "text-red-500 animate-pulse"
                   : timeLeft <= 10
-                  ? "text-yellow-400"
-                  : "text-[#FFF5F8]"
+                  ? "text-[#D97706]"
+                  : "text-[#1F1D1B]"
               }`}
             >
               {timeLeft}s
@@ -181,7 +181,7 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
               <button
                 key={c.id}
                 onClick={() => handleColorTap(c.id)}
-                className={`h-20 rounded-2xl ${c.bg} transition-all active:scale-95 ${
+                className={`h-20 rounded-2xl ${c.bg} transition-all active:scale-95 cursor-pointer shadow-xs ${
                   highlight === c.id ? "opacity-60 scale-95" : "opacity-90 hover:opacity-100"
                 }`}
                 style={highlight === c.id ? { boxShadow: `0 0 20px ${c.glow}` } : undefined}
@@ -192,13 +192,13 @@ export function MemorySequenceGame({ duration = 30, startedAt, bonusActive = fal
       )}
 
       {phase === "done" && (
-        <div className="text-center py-4">
-        <p className="text-3xl font-bold text-[#FFF5F8]">
-          {/* ✅ Bug fix: tampilkan jawaban BENAR saja, bukan total klik */}
-          {userInput.length - wrongIndexes.size}/{SEQ_LEN}
-        </p>
-        <p className="text-sm text-[#9B93B0] mt-1">urutan benar</p>
-      </div>
+        <div className="w-full text-center py-4 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+          <p className="text-3xl font-serif font-bold text-[#1F1D1B]">
+            {/* ✅ Bug fix: tampilkan jawaban BENAR saja, bukan total klik */}
+            {userInput.length - wrongIndexes.size}/{SEQ_LEN}
+          </p>
+          <p className="text-xs text-[#78716C] font-semibold mt-1">urutan benar</p>
+        </div>
       )}
     </div>
   );

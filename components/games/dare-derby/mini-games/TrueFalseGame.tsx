@@ -117,10 +117,10 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
 
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-4 py-4">
-        <p className="text-sm font-medium text-[#9B93B0]">🎯 Benar/Salah</p>
-        <p className="text-5xl font-bold text-[#FFF5F8]">{correctCount}/{QUESTIONS_PER_ROUND}</p>
-        <p className="text-sm text-[#9B93B0]">pertanyaan benar</p>
+      <div className="flex flex-col items-center gap-4 py-4 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🎯 Benar/Salah</p>
+        <p className="text-5xl font-serif font-bold text-[#1F1D1B]">{correctCount}/{QUESTIONS_PER_ROUND}</p>
+        <p className="text-xs font-semibold text-[#78716C]">pertanyaan benar</p>
       </div>
     );
   }
@@ -128,25 +128,25 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
   return (
     <div className="flex flex-col gap-5 select-none">
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">🎯 Benar/Salah</p>
-        <p className="mt-1 text-xs text-[#5C5470]">Tentukan apakah pernyataan ini benar atau salah!</p>
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🎯 Benar/Salah</p>
+        <p className="mt-1 text-xs text-[#78716C]">Tentukan apakah pernyataan ini benar atau salah!</p>
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400 text-center">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706] text-center">
           +50 BONUS AKTIF!
         </div>
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-[#818CF8]">{current + 1}/{QUESTIONS_PER_ROUND}</span>
+        <span className="text-xs font-bold text-[#C84B31]">{current + 1}/{QUESTIONS_PER_ROUND}</span>
         <span
           className={`text-sm font-bold tabular-nums ${
             timeLeft <= 5
-              ? "text-red-400 animate-pulse"
+              ? "text-red-500 animate-pulse"
               : timeLeft <= 10
-              ? "text-yellow-400"
-              : "text-[#FFF5F8]"
+              ? "text-[#D97706]"
+              : "text-[#1F1D1B]"
           }`}
         >
           {timeLeft}s
@@ -159,25 +159,25 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
             key={i}
             className={`h-1.5 flex-1 rounded-full transition-all ${
               i < answers.length
-                ? answers[i] === s.answer ? "bg-green-500" : "bg-red-500"
-                : i === current ? "bg-[#818CF8]" : "bg-white/10"
+                ? answers[i] === s.answer ? "bg-emerald-500" : "bg-red-500"
+                : i === current ? "bg-[#C84B31]" : "bg-[#E7E5E4]"
             }`}
           />
         ))}
       </div>
 
       <div
-        className={`rounded-2xl border p-5 text-center transition-colors ${
-          feedback === "correct" ? "border-green-500/40 bg-green-500/10"
-          : feedback === "wrong" ? "border-red-500/40 bg-red-500/10"
-          : "border-white/10 bg-white/5"
+        className={`rounded-2xl border p-5 text-center transition-colors shadow-sm ${
+          feedback === "correct" ? "border-emerald-200 bg-emerald-50"
+          : feedback === "wrong" ? "border-red-200 bg-red-50"
+          : "border-[#E7E5E4] bg-white"
         }`}
       >
-        <p className="text-base font-medium text-[#FFF5F8] leading-relaxed">
+        <p className="text-base font-serif font-semibold text-[#1F1D1B] leading-relaxed">
           {statements[current].text}
         </p>
         {feedback && (
-          <p className={`text-sm font-bold mt-2 ${feedback === "correct" ? "text-green-400" : "text-red-400"}`}>
+          <p className={`text-xs font-bold mt-2 ${feedback === "correct" ? "text-emerald-600" : "text-red-600"}`}>
             {feedback === "correct" ? "✓ Benar!" : `✗ Salah! (${statements[current].answer ? "BENAR" : "SALAH"})`}
           </p>
         )}
@@ -187,14 +187,14 @@ export function TrueFalseGame({ duration = 15, startedAt, bonusActive = false, o
         <button
           onClick={() => handleAnswer(true)}
           disabled={feedback !== null}
-          className="py-4 rounded-2xl bg-green-500/20 border border-green-500/40 text-green-400 font-bold text-lg hover:bg-green-500/30 transition active:scale-95 disabled:opacity-50"
+          className="py-4 rounded-2xl bg-[#EBF9EB] border border-[#10B981]/25 text-[#10B981] font-bold text-base hover:bg-[#10B981]/15 transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs"
         >
           ✓ BENAR
         </button>
         <button
           onClick={() => handleAnswer(false)}
           disabled={feedback !== null}
-          className="py-4 rounded-2xl bg-red-500/20 border border-red-500/40 text-red-400 font-bold text-lg hover:bg-red-500/30 transition active:scale-95 disabled:opacity-50"
+          className="py-4 rounded-2xl bg-[#FEF2F2] border border-red-200 text-red-600 font-bold text-base hover:bg-red-100 transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-2xs"
         >
           ✗ SALAH
         </button>

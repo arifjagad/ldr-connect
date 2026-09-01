@@ -55,7 +55,7 @@ type Props = {
   onChange: (val: string) => void;
   min?: string;                   // "YYYY-MM-DD" — earliest selectable date
   placeholder?: string;
-  accentColor?: string;           // default "#F472B6"
+  accentColor?: string;           // default "#C84B31"
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ export function DatePicker({
   onChange,
   min,
   placeholder = "Pilih tanggal...",
-  accentColor = "#F472B6",
+  accentColor = "#C84B31",
 }: Props) {
   const today = new Date();
 
@@ -202,21 +202,18 @@ export function DatePicker({
         ref={triggerRef}
         type="button"
         onClick={handleToggle}
-        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-sm transition text-left ${
-          open ? "" : "border-white/10 hover:border-white/20"
-        } bg-[#18181C]`}
-        style={open
-          ? { borderColor: `${accentColor}55`, outline: `1px solid ${accentColor}33` }
-          : undefined}
+        className={`flex w-full items-center gap-3 rounded-lg border px-3.5 py-2.5 text-xs transition text-left ${
+          open ? "border-[#C84B31] bg-white ring-1 ring-[#C84B31]/20" : "border-[#E7E5E4] bg-[#FCFBF7] hover:border-[#D6D3D1]"
+        }`}
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-          stroke={displayLabel ? accentColor : "#5C5470"} strokeWidth="1.8"
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke={displayLabel ? "#C84B31" : "#78716C"} strokeWidth="1.8"
         >
           <rect x="3" y="4" width="18" height="18" rx="3" />
           <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
         </svg>
 
-        <span className={`flex-1 truncate ${displayLabel ? "text-[#FFF5F8]" : "text-[#5C5470]"}`}>
+        <span className={`flex-1 truncate ${displayLabel ? "text-[#1F1D1B] font-medium" : "text-[#A8A29E]"}`}>
           {displayLabel ?? placeholder}
         </span>
 
@@ -225,7 +222,7 @@ export function DatePicker({
           <span
             role="button"
             onClick={(e) => { e.stopPropagation(); onChange(""); }}
-            className="shrink-0 rounded-full p-0.5 text-[#5C5470] transition hover:text-[#9B93B0] cursor-pointer"
+            className="shrink-0 rounded-full p-0.5 text-[#78716C] transition hover:text-[#1F1D1B] cursor-pointer"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
@@ -234,7 +231,7 @@ export function DatePicker({
         )}
 
         {/* Chevron */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5C5470" strokeWidth="2.5"
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2.5"
           className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         >
           <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -246,39 +243,38 @@ export function DatePicker({
         <div
           ref={calendarRef}
           style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width, minWidth: 280, zIndex: 9999 }}
-          className="overflow-hidden rounded-2xl border border-white/10 bg-[#18181C] p-4 shadow-2xl shadow-black/70"
+          className="overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white p-4 shadow-xl shadow-black/[0.06]"
         >
           {/* Header: nav + month/year picker */}
           <div className="mb-4 flex items-center justify-between">
             <button type="button" onClick={prevMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#9B93B0] transition hover:bg-white/10 hover:text-[#FFF5F8]"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
 
-            <div className="flex items-center gap-1.5 text-sm font-semibold text-[#FFF5F8]">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-[#1F1D1B]">
               {/* Month picker */}
               <div className="relative">
                 <button type="button"
                   onClick={() => { setShowMonthPicker((v) => !v); setShowYearPicker(false); }}
-                  className="flex items-center gap-1 rounded px-1 transition hover:text-[#F472B6]"
+                  className="flex items-center gap-1 rounded px-1.5 py-1 transition hover:bg-[#FDF4F2] hover:text-[#C84B31]"
                 >
                   {MONTHS_ID[viewMonth]}
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#5C5470]">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#78716C]">
                     <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
                 {showMonthPicker && (
-                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-32 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[#111113] p-1.5 shadow-2xl z-50 [scrollbar-width:none]">
+                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-32 max-h-48 overflow-y-auto rounded-xl border border-[#E7E5E4] bg-white p-1.5 shadow-xl z-50 [scrollbar-width:none]">
                     {MONTHS_ID.map((m, i) => (
                       <button key={m} type="button"
                         onClick={() => { setViewMonth(i); setShowMonthPicker(false); }}
-                        className={`w-full text-left px-3 py-2 text-xs rounded-lg transition ${
-                          viewMonth === i ? "font-bold" : "text-[#FFF5F8] hover:bg-white/10"
+                        className={`w-full text-left px-3 py-1.5 text-xs rounded-lg transition ${
+                          viewMonth === i ? "bg-[#FDF4F2] font-bold text-[#C84B31]" : "text-[#1F1D1B] hover:bg-[#FCFBF7]"
                         }`}
-                        style={viewMonth === i ? { background: `${accentColor}22`, color: accentColor } : undefined}
                       >
                         {m}
                       </button>
@@ -291,25 +287,24 @@ export function DatePicker({
               <div className="relative">
                 <button type="button"
                   onClick={() => { setShowYearPicker((v) => !v); setShowMonthPicker(false); }}
-                  className="flex items-center gap-1 rounded px-1 transition hover:text-[#F472B6]"
+                  className="flex items-center gap-1 rounded px-1.5 py-1 transition hover:bg-[#FDF4F2] hover:text-[#C84B31]"
                 >
                   {viewYear}
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#5C5470]">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-[#78716C]">
                     <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
                 {showYearPicker && (
-                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-24 max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[#111113] p-1.5 shadow-2xl z-50 [scrollbar-width:none]">
+                  <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-24 max-h-48 overflow-y-auto rounded-xl border border-[#E7E5E4] bg-white p-1.5 shadow-xl z-50 [scrollbar-width:none]">
                     {yearRange.map((y) => {
                       const isSel = viewYear === y;
                       return (
                         <button key={y} type="button"
                           ref={isSel ? yearBtnRef : null}
                           onClick={() => { setViewYear(y); setShowYearPicker(false); }}
-                          className={`w-full text-center px-2 py-2 text-xs rounded-lg transition ${
-                            isSel ? "font-bold" : "text-[#FFF5F8] hover:bg-white/10"
+                          className={`w-full text-center px-2 py-1.5 text-xs rounded-lg transition ${
+                            isSel ? "bg-[#FDF4F2] font-bold text-[#C84B31]" : "text-[#1F1D1B] hover:bg-[#FCFBF7]"
                           }`}
-                          style={isSel ? { background: `${accentColor}22`, color: accentColor } : undefined}
                         >
                           {y}
                         </button>
@@ -321,7 +316,7 @@ export function DatePicker({
             </div>
 
             <button type="button" onClick={nextMonth}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#9B93B0] transition hover:bg-white/10 hover:text-[#FFF5F8]"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -332,7 +327,7 @@ export function DatePicker({
           {/* Day headers — Indonesian */}
           <div className="mb-2 grid grid-cols-7">
             {DAYS_ID.map((d) => (
-              <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wide text-[#5C5470]">
+              <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wide text-[#78716C]">
                 {d}
               </div>
             ))}
@@ -352,23 +347,19 @@ export function DatePicker({
                   onClick={() => selectDay(cell.day, cell.type)}
                   className={`relative mx-auto flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition-all
                     ${disabled
-                      ? "cursor-not-allowed text-[#2E2C38]"
+                      ? "cursor-not-allowed text-[#D6D3D1]"
                       : selected
-                        ? "text-white shadow-md"
+                        ? "bg-[#C84B31] text-white font-bold shadow-xs"
                         : isToday
-                          ? "bg-white/10 text-[#FFF5F8] font-bold"
+                          ? "bg-[#FDF4F2] text-[#C84B31] font-bold"
                           : muted
-                            ? "text-[#5C5470] hover:bg-white/5 hover:text-[#9B93B0]"
-                            : "text-[#FFF5F8] hover:bg-white/10"
+                            ? "text-[#A8A29E] hover:bg-[#FCFBF7]"
+                            : "text-[#1F1D1B] hover:bg-[#FCFBF7]"
                     }`}
-                  style={selected
-                    ? { background: accentColor, boxShadow: `0 2px 12px ${accentColor}55` }
-                    : undefined}
                 >
                   {cell.day}
                   {isToday && !selected && (
-                    <span className="absolute bottom-1 left-1/2 h-0.5 w-0.5 -translate-x-1/2 rounded-full"
-                      style={{ background: accentColor }} />
+                    <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#C84B31]" />
                   )}
                 </button>
               );
@@ -376,10 +367,10 @@ export function DatePicker({
           </div>
 
           {/* Footer */}
-          <div className="mt-3 flex justify-between border-t border-white/[0.07] pt-3">
+          <div className="mt-3 flex justify-between border-t border-[#E7E5E4] pt-3">
             <button type="button"
               onClick={() => { onChange(""); setOpen(false); }}
-              className="text-xs font-medium text-[#5C5470] transition hover:text-[#9B93B0]"
+              className="text-xs font-medium text-[#78716C] transition hover:text-[#1F1D1B]"
             >
               Hapus
             </button>
@@ -390,8 +381,7 @@ export function DatePicker({
                 onChange(toYMD(d));
                 setOpen(false);
               }}
-              className="text-xs font-medium transition"
-              style={{ color: accentColor }}
+              className="text-xs font-semibold text-[#C84B31] hover:underline"
             >
               Hari ini
             </button>

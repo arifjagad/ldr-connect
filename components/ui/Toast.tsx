@@ -15,24 +15,24 @@ export interface ToastMessage {
 
 const ICONS: Record<ToastType, React.ReactNode> = {
   success: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="2.5">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5">
       <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   error: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2.5">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5">
       <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
     </svg>
   ),
   warning: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth="2.5">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2.5">
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" strokeLinecap="round" />
       <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" />
     </svg>
   ),
   info: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2.5">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.5">
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" strokeLinecap="round" />
       <line x1="12" y1="16" x2="12.01" y2="16" strokeLinecap="round" />
@@ -41,10 +41,10 @@ const ICONS: Record<ToastType, React.ReactNode> = {
 };
 
 const STYLES: Record<ToastType, string> = {
-  success: "border-[#34D399]/25 bg-[#34D399]/10 [--icon-bg:rgba(52,211,153,0.15)]",
-  error:   "border-[#F87171]/25 bg-[#F87171]/10 [--icon-bg:rgba(248,113,113,0.15)]",
-  warning: "border-[#FBBF24]/25 bg-[#FBBF24]/10 [--icon-bg:rgba(251,191,36,0.15)]",
-  info:    "border-[#818CF8]/25 bg-[#818CF8]/10 [--icon-bg:rgba(129,140,248,0.15)]",
+  success: "border-[#10B981]/25 bg-white text-[#10B981] [--icon-bg:#EBF9EB]",
+  error:   "border-red-200 bg-white text-red-600 [--icon-bg:#FEF2F2]",
+  warning: "border-[#FDE68A] bg-white text-[#D97706] [--icon-bg:#FEF3C7]",
+  info:    "border-[#E0E7FF] bg-white text-[#4F46E5] [--icon-bg:#EEF2FF]",
 };
 
 // ── Global toast state (singleton) ────────────────────────────────────────────
@@ -110,19 +110,18 @@ export function ToastContainer() {
         <div
           key={t.id}
           role="alert"
-          className={`flex items-start gap-3 overflow-hidden rounded-2xl border px-4 py-3.5 shadow-2xl backdrop-blur-sm transition-all duration-300 animate-in slide-in-from-top-4 ${STYLES[t.type]}`}
-          style={{ background: "rgba(17,17,19,0.95)" }}
+          className={`flex items-start gap-3 overflow-hidden rounded-2xl border px-4 py-3.5 shadow-2xl shadow-black/10 backdrop-blur-sm transition-all duration-300 animate-in slide-in-from-top-4 ${STYLES[t.type]}`}
         >
           {/* Icon */}
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "var(--icon-bg)" }}>
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border border-black/5" style={{ background: "var(--icon-bg)" }}>
             {ICONS[t.type]}
           </span>
 
           {/* Content */}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-[#FFF5F8]">{t.title}</p>
+            <p className="text-xs font-bold text-[#1F1D1B]">{t.title}</p>
             {t.description && (
-              <p className="mt-0.5 text-xs leading-relaxed text-[#9B93B0]">{t.description}</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-[#78716C]">{t.description}</p>
             )}
           </div>
 
@@ -130,7 +129,7 @@ export function ToastContainer() {
           <button
             type="button"
             onClick={() => dismiss(t.id)}
-            className="mt-0.5 shrink-0 rounded-lg p-1 text-[#5C5470] transition hover:bg-white/10 hover:text-[#9B93B0]"
+            className="mt-0.5 shrink-0 rounded-lg p-1 text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] cursor-pointer"
             aria-label="Tutup"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

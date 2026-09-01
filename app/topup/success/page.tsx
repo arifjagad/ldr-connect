@@ -55,33 +55,23 @@ function TopupSuccessContent() {
   }, []);
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-[#0D0D10] px-4">
-      {/* Ambient glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 40% at 50% 40%, rgba(52,211,153,0.08) 0%, transparent 70%)",
-        }}
-      />
-
+    <main className="relative flex min-h-screen items-center justify-center bg-[#FCFBF7] px-4">
       <div className="w-full max-w-md">
         {isSuccess ? (
           /* ── SUCCESS ── */
-          <div className="overflow-hidden rounded-3xl border border-[#34D399]/20 bg-[#111113]">
+          <div className="overflow-hidden rounded-3xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
             {/* Top accent bar */}
-            <div className="h-1 w-full bg-linear-to-r from-[#34D399] to-[#6EE7B7]" />
+            <div className="h-1.5 w-full bg-[#10B981]" />
 
             <div className="p-8">
               {/* Icon */}
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-linear-to-br from-[#34D399]/20 to-[#34D399]/5 ring-1 ring-[#34D399]/20">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#EBF9EB] border border-[#10B981]/25">
                 <svg
                   width="36"
                   height="36"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#34D399"
+                  stroke="#10B981"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -91,20 +81,20 @@ function TopupSuccessContent() {
                 </svg>
               </div>
 
-              <h1 className="text-center text-2xl font-bold text-[#FFF5F8]">
+              <h1 className="text-center text-2xl font-serif font-bold text-[#1F1D1B]">
                 Pembayaran Berhasil!
               </h1>
-              <p className="mt-2 text-center text-sm text-[#5C5470]">
+              <p className="mt-2 text-center text-sm text-[#78716C]">
                 Transaksi kamu telah dikonfirmasi oleh Midtrans.
               </p>
 
               {/* Order ID */}
               {orderId && (
-                <div className="mt-5 rounded-xl border border-white/[0.07] bg-[#18181C] px-4 py-3">
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">
+                <div className="mt-5 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#78716C]">
                     Order ID
                   </p>
-                  <p className="mt-1 break-all font-mono text-sm text-[#9B93B0]">
+                  <p className="mt-1 break-all font-mono text-sm text-[#1F1D1B]">
                     {orderId}
                   </p>
                 </div>
@@ -113,7 +103,7 @@ function TopupSuccessContent() {
               {/* Verify status */}
               <div className="mt-4">
                 {verifyState === "loading" && (
-                  <div className="flex items-center gap-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-400">
+                  <div className="flex items-center gap-3 rounded-xl border border-[#FDE68A] bg-[#FEF3C7] px-4 py-3 text-sm text-[#D97706]">
                     <svg
                       className="animate-spin shrink-0"
                       width="16"
@@ -130,7 +120,7 @@ function TopupSuccessContent() {
                 )}
 
                 {verifyState === "success" && (
-                  <div className="flex flex-col gap-2 rounded-xl border border-[#34D399]/20 bg-[#34D399]/10 px-4 py-3 text-sm text-[#34D399]">
+                  <div className="flex flex-col gap-2 rounded-xl border border-[#10B981]/25 bg-[#EBF9EB] px-4 py-3 text-sm text-[#10B981]">
                     <div className="flex items-center gap-3">
                       <svg
                         width="16"
@@ -144,12 +134,12 @@ function TopupSuccessContent() {
                       </svg>
                       {message ?? "Coin berhasil ditambahkan ke akun kamu!"}
                     </div>
-                    <p className="text-xs text-[#34D399]/70 text-center animate-pulse">Menutup halaman otomatis...</p>
+                    <p className="text-xs text-[#10B981]/70 text-center animate-pulse">Menutup halaman otomatis...</p>
                   </div>
                 )}
 
                 {verifyState === "failed" && (
-                  <div className="flex flex-col gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-400">
+                  <div className="flex flex-col gap-2 rounded-xl border border-[#FDE68A] bg-[#FEF3C7] px-4 py-3 text-sm text-[#D97706]">
                     <div className="flex items-center gap-3">
                       <svg
                         width="16"
@@ -165,7 +155,7 @@ function TopupSuccessContent() {
                       </svg>
                       {message ?? "Coin akan diproses secara otomatis oleh sistem."}
                     </div>
-                    <p className="text-xs text-yellow-400/70 text-center animate-pulse">Menutup halaman otomatis...</p>
+                    <p className="text-xs text-[#D97706]/70 text-center animate-pulse">Menutup halaman otomatis...</p>
                   </div>
                 )}
               </div>
@@ -174,7 +164,7 @@ function TopupSuccessContent() {
               <div className="mt-6 flex flex-col gap-3">
                 <Link
                   href="/dashboard"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#34D399] px-5 py-3 text-sm font-semibold text-[#0D1F17] transition hover:bg-[#6EE7B7]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#B33E26] cursor-pointer shadow-xs"
                 >
                   <svg
                     width="15"
@@ -191,7 +181,7 @@ function TopupSuccessContent() {
                 </Link>
                 <Link
                   href="/dashboard/coin"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#E7E5E4] bg-white px-5 py-3 text-sm font-semibold text-[#1F1D1B] transition hover:bg-[#FCFBF7] cursor-pointer shadow-2xs"
                 >
                   Lihat Riwayat Transaksi
                 </Link>
@@ -200,17 +190,17 @@ function TopupSuccessContent() {
           </div>
         ) : (
           /* ── FAILED / PENDING ── */
-          <div className="overflow-hidden rounded-3xl border border-red-500/20 bg-[#111113]">
-            <div className="h-1 w-full bg-linear-to-r from-red-500 to-red-400" />
+          <div className="overflow-hidden rounded-3xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+            <div className="h-1.5 w-full bg-[#EF4444]" />
 
             <div className="p-8">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 ring-1 ring-red-500/20">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#FEF2F2] border border-red-200">
                 <svg
                   width="36"
                   height="36"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#F87171"
+                  stroke="#EF4444"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -221,19 +211,19 @@ function TopupSuccessContent() {
                 </svg>
               </div>
 
-              <h1 className="text-center text-2xl font-bold text-[#FFF5F8]">
+              <h1 className="text-center text-2xl font-serif font-bold text-[#1F1D1B]">
                 Pembayaran Gagal
               </h1>
-              <p className="mt-2 text-center text-sm text-[#5C5470]">
+              <p className="mt-2 text-center text-sm text-[#78716C]">
                 Transaksi tidak berhasil diproses. Silakan coba lagi.
               </p>
 
               {orderId && (
-                <div className="mt-5 rounded-xl border border-white/[0.07] bg-[#18181C] px-4 py-3">
-                  <p className="text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">
+                <div className="mt-5 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#78716C]">
                     Order ID
                   </p>
-                  <p className="mt-1 break-all font-mono text-sm text-[#9B93B0]">
+                  <p className="mt-1 break-all font-mono text-sm text-[#1F1D1B]">
                     {orderId}
                   </p>
                 </div>
@@ -242,13 +232,13 @@ function TopupSuccessContent() {
               <div className="mt-6 flex flex-col gap-3">
                 <Link
                   href="/dashboard/coin"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#FF6B9D]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#B33E26] cursor-pointer shadow-xs"
                 >
                   Coba Top Up Lagi
                 </Link>
                 <Link
                   href="/dashboard"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#E7E5E4] bg-white px-5 py-3 text-sm font-semibold text-[#1F1D1B] transition hover:bg-[#FCFBF7] cursor-pointer shadow-2xs"
                 >
                   Ke Dashboard
                 </Link>
@@ -263,7 +253,7 @@ function TopupSuccessContent() {
 
 export default function TopupSuccessPage() {
   return (
-    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-[#0D0D10]" />}>
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-[#FCFBF7]" />}>
       <TopupSuccessContent />
     </Suspense>
   );

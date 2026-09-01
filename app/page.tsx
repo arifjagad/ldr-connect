@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import { Hero } from "@/components/landing/Hero";
-import { MarqueeTicker } from "@/components/landing/MarqueeTicker";
 import { Stats } from "@/components/landing/Stats";
 import { Games } from "@/components/landing/Games";
 import { Features } from "@/components/landing/Features";
@@ -12,9 +11,9 @@ import { Footer } from "@/components/landing/Footer";
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://ldr-connect.netlify.app";
 
 export const metadata: Metadata = {
-  title: "LDR-Connect | Game Couple LDR Terbaik Indonesia",
-  description: "Platform gaming untuk pasangan LDR di mana kalian bisa bermain bersama, mengumpulkan coin, dan memperkuat hubungan jarak jauh. Tersedia Truth or Dare, Snake & Ladder, dan Quiz.",
-  keywords: ["LDR", "game couple", "couple games", "pasangan jarak jauh", "long distance relationship"],
+  title: "LDR-Connect — Two Players, One Screen",
+  description: "Platform gaming interaktif & video call khusus pasangan hubungan jarak jauh (LDR). Mainkan Truth or Dare, Quoridor 9x9, Dare Derby, dan Snake & Ladder secara real-time.",
+  keywords: ["LDR", "game couple", "couple games", "pasangan jarak jauh", "long distance relationship", "quoridor couple", "truth or dare online"],
 };
 
 export default function Home() {
@@ -22,7 +21,7 @@ export default function Home() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     name: "LDR-Connect",
-    description: "Platform gaming untuk pasangan LDR",
+    description: "Platform gaming interaktif khusus pasangan LDR",
     url: baseUrl,
     applicationCategory: "GameApplication",
     offers: {
@@ -30,26 +29,26 @@ export default function Home() {
       price: "0",
       priceCurrency: "IDR",
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      ratingCount: "150",
-    },
   };
 
   return (
-    <main className="bg-[#0A0A0B]">
+    <main className="min-h-screen bg-[#FCFBF7] text-[#1F1D1B]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <Hero />
-      <MarqueeTicker />
       <Stats />
-      <Games />
-      <Features />
+      <div id="games">
+        <Games />
+      </div>
+      <div id="features">
+        <Features />
+      </div>
       <Testimonials />
-      <FAQ />
+      <div id="faq">
+        <FAQ />
+      </div>
       <FinalCTA />
       <Footer />
     </main>

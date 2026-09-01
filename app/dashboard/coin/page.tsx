@@ -1,6 +1,10 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "@/components/ui/Toast";
+import { dialog } from "@/components/ui/Dialog";
+import { emitCoinBalanceUpdated } from "@/lib/hooks/use-server-balance";
+import { useAuthStore } from "@/stores/auth-store";
 import type { CoinPackage, CoinTransaction, WalletData } from "@/lib/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,13 +46,13 @@ function fmtRp(n: number) {
 
 function StatusBadge({ status }: { status: CoinTransaction["payment_status"] }) {
   const map = {
-    paid:    "border-[#34D399]/25 bg-[#34D399]/10 text-[#34D399]",
-    pending: "border-yellow-500/25 bg-yellow-500/10 text-yellow-400",
-    failed:  "border-red-500/25 bg-red-500/10 text-red-400",
+    paid:    "border-[#10B981]/20 bg-[#EBF9EB] text-[#10B981]",
+    pending: "border-[#D97706]/20 bg-[#FEF3C7] text-[#D97706]",
+    failed:  "border-red-200 bg-red-50 text-red-600",
   };
-  const label = { paid: "Paid", pending: "Pending", failed: "Failed" };
+  const label = { paid: "Berhasil", pending: "Menunggu", failed: "Gagal" };
   return (
-    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${map[status]}`}>
+    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${map[status]}`}>
       {label[status]}
     </span>
   );
@@ -81,16 +85,16 @@ function TypeBadge({ type, metadata }: { type: CoinTransaction["type"]; metadata
   );
 
   if (isVoucher)
-    return <span className="flex items-center gap-1 text-xs font-medium text-[#A78BFA]">{iconGift} Voucher</span>;
+    return <span className="flex items-center gap-1 text-xs font-semibold text-[#D97706]">{iconGift} Voucher</span>;
   if (isRefund)
-    return <span className="flex items-center gap-1 text-xs font-medium text-[#60A5FA]">{iconUp} Refund</span>;
+    return <span className="flex items-center gap-1 text-xs font-semibold text-[#2563EB]">{iconUp} Refund</span>;
   if (type === "topup" && metadata?.voucher_code)
-    return <span className="flex items-center gap-1 text-xs font-medium text-[#34D399]">{iconUp} Top Up <span className="text-[#A78BFA]">-{fmtRp((metadata.discount_amount as number) ?? 0)}</span></span>;
+    return <span className="flex items-center gap-1 text-xs font-semibold text-[#10B981]">{iconUp} Top Up <span className="text-[#D97706]">-{fmtRp((metadata.discount_amount as number) ?? 0)}</span></span>;
   if (type === "topup")
-    return <span className="flex items-center gap-1 text-xs font-medium text-[#34D399]">{iconUp} Top Up</span>;
+    return <span className="flex items-center gap-1 text-xs font-semibold text-[#10B981]">{iconUp} Top Up</span>;
   if (isGame)
-    return <span className="flex items-center gap-1 text-xs font-medium text-[#FF6B9D]">{iconDown} Main Game</span>;
-  return <span className="flex items-center gap-1 text-xs font-medium text-[#FF6B9D]">{iconDown} Dipotong</span>;
+    return <span className="flex items-center gap-1 text-xs font-semibold text-[#C84B31]">{iconDown} Main Game</span>;
+  return <span className="flex items-center gap-1 text-xs font-semibold text-[#C84B31]">{iconDown} Dipotong</span>;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -100,9 +104,8 @@ export default function CoinPage() {
   const [packages, setPackages]       = useState<CoinPackage[]>([]);
   const [transactions, setTransactions] = useState<CoinTransaction[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
-  const [status, setStatus]           = useState<string | null>(null);
-  const [error, setError]             = useState<string | null>(null);
   const [loading, setLoading]         = useState(false);
+  const [cancellingTxId, setCancellingTxId] = useState<number | null>(null);
   const verifyingRef                  = useRef(false);
 
   // Unified voucher state
@@ -111,21 +114,20 @@ export default function CoinPage() {
   const [voucherInfo, setVoucherInfo]           = useState<VoucherInfo | null>(null);
   const [voucherCheckError, setVoucherCheckError] = useState<string | null>(null);
   const [voucherRedeeming, setVoucherRedeeming] = useState(false);
-  const [voucherRedeemMsg, setVoucherRedeemMsg] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Auto-dismiss toast
-  useEffect(() => {
-    if (!status && !error) return;
-    const t = setTimeout(() => { setStatus(null); setError(null); }, 4000);
-    return () => clearTimeout(t);
-  }, [status, error]);
+  const setWalletBalance = useAuthStore((s) => s.setWalletBalance);
 
-  // Auto-dismiss redeem message
-  useEffect(() => {
-    if (!voucherRedeemMsg) return;
-    const t = setTimeout(() => setVoucherRedeemMsg(null), 5000);
-    return () => clearTimeout(t);
-  }, [voucherRedeemMsg]);
+  const refreshWalletAndTransactions = useCallback(async () => {
+    const [walletRes, txRes] = await Promise.all([fetch("/api/coin/balance"), fetch("/api/coin/transactions")]);
+    const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
+    const newBal = walletJson.data?.wallet?.balance;
+    if (typeof newBal === "number") {
+      setWalletBalance(newBal);
+      emitCoinBalanceUpdated(newBal);
+    }
+    setWallet(walletJson.data?.wallet ?? null);
+    setTransactions(txJson.data?.transactions ?? []);
+  }, [setWalletBalance]);
 
   // Focus → auto-refresh + verify pending
   // Guard: verifyingRef mencegah concurrent calls; lastFocusRef debounce 30s
@@ -200,6 +202,11 @@ export default function CoinPage() {
         const [walletJson, packagesJson, txJson] = await Promise.all([
           walletRes.json(), packagesRes.json(), transactionsRes.json(),
         ]);
+        const initialBal = walletJson.data?.wallet?.balance;
+        if (typeof initialBal === "number") {
+          setWalletBalance(initialBal);
+          emitCoinBalanceUpdated(initialBal);
+        }
         setWallet(walletJson.data?.wallet ?? null);
         setPackages(packagesJson.data?.packages ?? []);
         setTransactions(txJson.data?.transactions ?? []);
@@ -207,17 +214,10 @@ export default function CoinPage() {
           setSelectedPackage(packagesJson.data.packages[0].id);
         }
       } catch {
-        setError("Gagal memuat data coin");
+        toast.error("Gagal Memuat", "Gagal memuat data coin dan transaksi.");
       }
     }
     load();
-  }, []);
-
-  const refreshWalletAndTransactions = useCallback(async () => {
-    const [walletRes, txRes] = await Promise.all([fetch("/api/coin/balance"), fetch("/api/coin/transactions")]);
-    const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
-    setWallet(walletJson.data?.wallet ?? null);
-    setTransactions(txJson.data?.transactions ?? []);
   }, []);
 
   // ── Voucher: check ──────────────────────────────────────────────────────────
@@ -228,17 +228,18 @@ export default function CoinPage() {
     setVoucherChecking(true);
     setVoucherInfo(null);
     setVoucherCheckError(null);
-    setVoucherRedeemMsg(null);
 
     const res = await fetch(`/api/coin/check-voucher?code=${encodeURIComponent(code)}`);
     const json = await res.json();
 
     if (!json.success) {
       setVoucherCheckError(json.message);
+      toast.error("Voucher Tidak Valid", json.message || "Kode voucher tidak ditemukan atau sudah kedaluwarsa.");
     } else {
       const d = json.data;
       if (d.type === "coin_credit") {
         setVoucherInfo({ type: "coin_credit", code: d.code, coinValue: d.coin_value });
+        toast.success("Voucher Ditemukan!", `Voucher koin gratis +${d.coin_value} coin siap diklaim.`);
       } else {
         setVoucherInfo({
           type:          "topup_discount",
@@ -248,6 +249,7 @@ export default function CoinPage() {
           maxDiscount:   d.max_discount,
           minPurchase:   d.min_purchase,
         });
+        toast.success("Voucher Diskon Diterapkan!", `Diskon voucher siap digunakan untuk paket topup.`);
       }
     }
     setVoucherChecking(false);
@@ -257,7 +259,6 @@ export default function CoinPage() {
     setVoucherInput("");
     setVoucherInfo(null);
     setVoucherCheckError(null);
-    setVoucherRedeemMsg(null);
   }
 
   // ── Voucher: redeem coin credit ─────────────────────────────────────────────
@@ -270,10 +271,12 @@ export default function CoinPage() {
       body:    JSON.stringify({ code: voucherInfo.code }),
     });
     const json = await res.json();
-    setVoucherRedeemMsg({ ok: json.success, msg: json.message });
     if (json.success) {
+      toast.success("Voucher Berhasil Diklaim! 🎉", `+${voucherInfo.coinValue} coin telah ditambahkan ke dompetmu.`);
       clearVoucher();
       await refreshWalletAndTransactions();
+    } else {
+      toast.error("Gagal Mengklaim", json.message || "Gagal mengklaim voucher.");
     }
     setVoucherRedeeming(false);
   }
@@ -282,7 +285,7 @@ export default function CoinPage() {
   async function handleTopup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedPackage) return;
-    setLoading(true); setError(null); setStatus(null);
+    setLoading(true);
 
     const useVoucher =
       voucherInfo?.type === "topup_discount" && meetsMinimum
@@ -299,13 +302,13 @@ export default function CoinPage() {
     });
     const json: { success: boolean; message: string; data: TopupResponse } = await res.json();
 
-    if (!res.ok) {
-      setError(json.message);
+    if (!res.ok || !json.success) {
+      toast.error("Gagal Top Up", json.message || "Terjadi kesalahan saat memproses top up.");
     } else {
-      setStatus(json.message);
+      toast.success("Transaksi Dibuat!", json.message || "Silakan selesaikan pembayaran di jendela baru.");
       if (useVoucher) clearVoucher();
       await refreshWalletAndTransactions();
-      if (json.data.payment_url) window.open(json.data.payment_url, "_blank");
+      if (json.data?.payment_url) window.open(json.data.payment_url, "_blank");
     }
     setLoading(false);
   }
@@ -313,8 +316,47 @@ export default function CoinPage() {
   function handlePayPending(tx: CoinTransaction) {
     const meta = tx.metadata as Record<string, unknown> | null;
     const paymentUrl = meta?.payment_url as string | undefined;
-    if (paymentUrl) window.open(paymentUrl, "_blank");
-    else setError("Link pembayaran tidak ditemukan, silakan buat topup baru.");
+    if (paymentUrl) {
+      window.open(paymentUrl, "_blank");
+    } else {
+      toast.error("Link Tidak Ditemukan", "Link pembayaran tidak ditemukan, silakan buat transaksi baru.");
+    }
+  }
+
+  // ── Cancel pending topup ───────────────────────────────────────────────────
+  async function handleCancelPending(tx: CoinTransaction) {
+    const confirmed = await dialog.confirm({
+      title: "Batalkan Transaksi?",
+      description: `Apakah kamu yakin ingin membatalkan transaksi top up +${tx.amount} koin? Transaksi yang dibatalkan tidak dapat dilanjutkan lagi.`,
+      badge: "Batalkan Top Up",
+      confirmText: "Ya, Batalkan",
+      cancelText: "Kembali",
+      variant: "danger",
+      isDanger: true,
+    });
+
+    if (!confirmed) return;
+
+    setCancellingTxId(tx.id);
+    try {
+      const res = await fetch("/api/coin/cancel-topup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transaction_id: tx.id }),
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        toast.success("Transaksi Dibatalkan", "Transaksi top up berhasil dibatalkan.");
+        await refreshWalletAndTransactions();
+      } else {
+        toast.error("Gagal Membatalkan", json.message || "Gagal membatalkan transaksi.");
+      }
+    } catch {
+      toast.error("Gagal Membatalkan", "Terjadi kesalahan jaringan.");
+    } finally {
+      setCancellingTxId(null);
+    }
   }
 
   // ── Discount label helper ────────────────────────────────────────────────────
@@ -329,40 +371,37 @@ export default function CoinPage() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full blur-[120px]"
-        style={{ background: "radial-gradient(ellipse, rgba(52,211,153,0.09) 0%, transparent 70%)" }}
-      />
-
+    <main className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       {/* Header */}
-      <div className="mb-10">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Dashboard / Coin</p>
-        <h1 className="mt-2 text-2xl sm:text-4xl font-bold tracking-tight text-[#FFF5F8]">
-          Coin{" "}
-          <span style={{ backgroundImage: "linear-gradient(90deg, #34D399, #6EE7B7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Wallet
-          </span>
+      <div className="mb-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#E7E5E4] bg-[#FEF3C7] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#D97706]">
+          <span>🪙</span>
+          <span>Dompet Koin</span>
+        </div>
+        <h1 className="mt-3 font-serif text-3xl sm:text-4xl text-[#1F1D1B] tracking-tight">
+          Coin & Wallet
         </h1>
-        <p className="mt-2 text-sm text-[#5C5470]">Topup coin dan kelola riwayat transaksi kamu.</p>
+        <p className="mt-1.5 text-xs sm:text-sm text-[#78716C]">
+          Topup koin untuk bermain game room, redeem voucher hadiah, dan pantau seluruh riwayat transaksi.
+        </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
         {/* ── Left column ── */}
-        <div className="space-y-4 lg:col-span-3">
+        <div className="space-y-6 lg:col-span-3">
 
           {/* Balance card */}
-          <div className="relative overflow-hidden rounded-2xl border border-[#34D399]/20 bg-linear-to-br from-[#34D399]/10 to-transparent p-6">
-            <div aria-hidden className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full blur-2xl" style={{ background: "rgba(52,211,153,0.15)" }} />
+          <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 shadow-xl shadow-black/2">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Saldo Coin</p>
-                <p className="mt-2 text-5xl font-bold tabular-nums text-[#FFF5F8]">{wallet?.balance ?? 0}</p>
-                <p className="mt-1 text-sm text-[#5C5470]">coins tersedia</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#78716C]">Total Saldo Koin</p>
+                <p className="mt-3 font-mono text-4xl sm:text-5xl font-bold tabular-nums text-[#1F1D1B]">{wallet?.balance ?? 0}</p>
+                <p className="mt-2 text-xs font-semibold text-[#D97706] inline-flex items-center gap-1.5 bg-[#FEF3C7] border border-[#FDE68A] px-2.5 py-0.5 rounded-full">
+                  <span>🪙</span> Siap digunakan untuk semua game
+                </p>
               </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#34D399]/15">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="1.8">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FEF3C7] border border-[#FDE68A] text-[#D97706]">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" />
                   <path d="M12 6v2M12 16v2M9 9h4a1.5 1.5 0 0 1 0 3H9M9 12h5a1.5 1.5 0 0 1 0 3H9" strokeLinecap="round" />
                 </svg>
@@ -371,18 +410,12 @@ export default function CoinPage() {
           </div>
 
           {/* ── Voucher card (UNIFIED) ── */}
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
+          <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 shadow-xl shadow-black/2">
             <div className="mb-1 flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="1.8">
-                <path d="M20 12V22H4V12" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M22 7H2v5h20V7z" strokeLinecap="round" />
-                <path d="M12 22V7" strokeLinecap="round" />
-                <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" strokeLinecap="round" />
-                <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" strokeLinecap="round" />
-              </svg>
-              <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Punya Kode Voucher?</p>
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FEF3C7] text-xs font-bold text-[#D97706]">🎁</span>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#78716C]">Punya Kode Voucher?</h2>
             </div>
-            <p className="mt-0.5 text-sm text-[#5C5470]">Coin gratis atau diskon topup — masukkan kode dan cek dulu.</p>
+            <p className="mt-1 text-xs text-[#78716C]">Klaim koin gratis atau diskon topup dengan memasukkan kode unik.</p>
 
             {/* Input row */}
             {!voucherInfo ? (
@@ -394,33 +427,33 @@ export default function CoinPage() {
                     setVoucherInput(e.target.value.toUpperCase());
                     setVoucherCheckError(null);
                   }}
-                  placeholder="Contoh: WELCOME10 atau SALE-20"
+                  placeholder="Contoh: WELCOME10 atau DISKON20"
                   maxLength={50}
-                  className="flex-1 rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 font-mono text-sm text-[#FFF5F8] placeholder-[#5C5470] outline-none transition focus:border-[#A78BFA]/50 focus:ring-1 focus:ring-[#A78BFA]/20"
+                  className="flex-1 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 font-mono text-xs font-bold text-[#1F1D1B] placeholder-[#A8A29E] outline-none transition focus:border-[#C84B31] focus:bg-white"
                 />
                 <button
                   type="submit"
                   disabled={voucherChecking || !voucherInput.trim()}
-                  className="flex items-center gap-1.5 rounded-xl bg-[#A78BFA] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#C4B5FD] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-xl bg-[#1F1D1B] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#383330] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer shadow-xs"
                 >
                   {voucherChecking ? (
                     <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                     </svg>
                   ) : null}
-                  {voucherChecking ? "Cek..." : "Cek"}
+                  {voucherChecking ? "Cek..." : "Periksa"}
                 </button>
               </form>
             ) : (
               /* Clear button when voucher is loaded */
               <div className="mt-4 flex items-center gap-2">
-                <span className="flex-1 rounded-xl border border-[#A78BFA]/30 bg-[#A78BFA]/5 px-4 py-2.5 font-mono text-sm text-[#A78BFA]">
+                <span className="flex-1 rounded-xl border border-[#FDE68A] bg-[#FEF3C7] px-4 py-2.5 font-mono text-xs font-bold text-[#D97706]">
                   {voucherInfo.code}
                 </span>
                 <button
                   type="button"
                   onClick={clearVoucher}
-                  className="flex items-center gap-1.5 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-[#5C5470] transition hover:border-white/20 hover:text-[#9B93B0]"
+                  className="flex items-center gap-1.5 rounded-xl border border-[#E7E5E4] bg-white px-4 py-2.5 text-xs font-semibold text-[#78716C] transition hover:border-[#D6D3D1] hover:text-[#1F1D1B] cursor-pointer"
                 >
                   Ganti
                 </button>
@@ -429,7 +462,7 @@ export default function CoinPage() {
 
             {/* Check error */}
             {voucherCheckError && (
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-red-400">
+              <p className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
@@ -439,64 +472,53 @@ export default function CoinPage() {
 
             {/* ── Coin credit result ── */}
             {voucherInfo?.type === "coin_credit" && (
-              <div className="mt-4 rounded-xl border border-[#A78BFA]/20 bg-[#A78BFA]/5 p-4">
+              <div className="mt-4 rounded-xl border border-[#FDE68A] bg-[#FEF3C7] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-[#FFF5F8]">
-                      +{voucherInfo.coinValue} coin gratis
+                    <p className="text-xs font-bold text-[#1F1D1B]">
+                      +{voucherInfo.coinValue} Coin Gratis
                     </p>
-                    <p className="mt-0.5 text-xs text-[#5C5470]">
-                      Coin langsung masuk ke dompetmu setelah redeem
+                    <p className="mt-0.5 text-xs text-[#78716C]">
+                      Koin akan langsung ditambahkan ke saldo dompetmu.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleRedeemCoinVoucher}
                     disabled={voucherRedeeming}
-                    className="shrink-0 rounded-xl bg-[#A78BFA] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#C4B5FD] disabled:opacity-50"
+                    className="shrink-0 rounded-xl bg-[#C84B31] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#B33E26] disabled:opacity-50 cursor-pointer shadow-xs"
                   >
-                    {voucherRedeeming ? "Proses..." : "Redeem"}
+                    {voucherRedeeming ? "Memproses..." : "Klaim Koin"}
                   </button>
                 </div>
-                {voucherRedeemMsg && (
-                  <p className={`mt-3 flex items-center gap-1.5 text-xs ${voucherRedeemMsg.ok ? "text-[#34D399]" : "text-red-400"}`}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      {voucherRedeemMsg.ok
-                        ? <polyline points="20 6 9 17 4 12" />
-                        : <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>
-                      }
-                    </svg>
-                    {voucherRedeemMsg.msg}
-                  </p>
-                )}
               </div>
             )}
 
             {/* ── Topup discount result ── */}
             {voucherInfo?.type === "topup_discount" && (
-              <div className="mt-4 rounded-xl border border-[#FBBF24]/20 bg-[#FBBF24]/5 p-4">
-                <p className="text-sm font-semibold text-[#FFF5F8]">{discountLabel(voucherInfo)}</p>
+              <div className="mt-4 rounded-xl border border-[#FDE68A] bg-[#FEF3C7] p-4">
+                <p className="text-xs font-bold text-[#D97706]">{discountLabel(voucherInfo)}</p>
                 {voucherInfo.minPurchase && (
-                  <p className="mt-0.5 text-xs text-[#5C5470]">Min. pembelian {fmtRp(voucherInfo.minPurchase)}</p>
+                  <p className="mt-0.5 text-[11px] text-[#78716C]">Min. pembelian {fmtRp(voucherInfo.minPurchase)}</p>
                 )}
 
                 {/* Status per package selected */}
                 {!selectedPkg ? (
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-[#5C5470]">
+                  <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[#78716C]">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z" />
                     </svg>
-                    Pilih paket di bawah untuk melihat hematnya
+                    Pilih paket di bawah untuk melihat diskon
                   </p>
                 ) : !meetsMinimum ? (
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-yellow-400">
+                  <p className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-[#D97706]">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
-                    Pilih paket min. {fmtRp(voucherInfo.minPurchase!)} untuk pakai voucher ini
+                    Pilih paket min. {fmtRp(voucherInfo.minPurchase!)} untuk memakai voucher ini
                   </p>
                 ) : discount !== null ? (
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-[#FBBF24]">
+                  <p className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-[#10B981]">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
@@ -508,9 +530,9 @@ export default function CoinPage() {
           </div>
 
           {/* ── Topup section ── */}
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-            <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Top Up Coin</p>
-            <p className="mt-1 text-sm text-[#5C5470]">Pilih paket yang sesuai, lalu lanjutkan ke pembayaran.</p>
+          <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 shadow-xl shadow-black/2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[#78716C]">Pilih Paket Top Up</h2>
+            <p className="mt-1 text-xs text-[#78716C]">Pilih nominal koin yang ingin ditambahkan ke akunmu.</p>
 
             {/* Package grid */}
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -519,59 +541,59 @@ export default function CoinPage() {
                   key={pkg.id}
                   type="button"
                   onClick={() => setSelectedPackage(pkg.id)}
-                  className={`relative rounded-xl border p-4 text-left transition-all ${
+                  className={`relative rounded-xl border p-4 text-left transition cursor-pointer ${
                     selectedPackage === pkg.id
-                      ? "border-[#34D399]/50 bg-[#34D399]/10 ring-1 ring-[#34D399]/30"
-                      : "border-white/[0.07] bg-[#18181C] hover:border-white/20"
+                      ? "border-[#C84B31] bg-[#FDF4F2] ring-1 ring-[#C84B31]/20"
+                      : "border-[#E7E5E4] bg-[#FCFBF7] hover:border-[#D6D3D1] hover:bg-white"
                   }`}
                 >
                   {selectedPackage === pkg.id && (
-                    <span className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-[#34D399]">
+                    <span className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-[#C84B31]">
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </span>
                   )}
-                  <p className="text-lg font-bold text-[#FFF5F8]">
+                  <p className="text-lg font-bold text-[#1F1D1B]">
                     {pkg.coin_amount}
-                    <span className="ml-1 text-sm font-normal text-[#5C5470]">coin</span>
+                    <span className="ml-1 text-xs font-normal text-[#78716C]">coin</span>
                   </p>
-                  <p className="mt-1 text-xs font-medium text-[#34D399]">{fmtRp(pkg.price)}</p>
-                  <p className="mt-0.5 text-[10px] text-[#5C5470]">{pkg.name}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#C84B31]">{fmtRp(pkg.price)}</p>
+                  <p className="mt-0.5 text-[10px] text-[#78716C]">{pkg.name}</p>
                 </button>
               ))}
               {packages.length === 0 && (
-                <div className="col-span-2 rounded-xl border border-dashed border-white/10 py-8 text-center text-sm text-[#5C5470]">
-                  Belum ada paket tersedia
+                <div className="col-span-2 rounded-xl border border-dashed border-[#E7E5E4] py-8 text-center text-xs text-[#78716C]">
+                  Belum ada paket koin tersedia
                 </div>
               )}
             </div>
 
             {/* Summary + CTA */}
             {selectedPkg && (
-              <form onSubmit={handleTopup} className="mt-5">
-                <div className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-[#18181C] px-4 py-3">
+              <form onSubmit={handleTopup} className="mt-6 border-t border-[#F5F5F4] pt-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] p-4">
                   <div>
-                    <p className="text-xs text-[#5C5470]">Total pembayaran</p>
+                    <p className="text-[11px] font-medium text-[#78716C]">Total Pembayaran</p>
                     {discount !== null ? (
                       <>
-                        <p className="text-base font-bold text-[#FFF5F8]">
+                        <p className="text-lg font-bold text-[#1F1D1B]">
                           {fmtRp(selectedPkg.price - discount)}
-                          <span className="ml-2 text-xs font-normal text-[#34D399]">→ {selectedPkg.coin_amount} coin</span>
+                          <span className="ml-2 text-xs font-semibold text-[#10B981]">({selectedPkg.coin_amount} Coin)</span>
                         </p>
-                        <p className="text-[10px] text-[#5C5470] line-through">{fmtRp(selectedPkg.price)}</p>
+                        <p className="text-[10px] text-[#A8A29E] line-through">{fmtRp(selectedPkg.price)}</p>
                       </>
                     ) : (
-                      <p className="text-base font-bold text-[#FFF5F8]">
+                      <p className="text-lg font-bold text-[#1F1D1B]">
                         {fmtRp(selectedPkg.price)}
-                        <span className="ml-2 text-xs font-normal text-[#34D399]">→ {selectedPkg.coin_amount} coin</span>
+                        <span className="ml-2 text-xs font-semibold text-[#C84B31]">({selectedPkg.coin_amount} Coin)</span>
                       </p>
                     )}
                   </div>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center gap-2 rounded-xl bg-[#34D399] px-5 py-2.5 text-sm font-semibold text-[#0A0A0B] shadow-[0_4px_16px_rgba(52,211,153,0.3)] transition hover:bg-[#6EE7B7] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                   >
                     {loading ? (
                       <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -582,7 +604,7 @@ export default function CoinPage() {
                         <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     )}
-                    {loading ? "Memproses..." : "Topup"}
+                    {loading ? "Memproses..." : "Beli Sekarang"}
                   </button>
                 </div>
               </form>
@@ -592,17 +614,17 @@ export default function CoinPage() {
 
         {/* ── Right column: transaction history ── */}
         <div className="lg:col-span-2">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-            <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Riwayat Transaksi</p>
-            <div className="mt-5 max-h-161 space-y-3 overflow-y-auto pr-1 [scrollbar-color:#2D2A3E_transparent] [scrollbar-width:thin]">
+          <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xl shadow-black/2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[#78716C]">Riwayat Transaksi</h2>
+            <div className="mt-4 max-h-[580px] space-y-3 overflow-y-auto pr-1 [scrollbar-width:thin]">
               {transactions.length === 0 && (
-                <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
-                  <svg className="mx-auto mb-3 text-[#5C5470]" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <div className="rounded-xl border border-dashed border-[#E7E5E4] py-12 text-center">
+                  <svg className="mx-auto mb-2 text-[#A8A29E]" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
                   </svg>
-                  <p className="text-sm text-[#5C5470]">Belum ada transaksi</p>
+                  <p className="text-xs text-[#78716C]">Belum ada riwayat transaksi</p>
                 </div>
               )}
               {transactions.map((tx) => {
@@ -612,37 +634,49 @@ export default function CoinPage() {
                 const isRefund    = reason === "session_expired_refund";
                 const isGame      = reason === "game_session_created" || reason === "game_session_joined";
                 const gameLabel   = gameType === "tod" ? "Truth or Dare" : gameType === "snake_ladder" ? "Ular Tangga" : null;
-                const amountColor = isRefund ? "text-[#60A5FA]" : tx.type === "topup" ? "text-[#34D399]" : "text-[#FF6B9D]";
+                const amountColor = isRefund ? "text-[#2563EB]" : tx.type === "topup" ? "text-[#10B981]" : "text-[#C84B31]";
                 return (
-                  <div key={tx.id} className="rounded-xl border border-white/[0.07] bg-[#18181C] p-4">
+                  <div key={tx.id} className="rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] p-3.5 transition hover:border-[#D6D3D1] hover:bg-white">
                     <div className="flex items-start justify-between gap-2">
                       <TypeBadge type={tx.type} metadata={tx.metadata} />
                       <StatusBadge status={tx.payment_status} />
                     </div>
                     <div className="mt-2 flex items-baseline gap-1.5">
-                      <span className={`text-xl font-bold ${amountColor}`}>
+                      <span className={`text-lg font-bold ${amountColor}`}>
                         {tx.type === "topup" ? "+" : "-"}{tx.amount}
                       </span>
-                      <span className="text-xs text-[#5C5470]">coin</span>
+                      <span className="text-[11px] text-[#78716C]">coin</span>
                     </div>
                     {gameLabel && (
-                      <p className="mt-1 text-[10px] text-[#5C5470]">🎮 {gameLabel}{sessionCode ? ` · ${sessionCode}` : ""}</p>
+                      <p className="mt-1 text-[11px] font-medium text-[#78716C]">🎮 {gameLabel}{sessionCode ? ` · ${sessionCode}` : ""}</p>
                     )}
                     {!isGame && !isRefund && tx.payment_reference && (
-                      <p className="mt-1.5 font-mono text-[10px] text-[#5C5470] break-all">{tx.payment_reference}</p>
+                      <p className="mt-1 font-mono text-[10px] text-[#A8A29E] break-all">{tx.payment_reference}</p>
                     )}
                     {tx.paid_at && (
-                      <p className="mt-1 text-[10px] text-[#5C5470]">
+                      <p className="mt-1 text-[10px] text-[#A8A29E]">
                         {new Date(tx.paid_at).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </p>
                     )}
                     {tx.payment_status === "pending" && tx.type === "topup" && (
-                      <button
-                        onClick={() => handlePayPending(tx)}
-                        className="mt-3 w-full rounded-lg bg-[#34D399]/10 py-2 text-xs font-semibold text-[#34D399] transition hover:bg-[#34D399]/20"
-                      >
-                        Lanjutkan Pembayaran
-                      </button>
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handlePayPending(tx)}
+                          disabled={cancellingTxId === tx.id}
+                          className="flex-1 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] py-1.5 text-xs font-semibold text-[#D97706] transition hover:bg-[#FDE68A]/60 cursor-pointer disabled:opacity-50 text-center"
+                        >
+                          Lanjutkan Pembayaran
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCancelPending(tx)}
+                          disabled={cancellingTxId === tx.id}
+                          className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 hover:border-red-300 cursor-pointer disabled:opacity-50"
+                        >
+                          {cancellingTxId === tx.id ? "Batal..." : "Batalkan"}
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
@@ -651,35 +685,6 @@ export default function CoinPage() {
           </div>
         </div>
       </div>
-
-      {/* Toast */}
-      {(status || error) && (
-        <div className={`fixed right-6 top-6 z-50 flex max-w-sm items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur-sm transition-all ${
-          error
-            ? "border-red-500/25 bg-[#1A0A10]/95 text-red-300"
-            : "border-[#34D399]/25 bg-[#0A1A12]/95 text-[#34D399]"
-        }`}>
-          {error ? (
-            <svg className="mt-0.5 shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-          ) : (
-            <svg className="mt-0.5 shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
-          <p className="text-sm leading-snug">{error ?? status}</p>
-          <button
-            type="button"
-            onClick={() => { setError(null); setStatus(null); }}
-            className="ml-1 shrink-0 opacity-50 transition hover:opacity-100"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-      )}
     </main>
   );
 }

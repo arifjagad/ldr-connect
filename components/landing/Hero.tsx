@@ -1,191 +1,112 @@
+"use client";
+
 import Link from "next/link";
 
 export function Hero() {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-[#0A0A0B]">
-      {/* Background layers */}
-      <div
-        className="pointer-events-none absolute -left-60 -top-60 h-[700px] w-[700px] rounded-full animate-glow-pulse"
-        style={{ background: "radial-gradient(circle, #FF3D7F 0%, transparent 70%)", opacity: 0.14 }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full"
-        style={{ background: "radial-gradient(circle, #FF3D7F 0%, transparent 70%)", opacity: 0.06 }}
-      />
-      {/* Dot grid */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{
-          backgroundImage: "radial-gradient(circle, #FF3D7F18 1px, transparent 1px)",
-          backgroundSize: "36px 36px",
-        }}
-      />
-      {/* Watermark */}
-      <div className="pointer-events-none absolute bottom-0 right-0 select-none text-[18rem] font-black leading-none text-[#FF3D7F] opacity-[0.03]">
-        LDR
-      </div>
-
-      <div className="relative mx-auto grid min-h-screen w-full max-w-7xl items-center gap-10 px-5 pb-16 pt-16 sm:pb-24 sm:pt-20 lg:gap-16 lg:grid-cols-[1.15fr_0.85fr] lg:px-8">
-        {/* ── Left copy ── */}
-        <div>
-          {/* Badge */}
-          <div className="mb-8 inline-flex items-center gap-2.5 rounded-full border border-[#FF3D7F40] bg-[#FF3D7F15] px-5 py-2.5">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[#FF3D7F]" />
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#FF6B9D]">
-              Platform #1 untuk pasangan LDR
-            </span>
-          </div>
-
-          {/* Headline */}
-          <h1 className="font-black leading-[1.0] tracking-tight text-[#FFF5F8]">
-            <span className="block text-4xl sm:text-6xl lg:text-[6rem]">Main <span className="text-[#FF3D7F]">bareng,</span></span>
-            <span className="block text-4xl sm:text-6xl lg:text-[6rem]">walau beda</span>
-            <span
-              className="block text-4xl sm:text-6xl lg:text-[6rem]"
-              style={{
-                WebkitTextStroke: "2px #FF3D7F",
-                color: "transparent",
-              }}
-            >
-              kota.
-            </span>
-          </h1>
-
-          <p className="mt-8 max-w-md text-lg leading-relaxed text-[#9B93B0]">
-            Mini-games romantis, sistem coin fleksibel, sesi real-time — semuanya untuk kalian
-            yang terpisah jarak, tapi dekat di hati.
-          </p>
-
-          {/* CTAs */}
-          <div className="mt-10 flex flex-wrap items-center gap-4">
-            <Link
-              href="/auth/register"
-              className="group inline-flex items-center gap-2 rounded-full bg-[#FF3D7F] px-8 py-4 text-sm font-bold text-white shadow-[0_0_0_0_#FF3D7F] transition-all duration-300 hover:bg-[#FF6B9D] hover:shadow-[0_0_32px_#FF3D7F60]"
-            >
-              Mulai Gratis
-              <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
-            </Link>
-            <Link
-              href="/games"
-              className="inline-flex items-center gap-2 rounded-full border border-white/15 px-8 py-4 text-sm font-bold text-[#FFF5F8] transition-all duration-300 hover:border-[#FF3D7F50] hover:bg-[#FF3D7F08]"
-            >
-              Lihat Games
-            </Link>
-          </div>
-
-          {/* Social proof */}
-          <div className="mt-12 flex items-center gap-4">
-            <div className="flex -space-x-2.5">
-              {["A", "S", "R", "M", "D"].map((l, i) => (
-                <div
-                  key={i}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#0A0A0B] text-xs font-bold text-white"
-                  style={{ background: `linear-gradient(135deg, #FF3D7F, #c026a0)`, zIndex: 5 - i }}
-                >
-                  {l}
-                </div>
-              ))}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-[#FFF5F8]">500+ pasangan aktif</p>
-              <p className="text-xs text-[#5C5470]">bergabung bulan ini</p>
-            </div>
-          </div>
+    <section className="relative overflow-hidden bg-[#FCFBF7] pt-12 pb-16 lg:pt-16 lg:pb-24">
+      <div className="mx-auto w-full max-w-4xl px-6 text-center">
+        {/* Subtitle tag */}
+        <div className="inline-flex items-center">
+          <span className="text-[11px] font-semibold tracking-wider text-[#C84B31] uppercase">
+            Main Bareng, Walau Beda Kota
+          </span>
         </div>
 
-        {/* ── Right: floating game mockup ── */}
-        <div className="relative flex justify-center lg:justify-end">
-          {/* Glow halo */}
-          <div className="absolute inset-4 rounded-3xl bg-[#FF3D7F] opacity-20 blur-3xl" />
+        {/* Big Editorial Headline */}
+        <h1 className="font-editorial mt-4 text-4xl leading-[1.18] font-normal tracking-tight text-[#1F1D1B] sm:text-6xl lg:text-[4rem]">
+          Mendekatkan yang jauh dengan <br />
+          tawa dan rahasia.
+        </h1>
 
-          <div className="animate-float relative w-full max-w-[340px] rounded-2xl border border-[#FF3D7F25] bg-[#111113] p-5 shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FF3D7F20] text-lg">
-                  🎲
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-[#FFF5F8]">Truth or Dare</p>
-                  <p className="text-[10px] text-[#5C5470]">Sesi #4892</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-1">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />
-                <span className="text-[10px] font-bold text-green-400">LIVE</span>
-              </div>
-            </div>
+        {/* Description */}
+        <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-[#78716C] sm:text-base">
+          Platform romantis khusus pasangan LDR untuk bermain mini-games interaktif,
+          berbagi kejujuran, dan menciptakan memori bermakna secara real-time.
+        </p>
 
-            {/* Question */}
-            <div className="mt-4 rounded-xl border border-[#FF3D7F20] bg-gradient-to-br from-[#FF3D7F12] to-[#18181C] p-4">
-              <div className="mb-2.5 flex items-center gap-2">
-                <span className="rounded-full bg-[#FF3D7F] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
-                  Truth
-                </span>
-                <span className="text-[10px] text-[#5C5470]">Kategori: Romantis</span>
-              </div>
-              <p className="text-sm font-semibold leading-relaxed text-[#FFF5F8]">
-                Apa hal pertama yang kamu perhatikan dari aku?
-              </p>
-            </div>
-
-            {/* Players */}
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <div className="flex items-center gap-2 rounded-xl bg-[#FF3D7F12] border border-[#FF3D7F20] p-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#FF3D7F] text-xs font-bold text-white">
-                  A
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-[#FFF5F8]">Andi</p>
-                  <p className="text-[10px] font-medium text-[#FF6B9D]">● Giliran</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 rounded-xl bg-[#18181C] p-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-fuchsia-600/30 text-xs font-bold text-fuchsia-300">
-                  S
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-[#FFF5F8]">Sari</p>
-                  <p className="text-[10px] text-[#5C5470]">Menunggu</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button className="rounded-xl bg-[#FF3D7F] py-3 text-xs font-black text-white transition hover:bg-[#FF6B9D]">
-                Truth ✓
-              </button>
-              <button className="rounded-xl border border-white/8 bg-[#18181C] py-3 text-xs font-bold text-[#9B93B0] transition hover:border-[#FF3D7F30] hover:text-[#FFF5F8]">
-                Dare ⚡
-              </button>
-            </div>
-
-            {/* Progress bar */}
-            <div className="mt-3 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#18181C]">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: "60%", background: "linear-gradient(90deg, #FF3D7F, #FF6B9D)" }}
-                />
-              </div>
-              <span className="text-[10px] font-semibold text-[#5C5470]">6/10</span>
-            </div>
-          </div>
-
-          {/* Floating badge 1 */}
-          <div
-            className="absolute -left-4 top-8 hidden sm:block rounded-xl border border-[#FF3D7F20] bg-[#111113] px-3 py-2 shadow-xl"
-            style={{ animationDelay: "1s" }}
+        {/* Action Buttons */}
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <Link
+            href="/auth/register"
+            className="rounded-full bg-[#C84B31] px-6 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#B33E26]"
           >
-            <p className="text-[10px] font-semibold text-[#5C5470]">Pertanyaan AI</p>
-            <p className="text-xs font-bold text-[#FF6B9D]">✨ Generated</p>
+            Mulai Gratis
+          </Link>
+          <Link
+            href="/#games"
+            className="rounded-full border border-[#E7E5E4] bg-white px-5 py-2.5 text-xs font-semibold text-[#1F1D1B] shadow-xs transition-all hover:bg-[#F5F5F4]"
+          >
+            Lihat Games
+          </Link>
+        </div>
+
+        {/* Live Game Mockup Card */}
+        <div className="mt-14 overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xl sm:p-8">
+          {/* Card Topbar */}
+          <div className="flex items-center justify-between border-b border-[#F5F5F4] pb-4">
+            <div className="flex items-center gap-2">
+              <div className="flex -space-x-1.5">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#C84B31] text-[9px] font-bold text-white">
+                  R
+                </div>
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1F1D1B] text-[9px] font-bold text-white">
+                  D
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-[#1F1D1B]">
+                Rina & Dimas (Jakarta — Bandung)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span>Terhubung Real-time</span>
+            </div>
           </div>
 
-          {/* Floating badge 2 */}
-          <div className="absolute -right-4 bottom-16 hidden sm:block rounded-xl border border-[#FF3D7F20] bg-[#111113] px-3 py-2 shadow-xl">
-            <p className="text-[10px] font-semibold text-[#5C5470]">Coin terpakai</p>
-            <p className="text-xs font-bold text-[#FFF5F8]">🪙 1 Coin</p>
+          {/* Card Main Body */}
+          <div className="grid gap-6 pt-8 pb-4 md:grid-cols-[1.6fr_1fr]">
+            {/* Left: Truth Question */}
+            <div className="flex flex-col items-center justify-center rounded-xl border border-[#F5F5F4] bg-[#FCFBF7] p-8 text-center">
+              <span className="text-[10px] font-bold tracking-widest text-[#C84B31] uppercase">
+                Pertanyaan Ke-12 (Truth)
+              </span>
+              <p className="font-editorial mt-4 text-xl font-normal leading-snug text-[#1F1D1B] sm:text-2xl">
+                &ldquo;Kapan momen pertama kali kamu sadar kalau aku adalah orang yang tepat buat kamu?&rdquo;
+              </p>
+              <div className="mt-6 inline-flex items-center rounded-full bg-white px-4 py-1 text-xs text-[#78716C] shadow-xs">
+                <span>Rina sedang mengetik...</span>
+              </div>
+            </div>
+
+            {/* Right: Live Reaction Activity */}
+            <div className="flex flex-col justify-between rounded-xl border border-[#F5F5F4] bg-white p-5 text-left">
+              <div>
+                <span className="text-[10px] font-bold tracking-wider text-[#78716C] uppercase">
+                  Live Reaction
+                </span>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-lg bg-[#FCFBF7] p-3 text-xs">
+                    <p className="font-medium text-[#1F1D1B]">
+                      Aaa pertanyaannya bikin baper! ❤️
+                    </p>
+                    <span className="mt-1 block text-[10px] text-[#A8A29E]">Rina • Baru saja</span>
+                  </div>
+                  <div className="rounded-lg bg-[#FCFBF7] p-3 text-xs">
+                    <p className="font-medium text-[#1F1D1B]">
+                      Hahaha jawab dong jujur!
+                    </p>
+                    <span className="mt-1 block text-[10px] text-[#A8A29E]">Dimas • Baru saja</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between border-t border-[#F5F5F4] pt-3 text-[11px] text-[#78716C]">
+                <span>Status Jawaban:</span>
+                <span className="font-semibold text-emerald-600">Sync 100%</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

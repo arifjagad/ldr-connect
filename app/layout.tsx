@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Sora } from "next/font/google";
+import { Newsreader, Plus_Jakarta_Sans } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
-const sora = Sora({
-  variable: "--font-sora",
+const serifFont = Newsreader({
+  variable: "--font-serif",
   subsets: ["latin"],
+  style: ["normal", "italic"],
 });
 
 const jakarta = Plus_Jakarta_Sans({
@@ -17,46 +18,10 @@ const jakarta = Plus_Jakarta_Sans({
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://ldr-connect.netlify.app";
 
 export const metadata: Metadata = {
-  title: "LDR-Connect | Game Couple LDR Terbaik Indonesia",
-  description: "Platform gaming untuk pasangan LDR di mana kalian bisa bermain bersama, mengumpulkan coin, dan memperkuat hubungan jarak jauh. Tersedia Truth or Dare, Snake & Ladder, dan Quiz.",
-  keywords: ["LDR", "game couple", "couple games", "pasangan jarak jauh", "long distance relationship", "gaming platform", "coin system"],
+  title: "LDR-Connect | Mendekatkan yang Jauh dengan Tawa dan Rahasia",
+  description: "Platform romantis khusus pasangan LDR untuk bermain mini-games interaktif, berbagi kejujuran, dan menciptakan memori bermakna secara real-time.",
+  keywords: ["LDR", "game couple", "couple games", "pasangan jarak jauh", "long distance relationship", "truth or dare online"],
   metadataBase: new URL(baseUrl),
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    type: "website",
-    locale: "id_ID",
-    url: baseUrl,
-    siteName: "LDR-Connect",
-    title: "LDR-Connect | Game Couple LDR Terbaik Indonesia",
-    description: "Platform gaming untuk pasangan LDR. Main bareng, kumpulkan coin, dan perkuat hubungan kalian!",
-    images: [
-      {
-        url: `${baseUrl}/og-image.png`,
-        width: 1200,
-        height: 630,
-        alt: "LDR-Connect - Game untuk Pasangan LDR",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "LDR-Connect | Game Couple LDR",
-    description: "Platform gaming untuk pasangan LDR. Main bareng dan perkuat hubungan kalian!",
-    images: [`${baseUrl}/og-image.png`],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
 };
 
 export const viewport: Viewport = {
@@ -73,17 +38,13 @@ export default async function RootLayout({
   const nonce = (await headers()).get("x-nonce") ?? "";
 
   return (
-    <html lang="id" className={`${sora.variable} ${jakarta.variable} h-full antialiased`} nonce={nonce} suppressHydrationWarning>
+    <html lang="id" className={`${serifFont.variable} ${jakarta.variable} h-full antialiased`} nonce={nonce} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="theme-color" content="#FF3D7F" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="LDR-Connect" />
-        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#C84B31" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="alternate" hrefLang="id" href={`${baseUrl}/`} />
       </head>
-      <body className="min-h-full bg-[#0A0A0B] text-[#FFF5F8]">
+      <body className="min-h-full bg-[#FCFBF7] text-[#2D2926]">
         <AppShell>{children}</AppShell>
       </body>
     </html>

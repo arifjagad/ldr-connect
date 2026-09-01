@@ -88,25 +88,25 @@ export function WordScrambleGame({ duration = 20, startedAt, bonusActive = false
   return (
     <div className="flex flex-col items-center gap-5 select-none">
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">🎯 Acak Kata</p>
-        <p className="mt-1 text-xs text-[#5C5470]">Susun huruf acak menjadi kata yang benar!</p>
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🎯 Acak Kata</p>
+        <p className="mt-1 text-xs text-[#78716C]">Susun huruf acak menjadi kata yang benar!</p>
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706]">
           +50 BONUS AKTIF!
         </div>
       )}
 
       <div className="flex items-center justify-between w-full">
-        <span className="text-sm font-bold text-[#818CF8]">{word.length} huruf</span>
+        <span className="text-xs font-bold text-[#C84B31]">{word.length} huruf</span>
         <span
           className={`text-sm font-bold tabular-nums ${
             timeLeft <= 5
-              ? "text-red-400 animate-pulse"
+              ? "text-red-500 animate-pulse"
               : timeLeft <= 10
-              ? "text-yellow-400"
-              : "text-[#FFF5F8]"
+              ? "text-[#D97706]"
+              : "text-[#1F1D1B]"
           }`}
         >
           {timeLeft}s
@@ -117,7 +117,7 @@ export function WordScrambleGame({ duration = 20, startedAt, bonusActive = false
         {scrambled.split("").map((letter, i) => (
           <div
             key={i}
-            className="w-10 h-10 rounded-xl border border-[#818CF8]/40 bg-[#818CF8]/10 flex items-center justify-center text-lg font-bold text-[#818CF8] uppercase"
+            className="w-10 h-10 rounded-xl border border-[#FBDCD5] bg-[#FDF4F2] flex items-center justify-center text-lg font-serif font-bold text-[#C84B31] uppercase shadow-2xs"
           >
             {letter}
           </div>
@@ -132,30 +132,30 @@ export function WordScrambleGame({ duration = 20, startedAt, bonusActive = false
             onChange={e => setInput(e.target.value.toLowerCase())}
             onKeyDown={e => e.key === "Enter" && handleSubmit()}
             placeholder="Ketik jawaban..."
-            className="w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-3 text-center text-[#FFF5F8] text-lg font-medium outline-none focus:border-[#818CF8]/60 transition"
+            className="w-full rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-3 text-center text-[#1F1D1B] text-lg font-semibold outline-none focus:border-[#C84B31] focus:bg-white focus:ring-2 focus:ring-[#C84B31]/10 transition"
             maxLength={20}
             autoComplete="off"
           />
           <button
             onClick={handleSubmit}
-            className="w-full py-3 rounded-xl bg-[#818CF8] hover:bg-[#A78BFA] text-white font-semibold transition active:scale-95"
+            className="w-full py-3 rounded-xl bg-[#C84B31] hover:bg-[#B33E26] text-white font-semibold text-xs shadow-xs transition active:scale-95 cursor-pointer"
           >
             Jawab
           </button>
         </div>
       ) : (
-        <div className="text-center py-2">
+        <div className="w-full text-center py-4 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
           {status === "correct" && (
             <>
               <p className="text-4xl mb-1">✅</p>
-              <p className="text-xl font-bold text-green-400">{word.toUpperCase()}</p>
-              <p className="text-xs text-[#9B93B0] mt-1">Benar!</p>
+              <p className="text-xl font-serif font-bold text-emerald-600">{word.toUpperCase()}</p>
+              <p className="text-xs text-[#78716C] font-semibold mt-1">Benar!</p>
             </>
           )}
           {(status === "wrong" || status === "timeout") && (
             <>
               <p className="text-4xl mb-1">{status === "wrong" ? "❌" : "⏰"}</p>
-              <p className="text-sm text-[#5C5470]">Jawabannya: <span className="text-[#FFF5F8] font-bold">{word.toUpperCase()}</span></p>
+              <p className="text-xs text-[#78716C]">Jawabannya: <span className="text-[#1F1D1B] font-serif font-bold">{word.toUpperCase()}</span></p>
             </>
           )}
         </div>

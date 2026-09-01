@@ -45,14 +45,14 @@ function CategorySelect({ value, onChange }: { value: string; onChange: (v: stri
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#18181C] px-3 py-2.5 text-xs text-[#FFF5F8] transition hover:border-[#818CF8]/40"
+        className="flex w-full items-center justify-between rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-3.5 py-2.5 text-xs font-semibold text-[#1F1D1B] transition hover:border-[#C84B31] cursor-pointer"
       >
         <span className="flex items-center gap-2">
           <span>{selected.emoji}</span>
           <span>{selected.label}</span>
         </span>
         <svg
-          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5C5470" strokeWidth="2.5"
+          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#78716C" strokeWidth="2.5"
           className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
         >
           <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -60,20 +60,20 @@ function CategorySelect({ value, onChange }: { value: string; onChange: (v: stri
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-white/10 bg-[#18181C] shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-[#E7E5E4] bg-white shadow-xl">
           {CATEGORIES.map((c) => (
             <button
               key={c.value}
               type="button"
               onClick={() => { onChange(c.value); setOpen(false); }}
-              className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-xs transition hover:bg-white/5 ${
-                c.value === value ? "text-[#818CF8] bg-[#818CF8]/8" : "text-[#9B93B0]"
+              className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-xs transition cursor-pointer hover:bg-[#FCFBF7] ${
+                c.value === value ? "font-bold text-[#C84B31] bg-[#FDF4F2]" : "text-[#78716C]"
               }`}
             >
               <span>{c.emoji}</span>
               <span>{c.label}</span>
               {c.value === value && (
-                <svg className="ml-auto" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <svg className="ml-auto" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}
@@ -462,8 +462,8 @@ function SnakeGameContent() {
       gameEmoji="🎲"
       gameSlug="snake-ladder"
       gameSubtitle="Board klasik dengan Truth or Dare di setiap kotak!"
-      accentColor="#818CF8"
-      accentColorLight="#A78BFA"
+      accentColor="#C84B31"
+      accentColorLight="#B33E26"
       phase={phase}
       // Waiting
       sessionCode={displayCode}
@@ -482,39 +482,39 @@ function SnakeGameContent() {
       idleContent={
         <>
           <GameIdleLayout
-            accentColor="#818CF8"
-            accentColorLight="#A78BFA"
+            accentColor="#C84B31"
+            accentColorLight="#B33E26"
             joinCodeInput={joinCodeInput}
             onJoinCodeChange={setJoinCodeInput}
             onJoin={handleJoin}
             joinLoading={loadingJoin}
             createContent={
               <>
-                <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#818CF8]">Buat Game Baru</p>
+                <p className="mb-5 text-xs font-bold uppercase tracking-widest text-[#C84B31]">Buat Game Baru</p>
 
                 <div className="mb-5 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#818CF8]/15">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF4F2] text-[#C84B31] border border-[#FBDCD5]">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                     </svg>
                   </div>
                   <div>
-                    <p className="font-semibold text-[#FFF5F8]">Kamu jadi host</p>
-                    <p className="text-xs text-[#5C5470]">Partner join pakai session code</p>
+                    <p className="font-bold text-[#1F1D1B]">Kamu jadi host</p>
+                    <p className="text-xs text-[#78716C]">Partner join pakai session code</p>
                   </div>
                 </div>
 
                 {/* Toggle pertanyaan */}
-                <div className="mb-4 flex items-center gap-3 rounded-xl border border-white/[0.07] p-3">
+                <div className="mb-4 flex items-center gap-2 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] p-1">
                   <button
                     onClick={() => setUseAI(false)}
-                    className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${!useAI ? "bg-[#818CF8] text-white" : "text-[#5C5470] hover:text-[#9B93B0]"}`}
+                    className={`flex-1 rounded-lg py-2 text-xs font-bold transition cursor-pointer ${!useAI ? "bg-white text-[#C84B31] shadow-xs" : "text-[#78716C] hover:text-[#1F1D1B]"}`}
                   >
                     Default (acak 15)
                   </button>
                   <button
                     onClick={() => setUseAI(true)}
-                    className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${useAI ? "bg-[#818CF8] text-white" : "text-[#5C5470] hover:text-[#9B93B0]"}`}
+                    className={`flex-1 rounded-lg py-2 text-xs font-bold transition cursor-pointer ${useAI ? "bg-white text-[#C84B31] shadow-xs" : "text-[#78716C] hover:text-[#1F1D1B]"}`}
                   >
                     ✨ Custom AI
                   </button>
@@ -525,7 +525,7 @@ function SnakeGameContent() {
                     <div className="flex gap-2">
                       {(["truth", "dare", "mix"] as const).map((t) => (
                         <button key={t} onClick={() => setAiType(t)}
-                          className={`flex-1 rounded-xl border py-2 text-xs font-semibold capitalize transition ${aiType === t ? "border-[#818CF8]/50 bg-[#818CF8]/15 text-[#818CF8]" : "border-white/[0.07] text-[#5C5470] hover:border-white/20"}`}>
+                          className={`flex-1 rounded-xl border py-2 text-xs font-bold capitalize transition cursor-pointer ${aiType === t ? "border-[#C84B31] bg-[#FDF4F2] text-[#C84B31]" : "border-[#E7E5E4] bg-white text-[#78716C] hover:border-[#D6D3D1]"}`}>
                           {t === "mix" ? "Campuran" : t}
                         </button>
                       ))}
@@ -533,8 +533,8 @@ function SnakeGameContent() {
                     <CategorySelect value={aiCategory} onChange={setAiCategory} />
 
                     <div>
-                      <label className="block text-[10px] font-medium text-[#5C5470] mb-1.5">
-                        Ceritakan ke AI kamu mau pertanyaan seperti apa <span className="text-[#5C5470]">(opsional)</span>
+                      <label className="block text-[11px] font-semibold text-[#78716C] mb-1.5">
+                        Ceritakan ke AI kamu mau pertanyaan seperti apa <span className="text-[#A8A29E]">(opsional)</span>
                       </label>
                       <textarea
                         value={aiNarasi}
@@ -542,30 +542,30 @@ function SnakeGameContent() {
                         placeholder={`Contoh: "Aku mau pertanyaan seputar kenangan pertama kita ketemu, momen-momen awal jadian, dan hal-hal yang bikin aku jatuh cinta"`}
                         rows={3}
                         maxLength={300}
-                        className="w-full rounded-xl border border-white/10 bg-[#18181C] px-3 py-2.5 text-xs text-[#FFF5F8] outline-none placeholder:text-[#3a3650] focus:border-[#818CF8]/40 focus:ring-1 focus:ring-[#818CF8]/20 resize-none transition leading-relaxed"
+                        className="w-full rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-3.5 py-2.5 text-xs text-[#1F1D1B] outline-none placeholder:text-[#A8A29E] focus:border-[#C84B31] focus:bg-white resize-none transition leading-relaxed"
                       />
-                      <p className="mt-1 text-right text-[10px] text-[#3a3650]">{aiNarasi.length}/300</p>
+                      <p className="mt-1 text-right text-[10px] text-[#78716C]">{aiNarasi.length}/300</p>
                     </div>
 
                     {aiQuestions && aiPreview ? (
-                      <div className="space-y-2">
+                      <div className="space-y-2 rounded-xl border border-[#10B981]/20 bg-[#EBF9EB] p-3">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium text-[#34D399]">✓ {aiQuestions.length} pertanyaan siap</p>
+                          <p className="text-xs font-bold text-[#10B981]">✓ {aiQuestions.length} pertanyaan siap</p>
                           <button onClick={() => { setAiQuestions(null); setAiPreview(false); }}
-                            className="text-[10px] text-[#5C5470] hover:text-red-400">Hapus</button>
+                            className="text-[10px] font-semibold text-red-600 hover:underline cursor-pointer">Hapus</button>
                         </div>
-                        <div className="max-h-24 overflow-y-auto space-y-1">
+                        <div className="max-h-24 overflow-y-auto space-y-1 pr-1">
                           {aiQuestions.slice(0, 5).map((q, i) => (
-                            <p key={i} className="text-[10px] text-[#5C5470] truncate">
-                              <span className={`font-semibold ${q.type === "dare" ? "text-[#FF6B9D]" : "text-[#818CF8]"}`}>{q.type}</span>: {q.question}
+                            <p key={i} className="text-[11px] text-[#1F1D1B] truncate">
+                              <span className={`font-bold ${q.type === "dare" ? "text-[#C84B31]" : "text-[#4F46E5]"}`}>{q.type}</span>: {q.question}
                             </p>
                           ))}
-                          {aiQuestions.length > 5 && <p className="text-[10px] text-[#5C5470]">+{aiQuestions.length - 5} lainnya...</p>}
+                          {aiQuestions.length > 5 && <p className="text-[10px] text-[#78716C]">+{aiQuestions.length - 5} lainnya...</p>}
                         </div>
                       </div>
                     ) : (
                       <button onClick={handleGenerateAI} disabled={generatingAI}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#818CF8]/10 border border-[#818CF8]/20 px-4 py-2.5 text-xs font-semibold text-[#818CF8] transition hover:bg-[#818CF8]/20 disabled:opacity-50">
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FDF4F2] border border-[#FBDCD5] px-4 py-2.5 text-xs font-bold text-[#C84B31] transition hover:bg-[#FBE8E4] disabled:opacity-50 cursor-pointer">
                         {generatingAI ? (
                           <><svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>Generate...</>
                         ) : "✨ Generate Pertanyaan AI"}
@@ -576,10 +576,10 @@ function SnakeGameContent() {
 
                 <button onClick={() => setShowConfirm(true)}
                   disabled={useAI && !aiQuestions}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#818CF8] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_16px_rgba(129,140,248,0.35)] transition hover:bg-[#A78BFA] disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-5 py-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                   {useAI && !aiQuestions ? "Generate pertanyaan dulu" : "Siapkan Board →"}
                 </button>
-                <p className="mt-2 text-[10px] text-[#5C5470] text-center">Memotong 5 coin</p>
+                <p className="mt-2 text-[11px] text-[#78716C] text-center">Memotong 5 coin</p>
               </>
             }
             joinContent={
@@ -598,32 +598,31 @@ function SnakeGameContent() {
           {showConfirm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/40 backdrop-blur-xs"
                 onClick={() => !loadingCreate && setShowConfirm(false)}
               />
-              <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#818CF8]/25 bg-[#111113] shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
-                <div className="h-0.5 w-full bg-linear-to-r from-[#818CF8] to-[#A78BFA]" />
-                <div className="p-6">
-                <div className="mb-5">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-[#818CF8]">Konfirmasi</p>
-                  <h2 className="mt-1 text-xl font-bold text-[#FFF5F8]">Mulai game baru?</h2>
+              <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-2xl">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF4F2] text-[#C84B31] border border-[#FBDCD5]">
+                  <span className="text-2xl">🎲</span>
                 </div>
-                <div className="space-y-2.5 mb-6 text-sm text-[#9B93B0]">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#C84B31]">Konfirmasi Game</p>
+                <h2 className="mt-1 font-serif text-2xl font-bold text-[#1F1D1B]">Mulai Game Baru?</h2>
+                <div className="my-5 space-y-2 text-xs text-[#78716C]">
                   <p className="flex items-start gap-2">
-                    <span className="mt-0.5 text-[#5C5470]">•</span>
+                    <span className="mt-0.5 text-[#C84B31] font-bold">•</span>
                     Board 10×10 akan di-generate secara random
                   </p>
                   <p className="flex items-start gap-2">
-                    <span className="mt-0.5 text-[#5C5470]">•</span>
+                    <span className="mt-0.5 text-[#C84B31] font-bold">•</span>
                     {useAI && aiQuestions ? `${aiQuestions.length} pertanyaan AI siap dipakai` : "15 pertanyaan random dari pool"}
                   </p>
                   <p className="flex items-start gap-2">
-                    <span className="mt-0.5 text-[#5C5470]">•</span>
-                    <span><span className="font-semibold text-[#FF6B9D]">5 coin</span> akan dipotong</span>
+                    <span className="mt-0.5 text-[#C84B31] font-bold">•</span>
+                    <span>Biaya <span className="font-bold text-[#C84B31]">5 coin</span> akan dipotong</span>
                   </p>
                   <p className="flex items-start gap-2">
-                    <span className="mt-0.5 text-[#5C5470]">•</span>
-                    Durasi game: <span className="font-semibold text-[#FFF5F8]">20 menit</span>
+                    <span className="mt-0.5 text-[#C84B31] font-bold">•</span>
+                    Durasi game: <span className="font-semibold text-[#1F1D1B]">20 menit</span>
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -631,7 +630,7 @@ function SnakeGameContent() {
                     type="button"
                     onClick={() => setShowConfirm(false)}
                     disabled={loadingCreate}
-                    className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-50"
+                    className="flex-1 rounded-xl border border-[#E7E5E4] bg-white py-2.5 text-xs font-semibold text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] disabled:opacity-50 cursor-pointer"
                   >
                     Batal
                   </button>
@@ -639,7 +638,7 @@ function SnakeGameContent() {
                     type="button"
                     onClick={handleCreateSession}
                     disabled={loadingCreate}
-                    className="flex-1 rounded-xl bg-[#818CF8] py-2.5 text-sm font-bold text-white shadow-[0_4px_16px_rgba(129,140,248,0.35)] transition hover:bg-[#A78BFA] disabled:opacity-50"
+                    className="flex-1 rounded-xl bg-[#C84B31] py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:opacity-50 cursor-pointer"
                   >
                     {loadingCreate ? (
                       <span className="flex items-center justify-center gap-2">
@@ -650,7 +649,6 @@ function SnakeGameContent() {
                       </span>
                     ) : "Buat Game!"}
                   </button>
-                </div>
                 </div>
               </div>
             </div>
@@ -664,7 +662,7 @@ function SnakeGameContent() {
             <GamePlayingHeader
               sessionCode={session.session_code}
               statusText={hasPendingChallenge ? "⚡ Tantangan aktif" : isMyTurn ? "Giliranmu" : "Giliran partner"}
-              statusColor={hasPendingChallenge ? "#FBBF24" : isMyTurn ? "#818CF8" : "#9B93B0"}
+              statusColor={hasPendingChallenge ? "#D97706" : isMyTurn ? "#C84B31" : "#78716C"}
               timerSeconds={timerSeconds}
               timerTotalSeconds={totalSec}
               partnerOnline={partnerOnline}
@@ -674,9 +672,9 @@ function SnakeGameContent() {
               realtimeOk={realtimeOk}
             />
 
-            <div className="flex flex-col lg:flex-row items-start gap-3">
+            <div className="flex flex-col lg:flex-row items-start gap-4">
               {/* Board */}
-              <div className="w-full lg:w-[500px] shrink-0">
+              <div className="w-full lg:w-[500px] shrink-0 overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white p-2 shadow-xl shadow-black/2">
                 <PhaserBoard
                   boardConfig={session.board_config}
                   gameState={gameState}
@@ -687,10 +685,10 @@ function SnakeGameContent() {
               </div>
 
               {/* Side panel */}
-              <div className="flex-1 w-full space-y-3">
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 items-start">
+              <div className="flex-1 w-full space-y-4">
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 items-start">
                   {/* Dice panel */}
-                  <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-3 sm:p-4 flex flex-col items-center gap-2">
+                  <div className="rounded-2xl border border-[#E7E5E4] bg-white p-4 shadow-xl shadow-black/2 flex flex-col items-center gap-2">
                     <Dice
                       value={diceValue}
                       rolling={diceRolling}
@@ -700,39 +698,39 @@ function SnakeGameContent() {
                   </div>
 
                   {/* Score board */}
-                  <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-3 sm:p-4">
-                    <p className="mb-2 text-[10px] font-medium uppercase tracking-widest text-[#5C5470]">POSISI</p>
-                    <div className="space-y-2">
+                  <div className="rounded-2xl border border-[#E7E5E4] bg-white p-4 shadow-xl shadow-black/2">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#78716C]">POSISI PION</p>
+                    <div className="space-y-2.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <div className="h-2 w-2 shrink-0 rounded-full bg-[#FF3D7F]" />
-                          <span className="truncate text-[11px] text-[#9B93B0]">
-                            {myRole === "host" ? "Kamu" : "Host"}
+                          <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#C84B31]" />
+                          <span className="truncate text-xs font-semibold text-[#1F1D1B]">
+                            {myRole === "host" ? "Kamu (Host)" : "Host"}
                           </span>
                         </div>
-                        <span className="ml-1 shrink-0 font-mono text-sm font-black text-[#FFF5F8]">
+                        <span className="ml-1 shrink-0 font-mono text-sm font-bold text-[#C84B31]">
                           {gameState.host_position === 0 ? "—" : gameState.host_position}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <div className="h-2 w-2 shrink-0 rounded-full bg-[#818CF8]" />
-                          <span className="truncate text-[11px] text-[#9B93B0]">
-                            {myRole === "partner" ? "Kamu" : "Partner"}
+                          <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#4F46E5]" />
+                          <span className="truncate text-xs font-semibold text-[#1F1D1B]">
+                            {myRole === "partner" ? "Kamu (Partner)" : "Partner"}
                           </span>
                         </div>
-                        <span className="ml-1 shrink-0 font-mono text-sm font-black text-[#FFF5F8]">
+                        <span className="ml-1 shrink-0 font-mono text-sm font-bold text-[#4F46E5]">
                           {gameState.partner_position === 0 ? "—" : gameState.partner_position}
                         </span>
                       </div>
                     </div>
-                    <div className="mt-2.5 space-y-1.5">
-                      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                        <div className="h-full rounded-full bg-[#FF3D7F] transition-all duration-500"
+                    <div className="mt-3 space-y-1.5">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-[#E7E5E4]">
+                        <div className="h-full rounded-full bg-[#C84B31] transition-all duration-500"
                           style={{ width: `${gameState.host_position}%` }} />
                       </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                        <div className="h-full rounded-full bg-[#818CF8] transition-all duration-500"
+                      <div className="h-1.5 overflow-hidden rounded-full bg-[#E7E5E4]">
+                        <div className="h-full rounded-full bg-[#4F46E5] transition-all duration-500"
                           style={{ width: `${gameState.partner_position}%` }} />
                       </div>
                     </div>
@@ -741,24 +739,24 @@ function SnakeGameContent() {
 
                 {/* Last roll info */}
                 {lastRoll && (
-                  <div className="overflow-hidden rounded-xl bg-white/5 px-3 py-2.5 space-y-1">
+                  <div className="overflow-hidden rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] p-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-[10px] text-[#5C5470]">
+                      <p className="truncate text-xs font-medium text-[#78716C]">
                         {lastRoll.player === myRole ? "Kamu" : "Partner"} dapat angka
                       </p>
-                      <span className="shrink-0 font-black text-[#FFF5F8] text-base leading-none">{lastRoll.dice}</span>
+                      <span className="shrink-0 font-mono text-base font-bold text-[#1F1D1B] leading-none">{lastRoll.dice}</span>
                     </div>
                     {lastRoll.snake_from && (
-                      <p className="text-[10px] text-red-400">🐍 Turun {lastRoll.snake_from} → {lastRoll.final}</p>
+                      <p className="text-[11px] font-semibold text-red-600">🐍 Turun {lastRoll.snake_from} → {lastRoll.final}</p>
                     )}
                     {lastRoll.ladder_from && (
-                      <p className="text-[10px] text-[#22C55E]">🪜 Naik {lastRoll.ladder_from} → {lastRoll.final}</p>
+                      <p className="text-[11px] font-semibold text-[#10B981]">🪜 Naik {lastRoll.ladder_from} → {lastRoll.final}</p>
                     )}
                     {lastRoll.bounced && (
-                      <p className="text-[10px] text-yellow-400">↩ Balik ke {lastRoll.final}</p>
+                      <p className="text-[11px] font-semibold text-[#D97706]">↩ Balik ke {lastRoll.final}</p>
                     )}
                     {lastRoll.dice === 6 && !lastRoll.bounced && (
-                      <p className="text-[10px] text-yellow-400">★ Dapat 6 — lempar lagi!</p>
+                      <p className="text-[11px] font-semibold text-[#D97706]">★ Dapat 6 — lempar lagi!</p>
                     )}
                   </div>
                 )}
@@ -768,18 +766,18 @@ function SnakeGameContent() {
                   type="button"
                   onClick={handleRoll}
                   disabled={!isMyTurn || hasPendingChallenge || diceRolling}
-                  className={`w-full rounded-2xl border py-3 text-sm font-semibold transition ${
+                  className={`w-full rounded-xl py-3 text-xs font-bold transition shadow-xs cursor-pointer ${
                     hasPendingChallenge
-                      ? "border-yellow-500/20 bg-yellow-500/5 text-yellow-400 cursor-default"
+                      ? "border border-[#FDE68A] bg-[#FEF3C7] text-[#D97706] cursor-default"
                       : isMyTurn && !diceRolling
-                      ? "border-[#818CF8]/30 bg-[#818CF8]/10 text-[#818CF8] hover:bg-[#818CF8]/20"
-                      : "border-white/[0.07] bg-white/[0.02] text-[#5C5470] cursor-default"
+                      ? "bg-[#C84B31] text-white hover:bg-[#B33E26]"
+                      : "border border-[#E7E5E4] bg-[#FCFBF7] text-[#A8A29E] cursor-default"
                   }`}
                 >
                   {hasPendingChallenge
                     ? "⚡ Selesaikan tantangan dulu"
                     : isMyTurn
-                    ? "🎲 Lempar dadu sekarang!"
+                    ? "🎲 Lempar Dadu Sekarang!"
                     : "⏳ Giliran partner..."}
                 </button>
               </div>
@@ -852,21 +850,21 @@ function SnakeGameContent() {
             ]}
             statsContent={
               <>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Posisi Host</span>
-                  <span className="font-mono font-bold text-[#FF3D7F]">{gameState.host_position === 100 ? "100 🏆" : gameState.host_position}</span>
+                  <span className="font-mono font-bold text-[#C84B31]">{gameState.host_position === 100 ? "100 🏆" : gameState.host_position}</span>
                 </div>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Posisi Partner</span>
-                  <span className="font-mono font-bold text-[#818CF8]">{gameState.partner_position === 100 ? "100 🏆" : gameState.partner_position}</span>
+                  <span className="font-mono font-bold text-[#4F46E5]">{gameState.partner_position === 100 ? "100 🏆" : gameState.partner_position}</span>
                 </div>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Session</span>
-                  <span className="font-mono text-[#9B93B0]">{session.session_code}</span>
+                  <span className="font-mono font-semibold text-[#1F1D1B]">{session.session_code}</span>
                 </div>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Hasil</span>
-                  <span className="font-medium" style={{ color: finishReason === "time_up" ? "#FBBF24" : winnerIsMe ? "#34D399" : "#818CF8" }}>
+                  <span className="font-bold" style={{ color: finishReason === "time_up" ? "#D97706" : winnerIsMe ? "#10B981" : "#4F46E5" }}>
                     {finishReason === "time_up" ? "Waktu Habis" : winnerIsMe ? "Menang" : partnerWon ? "Kalah" : "Seri"}
                   </span>
                 </div>

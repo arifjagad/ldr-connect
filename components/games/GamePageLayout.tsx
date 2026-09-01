@@ -66,10 +66,7 @@ interface GamePageLayoutProps {
 export function GamePageLayout({
   gameName,
   gameEmoji,
-  gameSlug,
   gameSubtitle,
-  accentColor,
-  accentColorLight,
   phase,
   // Idle
   idleContent,
@@ -98,21 +95,11 @@ export function GamePageLayout({
   // ── IDLE ────────────────────────────────────────────────────────────────────
   if (phase === "idle") {
     return (
-      <main className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-        {/* Ambient glow */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full blur-[120px]"
-          style={{ background: `radial-gradient(ellipse, ${accentColor}1a 0%, transparent 70%)` }}
-        />
-
+      <main className="relative mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <GameHeader
           gameName={gameName}
           gameEmoji={gameEmoji}
-          gameSlug={gameSlug}
           gameSubtitle={gameSubtitle}
-          accentColor={accentColor}
-          accentColorLight={accentColorLight}
         />
 
         {idleContent}
@@ -123,14 +110,11 @@ export function GamePageLayout({
   // ── WAITING ─────────────────────────────────────────────────────────────────
   if (phase === "waiting" && sessionCode) {
     return (
-      <main className="relative mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+      <main className="relative mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <GameHeader
           gameName={gameName}
           gameEmoji={gameEmoji}
-          gameSlug={gameSlug}
           gameSubtitle={gameSubtitle}
-          accentColor={accentColor}
-          accentColorLight={accentColorLight}
         />
 
         <GameWaitingLobby
@@ -147,7 +131,7 @@ export function GamePageLayout({
         />
 
         {waitingError && (
-          <div className="mt-3 flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <div className="mx-auto mt-4 max-w-md flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
@@ -163,7 +147,7 @@ export function GamePageLayout({
     return (
       <>
         <RealtimeBanner realtimeOk={realtimeOk} />
-        <main className="relative mx-auto w-full max-w-5xl px-4 py-4 lg:px-6">
+        <main className="relative mx-auto w-full max-w-5xl px-4 py-6 lg:px-6">
           {playingContent}
 
           {/* Video call floating panel */}
@@ -182,7 +166,7 @@ export function GamePageLayout({
   // ── FINISHED ────────────────────────────────────────────────────────────────
   if (phase === "finished") {
     return (
-      <main className="relative mx-auto w-full max-w-md px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
+      <main className="relative mx-auto w-full max-w-md px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         {finishedContent}
       </main>
     );
@@ -196,43 +180,31 @@ export function GamePageLayout({
 function GameHeader({
   gameName,
   gameEmoji,
-  gameSlug,
   gameSubtitle,
-  accentColor,
-  accentColorLight,
 }: {
   gameName: string;
   gameEmoji: string;
-  gameSlug: string;
   gameSubtitle: string;
-  accentColor: string;
-  accentColorLight: string;
 }) {
-  // Capitalize first letter for breadcrumb slug display
-  const breadcrumbName = gameName;
-
   return (
     <div className="mb-8">
-      <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">
-        <Link href="/dashboard/games" className="transition hover:text-[#9B93B0]">
+      <div className="inline-flex items-center gap-2 rounded-full border border-[#E7E5E4] bg-[#FDF4F2] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#C84B31]">
+        <Link href="/dashboard/games" className="transition hover:text-[#B33E26]">
           Games
         </Link>
-        {" / "}{breadcrumbName}
-      </p>
-      <div className="mt-2 flex items-center gap-3">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-xl"
-          style={{
-            background: `linear-gradient(135deg, ${accentColor}4d, ${accentColorLight}33)`,
-          }}
-        >
+        <span>/</span>
+        <span>{gameName}</span>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3.5">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#E7E5E4] bg-white text-2xl shadow-xs">
           {gameEmoji}
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#FFF5F8] sm:text-3xl">
+          <h1 className="font-serif text-3xl sm:text-4xl text-[#1F1D1B] tracking-tight">
             {gameName}
           </h1>
-          <p className="text-sm text-[#5C5470]">{gameSubtitle}</p>
+          <p className="mt-0.5 text-xs sm:text-sm text-[#78716C]">{gameSubtitle}</p>
         </div>
       </div>
     </div>
@@ -244,11 +216,11 @@ function GameHeader({
 export function GamePageSkeleton() {
   return (
     <main className="relative mx-auto w-full max-w-5xl px-6 py-12 lg:px-8">
-      <div className="rounded-2xl border border-white/10 bg-[#111113] p-6 text-center">
+      <div className="rounded-2xl border border-[#E7E5E4] bg-white p-8 text-center shadow-xl shadow-black/2">
         <div className="animate-pulse space-y-4">
-          <div className="mx-auto h-12 w-12 rounded-lg bg-white/10" />
-          <div className="mx-auto h-4 w-24 rounded bg-white/10" />
-          <div className="mx-auto h-3 w-32 rounded bg-white/10" />
+          <div className="mx-auto h-12 w-12 rounded-2xl bg-[#F5F5F4]" />
+          <div className="mx-auto h-4 w-28 rounded-md bg-[#F5F5F4]" />
+          <div className="mx-auto h-3 w-40 rounded-md bg-[#F5F5F4]" />
         </div>
       </div>
     </main>

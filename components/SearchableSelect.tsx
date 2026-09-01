@@ -120,11 +120,11 @@ export function SearchableSelect({
         ref={triggerRef}
         type="button"
         onClick={handleToggle}
-        className={`flex w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-sm transition ${
+        className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer ${
           open
-            ? "border-[#FF3D7F]/40 ring-1 ring-[#FF3D7F]/20"
-            : "border-white/10 hover:border-white/20"
-        } bg-[#18181C] text-left`}
+            ? "border-[#C84B31] bg-white ring-2 ring-[#C84B31]/10"
+            : "border-[#E7E5E4] bg-[#FCFBF7] hover:border-[#D6D3D1] hover:bg-white"
+        } text-left`}
       >
         {/* Search icon */}
         <svg
@@ -132,7 +132,7 @@ export function SearchableSelect({
           height="14"
           viewBox="0 0 24 24"
           fill="none"
-          stroke={selected ? "#FF3D7F" : "#5C5470"}
+          stroke={selected ? "#C84B31" : "#78716C"}
           strokeWidth="2"
           className="shrink-0"
         >
@@ -140,7 +140,7 @@ export function SearchableSelect({
           <path d="m21 21-4.35-4.35" strokeLinecap="round" />
         </svg>
 
-        <span className={`flex-1 truncate ${selected ? "text-[#FFF5F8]" : "text-[#5C5470]"}`}>
+        <span className={`flex-1 truncate ${selected ? "text-[#1F1D1B] font-bold" : "text-[#78716C]"}`}>
           {selected ? selected.label : placeholder}
         </span>
 
@@ -150,9 +150,9 @@ export function SearchableSelect({
           height="14"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#5C5470"
+          stroke="#78716C"
           strokeWidth="2.5"
-          className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180 text-[#C84B31]" : ""}`}
         >
           <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -170,17 +170,17 @@ export function SearchableSelect({
               width: dropdownRect.width,
               zIndex: 9999,
             }}
-            className="rounded-2xl border border-white/10 bg-[#18181C] shadow-2xl shadow-black/60"
+            className="rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/10 overflow-hidden"
           >
             {/* Search input */}
-            <div className="border-b border-white/[0.07] p-2">
-              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#111113] px-3 py-2">
+            <div className="border-b border-[#E7E5E4] bg-[#FCFBF7] p-2">
+              <div className="flex items-center gap-2 rounded-xl border border-[#E7E5E4] bg-white px-3 py-2">
                 <svg
                   width="13"
                   height="13"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#5C5470"
+                  stroke="#78716C"
                   strokeWidth="2"
                   className="shrink-0"
                 >
@@ -193,13 +193,13 @@ export function SearchableSelect({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="flex-1 bg-transparent text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470]"
+                  className="flex-1 bg-transparent text-xs text-[#1F1D1B] outline-none placeholder:text-[#A8A29E]"
                 />
                 {search && (
                   <button
                     type="button"
                     onClick={() => setSearch("")}
-                    className="text-[#5C5470] transition hover:text-[#9B93B0]"
+                    className="text-[#78716C] transition hover:text-[#1F1D1B] cursor-pointer"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
@@ -209,10 +209,10 @@ export function SearchableSelect({
               </div>
             </div>
 
-            {/* Options list — max height + scroll di sini */}
-            <ul className="max-h-52 overflow-y-auto overscroll-contain py-1">
+            {/* Options list */}
+            <ul className="max-h-52 overflow-y-auto overscroll-contain py-1 divide-y divide-[#F5F5F4]">
               {filtered.length === 0 ? (
-                <li className="px-4 py-3 text-center text-sm text-[#5C5470]">
+                <li className="px-4 py-3 text-center text-xs text-[#78716C]">
                   Tidak ada hasil
                 </li>
               ) : (
@@ -223,15 +223,15 @@ export function SearchableSelect({
                       <button
                         type="button"
                         onClick={() => handleSelect(opt.value)}
-                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition ${
+                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-xs font-semibold transition cursor-pointer ${
                           isActive
-                            ? "bg-[#FF3D7F]/15 text-[#FF6B9D]"
-                            : "text-[#9B93B0] hover:bg-white/5 hover:text-[#FFF5F8]"
+                            ? "bg-[#FDF4F2] text-[#C84B31]"
+                            : "text-[#1F1D1B] hover:bg-[#FCFBF7]"
                         }`}
                       >
                         <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                           {isActive && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C84B31" strokeWidth="3">
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           )}

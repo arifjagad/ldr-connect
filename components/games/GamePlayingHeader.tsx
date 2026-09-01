@@ -42,9 +42,9 @@ function formatTimer(s: number | null): { mm: string; ss: string } {
 }
 
 function timerColor(pct: number): string {
-  if (pct > 50) return "#34D399";
-  if (pct > 20) return "#FBBF24";
-  return "#FF3D7F";
+  if (pct > 50) return "#10B981";
+  if (pct > 20) return "#D97706";
+  return "#DC2626";
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ function timerColor(pct: number): string {
 export function GamePlayingHeader({
   sessionCode,
   statusText,
-  statusColor = "#818CF8",
+  statusColor = "#C84B31",
   timerSeconds,
   timerTotalSeconds = 600,
   partnerOnline,
@@ -68,21 +68,21 @@ export function GamePlayingHeader({
   const color = timerColor(pct);
 
   return (
-    <div className="mb-3 rounded-2xl border border-white/[0.07] bg-[#111113] px-4 py-3">
-      <div className="flex items-center justify-between gap-2">
+    <div className="mb-4 rounded-2xl border border-[#E7E5E4] bg-white p-4 shadow-xl shadow-black/2">
+      <div className="flex items-center justify-between gap-3">
         {/* Left side */}
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
           {sessionCode && (
             <>
-              <span className="hidden shrink-0 font-mono text-xs tracking-widest text-[#5C5470] sm:inline">
+              <span className="hidden shrink-0 font-mono text-xs font-bold tracking-widest text-[#78716C] sm:inline">
                 {sessionCode}
               </span>
-              <span className="hidden h-1 w-1 shrink-0 rounded-full bg-[#5C5470] sm:inline-block" />
+              <span className="hidden h-1 w-1 shrink-0 rounded-full bg-[#E7E5E4] sm:inline-block" />
             </>
           )}
 
           <span
-            className="truncate text-xs font-medium"
+            className="truncate text-xs font-bold"
             style={{ color: statusColor }}
           >
             {statusText}
@@ -90,15 +90,15 @@ export function GamePlayingHeader({
 
           {/* Partner online indicator */}
           <span
-            className="hidden items-center gap-1.5 text-[10px] sm:flex"
+            className="hidden items-center gap-1.5 rounded-full border border-[#E7E5E4] bg-[#FCFBF7] px-2.5 py-0.5 text-[10px] font-semibold sm:flex"
             title={partnerOnline ? "Partner online" : "Partner offline"}
           >
             <span
               className={`h-1.5 w-1.5 rounded-full ${
-                partnerOnline ? "bg-[#34D399]" : "bg-[#5C5470]"
+                partnerOnline ? "bg-[#10B981]" : "bg-[#A8A29E]"
               }`}
             />
-            <span className={partnerOnline ? "text-[#34D399]" : "text-[#5C5470]"}>
+            <span className={partnerOnline ? "text-[#10B981]" : "text-[#78716C]"}>
               {partnerOnline ? "Online" : "Offline"}
             </span>
           </span>
@@ -106,11 +106,11 @@ export function GamePlayingHeader({
           {/* Realtime warning */}
           {!realtimeOk && (
             <span
-              className="hidden items-center gap-1.5 text-[10px] text-[#FBBF24] sm:flex"
+              className="hidden items-center gap-1.5 rounded-full border border-[#FDE68A] bg-[#FEF3C7] px-2.5 py-0.5 text-[10px] font-semibold text-[#D97706] sm:flex"
               title="Koneksi realtime terputus"
             >
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#FBBF24]" />
-              Koneksi lemah
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#D97706]" />
+              Koneksi lambat
             </span>
           )}
 
@@ -118,7 +118,7 @@ export function GamePlayingHeader({
         </div>
 
         {/* Right side */}
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-3">
           {extraRight}
 
           {/* Timer */}
@@ -131,13 +131,13 @@ export function GamePlayingHeader({
             type="button"
             onClick={onToggleVideo}
             title={showVideo ? "Tutup video call" : "Buka video call"}
-            className={`flex h-7 w-7 items-center justify-center rounded-lg border transition ${
+            className={`flex h-8 w-8 items-center justify-center rounded-xl border transition cursor-pointer ${
               showVideo
-                ? "border-[#34D399]/40 bg-[#34D399]/15 text-[#34D399]"
-                : "border-white/10 bg-white/5 text-[#5C5470] hover:text-[#9B93B0]"
+                ? "border-[#C84B31] bg-[#FDF4F2] text-[#C84B31]"
+                : "border-[#E7E5E4] bg-white text-[#78716C] hover:text-[#1F1D1B]"
             }`}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polygon points="23 7 16 12 23 17 23 7" />
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
             </svg>
@@ -147,7 +147,7 @@ export function GamePlayingHeader({
           <button
             type="button"
             onClick={onLeave}
-            className="text-xs text-[#5C5470] transition hover:text-[#9B93B0]"
+            className="rounded-lg px-2.5 py-1 text-xs font-semibold text-[#78716C] transition hover:bg-[#F5F5F4] hover:text-[#1F1D1B] cursor-pointer"
           >
             Keluar
           </button>
@@ -155,7 +155,7 @@ export function GamePlayingHeader({
       </div>
 
       {/* Timer progress bar */}
-      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/5">
+      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F5F5F4]">
         <div
           className="h-full rounded-full transition-all duration-1000"
           style={{ width: `${pct}%`, backgroundColor: color }}

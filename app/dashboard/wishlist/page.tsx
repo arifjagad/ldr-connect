@@ -2,16 +2,18 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "@/components/ui/Toast";
+import { dialog } from "@/components/ui/Dialog";
 import type { Wishlist, WishlistCategory } from "@/lib/types";
 
 const supabase = createClient();
 
 const CATEGORIES: { value: WishlistCategory; label: string; emoji: string; color: string }[] = [
-  { value: "virtual", label: "Virtual",  emoji: "🎮", color: "text-[#818CF8] bg-[#818CF8]/15 border-[#818CF8]/25" },
-  { value: "offline", label: "Offline",  emoji: "✈️", color: "text-[#34D399] bg-[#34D399]/15 border-[#34D399]/25" },
-  { value: "dream",   label: "Impian",   emoji: "🌙", color: "text-[#F472B6] bg-[#F472B6]/15 border-[#F472B6]/25" },
-  { value: "gift",    label: "Hadiah",   emoji: "🎁", color: "text-yellow-400 bg-yellow-400/15 border-yellow-400/25" },
-  { value: "other",   label: "Lainnya",  emoji: "📌", color: "text-[#9B93B0] bg-white/8 border-white/15" },
+  { value: "virtual", label: "Virtual",  emoji: "🎮", color: "text-[#4F46E5] bg-[#EEF2FF] border-[#E0E7FF]" },
+  { value: "offline", label: "Offline",  emoji: "✈️", color: "text-[#0D9488] bg-[#F0FDFA] border-[#CCFBF1]" },
+  { value: "dream",   label: "Impian",   emoji: "🌙", color: "text-[#C84B31] bg-[#FDF4F2] border-[#FBDCD5]" },
+  { value: "gift",    label: "Hadiah",   emoji: "🎁", color: "text-[#D97706] bg-[#FEF3C7] border-[#FDE68A]" },
+  { value: "other",   label: "Lainnya",  emoji: "📌", color: "text-[#78716C] bg-[#F5F5F4] border-[#E7E5E4]" },
 ];
 
 function getCat(v: WishlistCategory) {
@@ -36,17 +38,17 @@ function DoneModal({ item, onClose, onDone }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !loading && onClose()} />
-      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#34D399]/20 bg-[#0E0E12] shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
-        <div className="h-0.5 w-full bg-linear-to-r from-[#34D399] to-[#6EE7B7]" />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => !loading && onClose()} />
+      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-2xl">
+        <div className="h-1 w-full bg-[#10B981]" />
         <div className="p-6">
-          <div className="mb-1 text-2xl text-center">🎉</div>
-          <p className="text-center text-base font-bold text-[#FFF5F8]">Yeay, sudah kesampaian!</p>
-          <p className="mt-1 text-center text-xs text-[#5C5470] truncate">"{item.title}"</p>
-          <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
+          <div className="mb-2 text-3xl text-center">🎉</div>
+          <p className="text-center font-serif text-xl font-bold text-[#1F1D1B]">Yeay, sudah kesampaian!</p>
+          <p className="mt-1 text-center text-xs text-[#78716C] truncate">"{item.title}"</p>
+          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-xs font-medium text-[#9B93B0]">
-                Tambah catatan <span className="text-[#5C5470]">(opsional)</span>
+              <label className="block text-xs font-semibold text-[#1F1D1B]">
+                Tambah catatan <span className="font-normal text-[#78716C]">(opsional)</span>
               </label>
               <textarea
                 value={note}
@@ -54,21 +56,33 @@ function DoneModal({ item, onClose, onDone }: {
                 rows={2}
                 maxLength={200}
                 placeholder="Cerita singkat tentang momen ini..."
-                className="mt-1.5 w-full resize-none rounded-xl border border-white/10 bg-[#18181C] px-3 py-2 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#34D399]/40 focus:ring-1 focus:ring-[#34D399]/20 transition"
+                className="mt-1.5 w-full resize-none rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-3.5 py-2.5 text-xs text-[#1F1D1B] outline-none placeholder:text-[#A8A29E] focus:border-[#10B981] focus:bg-white transition"
               />
             </div>
             <div className="flex gap-3">
-              <button type="button" onClick={onClose} disabled={loading}
-                className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-50">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="flex-1 rounded-xl border border-[#E7E5E4] bg-white py-2.5 text-xs font-semibold text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] disabled:opacity-50 cursor-pointer"
+              >
                 Batal
               </button>
-              <button type="submit" disabled={loading}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#34D399] py-2.5 text-sm font-semibold text-[#0E0E12] shadow-[0_4px_16px_rgba(52,211,153,0.3)] transition hover:bg-[#6EE7B7] disabled:opacity-50">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#10B981] py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#059669] disabled:opacity-50 cursor-pointer"
+              >
                 {loading ? (
                   <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                   </svg>
-                ) : "✓"} Tandai Selesai
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                Tandai Selesai
               </button>
             </div>
           </form>
@@ -100,32 +114,42 @@ function EditModal({ item, onClose, onSaved }: {
       body: JSON.stringify({ title, description, category }),
     });
     const json = await res.json();
-    if (json.success) { onSaved(); onClose(); }
-    else setError(json.message);
+    if (json.success) {
+      toast.success("Perubahan Disimpan", "Detail wishlist berhasil diperbarui.");
+      onSaved();
+      onClose();
+    } else {
+      setError(json.message);
+      toast.error("Gagal Menyimpan", json.message);
+    }
     setLoading(false);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !loading && onClose()} />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[#818CF8]/20 bg-[#0E0E12] shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
-        <div className="h-0.5 w-full bg-linear-to-r from-[#818CF8] to-[#A78BFA]" />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => !loading && onClose()} />
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-2xl">
+        <div className="h-1 w-full bg-[#C84B31]" />
         <div className="p-6">
           <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#818CF8]/15">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FDF4F2] text-[#C84B31] border border-[#E7E5E4]">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#FFF5F8]">Edit Wishlist</p>
-                <p className="text-xs text-[#5C5470]">Perbarui detail wishlist ini</p>
+                <p className="font-serif text-lg font-bold text-[#1F1D1B]">Edit Wishlist</p>
+                <p className="text-xs text-[#78716C]">Perbarui detail item wishlist ini</p>
               </div>
             </div>
-            <button type="button" onClick={onClose} disabled={loading}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5C5470] transition hover:bg-white/5 hover:text-[#9B93B0] disabled:opacity-50">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#78716C] transition hover:bg-[#F5F5F4] hover:text-[#1F1D1B] disabled:opacity-50 cursor-pointer"
+            >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
               </svg>
@@ -134,19 +158,30 @@ function EditModal({ item, onClose, onSaved }: {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-xs font-medium text-[#9B93B0]">Judul</label>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={255}
-                className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#818CF8]/40 focus:ring-1 focus:ring-[#818CF8]/20 transition" />
+              <label className="block text-xs font-semibold text-[#1F1D1B]">Judul Wishlist</label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                maxLength={255}
+                className="mt-1.5 w-full rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 text-xs text-[#1F1D1B] outline-none placeholder:text-[#A8A29E] focus:border-[#C84B31] focus:bg-white transition"
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#9B93B0]">Kategori</label>
+              <label className="block text-xs font-semibold text-[#1F1D1B]">Kategori</label>
               <div className="mt-1.5 grid grid-cols-3 gap-2">
                 {CATEGORIES.map((cat) => (
-                  <button key={cat.value} type="button" onClick={() => setCategory(cat.value)}
-                    className={`rounded-xl border px-2 py-1.5 text-xs font-medium transition ${
-                      category === cat.value ? cat.color + " ring-1 ring-current" : "border-white/10 bg-white/3 text-[#9B93B0] hover:bg-white/8"
-                    }`}>
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setCategory(cat.value)}
+                    className={`rounded-xl border px-2.5 py-2 text-xs font-semibold transition cursor-pointer ${
+                      category === cat.value
+                        ? cat.color + " ring-1 ring-current"
+                        : "border-[#E7E5E4] bg-white text-[#78716C] hover:bg-[#FCFBF7] hover:text-[#1F1D1B]"
+                    }`}
+                  >
                     {cat.emoji} {cat.label}
                   </button>
                 ))}
@@ -154,32 +189,52 @@ function EditModal({ item, onClose, onSaved }: {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#9B93B0]">Detail <span className="text-[#5C5470]">(opsional)</span></label>
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} maxLength={500}
-                placeholder="Info tambahan..."
-                className="mt-1.5 w-full resize-none rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#818CF8]/40 focus:ring-1 focus:ring-[#818CF8]/20 transition" />
+              <label className="block text-xs font-semibold text-[#1F1D1B]">
+                Detail <span className="font-normal text-[#78716C]">(opsional)</span>
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="Info atau lokasi tambahan..."
+                className="mt-1.5 w-full resize-none rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 text-xs text-[#1F1D1B] outline-none placeholder:text-[#A8A29E] focus:border-[#C84B31] focus:bg-white transition"
+              />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-300">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-600">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
                 {error}
               </div>
             )}
 
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={onClose} disabled={loading}
-                className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-50">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="flex-1 rounded-xl border border-[#E7E5E4] bg-white py-2.5 text-xs font-semibold text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] disabled:opacity-50 cursor-pointer"
+              >
                 Batal
               </button>
-              <button type="submit" disabled={loading || !title.trim()}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#818CF8] py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(129,140,248,0.25)] transition hover:bg-[#A78BFA] disabled:opacity-50">
+              <button
+                type="submit"
+                disabled={loading || !title.trim()}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#C84B31] py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:opacity-50 cursor-pointer"
+              >
                 {loading ? (
-                  <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" /></svg>
+                  <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                  </svg>
                 ) : (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
                 )}
-                {loading ? "Menyimpan..." : "Simpan"}
+                {loading ? "Menyimpan..." : "Simpan Perubahan"}
               </button>
             </div>
           </form>
@@ -199,72 +254,91 @@ function WishlistCard({ item, currentUserId, onDoneClick, onDelete, onEdit }: {
 }) {
   const cat = getCat(item.category);
   const isOwn = item.created_by === currentUserId;
-  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  async function handleDeleteClick() {
+    const confirmed = await dialog.confirm({
+      title: "Hapus Wishlist?",
+      description: `Apakah kamu yakin ingin menghapus "${item.title}" dari wishlist bersama?`,
+      confirmText: "Ya, Hapus",
+      cancelText: "Batal",
+      isDanger: true,
+    });
+    if (confirmed) {
+      onDelete(item.id);
+    }
+  }
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border p-4 transition-all ${
+    <div className={`relative overflow-hidden rounded-2xl border p-5 transition-all ${
       item.is_done
-        ? "border-white/[0.06] bg-[#111113] opacity-60"
-        : "border-white/[0.09] bg-[#111113] hover:border-white/15"
+        ? "border-[#E7E5E4] bg-[#FAFAF9] opacity-80"
+        : "border-[#E7E5E4] bg-white shadow-xl shadow-black/2 hover:border-[#D6D3D1]"
     }`}>
-      {/* Done ribbon */}
+      {/* Done badge */}
       {item.is_done && (
-        <div className="absolute top-3 right-3">
-          <span className="rounded-full border border-[#34D399]/30 bg-[#34D399]/10 px-2 py-0.5 text-[10px] font-bold text-[#34D399]">✓ Selesai</span>
+        <div className="absolute top-4 right-4">
+          <span className="rounded-full border border-[#10B981]/20 bg-[#EBF9EB] px-2.5 py-0.5 text-[10px] font-bold text-[#10B981]">
+            ✓ Selesai
+          </span>
         </div>
       )}
 
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3.5">
         {/* Checkbox / done indicator */}
         <button
           type="button"
           onClick={() => !item.is_done && onDoneClick(item)}
           disabled={item.is_done}
           title={item.is_done ? "Sudah selesai" : "Tandai selesai"}
-          className={`mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 transition ${
+          className={`mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 transition cursor-pointer ${
             item.is_done
-              ? "border-[#34D399] bg-[#34D399] flex items-center justify-center"
-              : "border-white/20 hover:border-[#34D399]/60"
+              ? "border-[#10B981] bg-[#10B981] flex items-center justify-center text-white"
+              : "border-[#D6D3D1] hover:border-[#10B981]"
           }`}
         >
           {item.is_done && (
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
               <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pr-16">
           <div className="flex flex-wrap items-center gap-2">
-            <p className={`font-medium ${item.is_done ? "line-through text-[#5C5470]" : "text-[#FFF5F8]"}`}>
+            <p className={`text-sm font-bold ${item.is_done ? "line-through text-[#A8A29E]" : "text-[#1F1D1B]"}`}>
               {item.title}
             </p>
-            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${cat.color}`}>
+            <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${cat.color}`}>
               {cat.emoji} {cat.label}
             </span>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              isOwn ? "bg-[#FF3D7F]/15 text-[#FF6B9D]" : "bg-[#818CF8]/15 text-[#818CF8]"
+            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+              isOwn ? "border-[#FBDCD5] bg-[#FDF4F2] text-[#C84B31]" : "border-[#E0E7FF] bg-[#EEF2FF] text-[#4F46E5]"
             }`}>
               {isOwn ? "Saya" : "Partner"}
             </span>
           </div>
 
           {item.description && (
-            <p className="mt-1 text-xs text-[#9B93B0] leading-relaxed">{item.description}</p>
+            <p className="mt-1.5 text-xs text-[#78716C] leading-relaxed">{item.description}</p>
           )}
 
           {item.is_done && item.done_note && (
-            <p className="mt-1.5 text-xs italic text-[#5C5470]">"{item.done_note}"</p>
+            <p className="mt-2 text-xs italic text-[#78716C] bg-[#F5F5F4] rounded-lg px-3 py-1.5 inline-block">
+              "{item.done_note}"
+            </p>
           )}
         </div>
       </div>
 
-      {/* Actions — hanya owner, hanya jika belum selesai */}
+      {/* Actions */}
       {isOwn && !item.is_done && (
-        <div className="mt-3 flex items-center gap-2 border-t border-white/[0.05] pt-3">
+        <div className="mt-4 flex items-center gap-2 border-t border-[#F5F5F4] pt-3">
           {/* Edit */}
-          <button type="button" onClick={() => onEdit(item)}
-            className="flex items-center gap-1 rounded-lg border border-[#818CF8]/20 bg-[#818CF8]/8 px-2.5 py-1 text-[11px] font-medium text-[#818CF8] transition hover:bg-[#818CF8]/15">
+          <button
+            type="button"
+            onClick={() => onEdit(item)}
+            className="flex items-center gap-1.5 rounded-lg border border-[#E7E5E4] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1F1D1B] transition hover:border-[#C84B31] hover:text-[#C84B31] cursor-pointer shadow-2xs"
+          >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" strokeLinecap="round" strokeLinejoin="round" />
@@ -272,23 +346,16 @@ function WishlistCard({ item, currentUserId, onDoneClick, onDelete, onEdit }: {
             Edit
           </button>
 
-          {!confirmDelete ? (
-            <button type="button" onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1 rounded-lg border border-red-500/20 bg-red-500/5 px-2.5 py-1 text-[11px] font-medium text-red-400 transition hover:bg-red-500/15">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-              </svg>
-              Hapus
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-[#9B93B0]">Yakin?</span>
-              <button type="button" onClick={() => onDelete(item.id)}
-                className="rounded-lg bg-red-500 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-red-400">Ya</button>
-              <button type="button" onClick={() => setConfirmDelete(false)}
-                className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-[#9B93B0] transition hover:bg-white/10">Batal</button>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={handleDeleteClick}
+            className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-2.5 py-1 text-[11px] font-semibold text-red-600 transition hover:bg-red-100/50 cursor-pointer shadow-2xs"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            </svg>
+            Hapus
+          </button>
         </div>
       )}
     </div>
@@ -299,23 +366,17 @@ function WishlistCard({ item, currentUserId, onDoneClick, onDelete, onEdit }: {
 export default function WishlistPage() {
   const [items, setItems] = useState<Wishlist[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [, setActionLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState("");
   const [filter, setFilter] = useState<WishlistCategory | "all">("all");
   const [doneModal, setDoneModal] = useState<Wishlist | null>(null);
   const [editModal, setEditModal] = useState<Wishlist | null>(null);
-  const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<WishlistCategory>("other");
   const [formLoading, setFormLoading] = useState(false);
-
-  function showToast(ok: boolean, text: string) {
-    setToast({ ok, text });
-    setTimeout(() => setToast(null), 3500);
-  }
 
   const loadItems = useCallback(async () => {
     const res = await fetch("/api/wishlist");
@@ -351,10 +412,10 @@ export default function WishlistPage() {
     const json = await res.json();
     if (json.success) {
       setTitle(""); setDescription(""); setCategory("other");
-      showToast(true, "Wishlist ditambahkan!");
+      toast.success("Berhasil!", "Wishlist berhasil ditambahkan.");
       await loadItems();
     } else {
-      showToast(false, json.message);
+      toast.error("Gagal", json.message || "Gagal menambahkan wishlist");
     }
     setFormLoading(false);
   }
@@ -369,8 +430,12 @@ export default function WishlistPage() {
     });
     const json = await res.json();
     setDoneModal(null);
-    showToast(json.success, json.message);
-    if (json.success) await loadItems();
+    if (json.success) {
+      toast.success("Yeay, Selesai!", "Wishlist berhasil ditandai selesai.");
+      await loadItems();
+    } else {
+      toast.error("Gagal", json.message || "Gagal memperbarui status");
+    }
     setActionLoading(false);
   }
 
@@ -378,8 +443,12 @@ export default function WishlistPage() {
     setActionLoading(true);
     const res = await fetch(`/api/wishlist/${id}`, { method: "DELETE" });
     const json = await res.json();
-    showToast(json.success, json.message || "Dihapus");
-    if (json.success) await loadItems();
+    if (json.success) {
+      toast.info("Dihapus", "Wishlist telah dihapus.");
+      await loadItems();
+    } else {
+      toast.error("Gagal Menghapus", json.message || "Gagal menghapus wishlist");
+    }
     setActionLoading(false);
   }
 
@@ -389,89 +458,76 @@ export default function WishlistPage() {
   const progress = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
-    <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-      {/* Ambient glow */}
-      <div aria-hidden
-        className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-96 w-96 -translate-x-1/2 rounded-full blur-[120px]"
-        style={{ background: "radial-gradient(ellipse, rgba(52,211,153,0.08) 0%, transparent 70%)" }}
-      />
-
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-5 right-5 z-50 flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-sm font-medium shadow-2xl transition-all ${
-          toast.ok
-            ? "border-[#34D399]/20 bg-[#0E0E12] text-[#34D399]"
-            : "border-red-500/20 bg-[#0E0E12] text-red-400"
-        }`}>
-          {toast.ok
-            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-            : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-          }
-          {toast.text}
-        </div>
-      )}
-
+    <main className="relative mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       {/* Header */}
-      <div className="mb-10">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Dashboard / Wishlist</p>
-        <h1 className="mt-2 text-2xl sm:text-4xl font-bold tracking-tight text-[#FFF5F8]">
-          Shared{" "}
-          <span style={{ backgroundImage: "linear-gradient(90deg, #34D399, #6EE7B7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Wishlist
-          </span>
+      <div className="mb-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#E7E5E4] bg-[#FDF4F2] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#C84B31]">
+          <span>✨</span>
+          <span>Daftar Keinginan Bersama</span>
+        </div>
+        <h1 className="mt-3 font-serif text-3xl sm:text-4xl text-[#1F1D1B] tracking-tight">
+          Shared Wishlist
         </h1>
-        <p className="mt-2 text-sm text-[#5C5470]">Bucket list bersama — dari yang bisa dilakukan sekarang sampai impian masa depan.</p>
+        <p className="mt-1.5 text-xs sm:text-sm text-[#78716C]">
+          Bucket list bersama — dari rencana kencan virtual sampai impian masa depan.
+        </p>
       </div>
 
       {/* Progress bar */}
       {totalCount > 0 && (
-        <div className="mb-6 rounded-2xl border border-white/[0.07] bg-[#111113] p-5">
+        <div className="mb-8 rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xl shadow-black/2">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-[#FFF5F8]">Progress Bersama</p>
-            <span className="text-sm font-bold text-[#34D399]">{doneCount}/{totalCount} selesai</span>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-[#78716C]">Progress Bucket List</p>
+              <p className="mt-0.5 text-xs text-[#78716C]">Wujudkan impian satu per satu bersama pasangan.</p>
+            </div>
+            <div className="text-right">
+              <span className="font-mono text-xl font-bold text-[#C84B31]">{doneCount}/{totalCount}</span>
+              <span className="ml-1 text-xs text-[#78716C]">selesai</span>
+            </div>
           </div>
-          <div className="h-2.5 overflow-hidden rounded-full bg-white/8">
+          <div className="h-2.5 overflow-hidden rounded-full bg-[#F5F5F4]">
             <div
-              className="h-full rounded-full bg-linear-to-r from-[#34D399] to-[#6EE7B7] transition-all duration-700"
+              className="h-full rounded-full bg-[#C84B31] transition-all duration-700"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="mt-2 text-xs text-[#5C5470]">{progress}% dari total wishlist berhasil diwujudkan 🎉</p>
+          <p className="mt-2 text-[11px] font-semibold text-[#78716C]">{progress}% dari total wishlist berhasil diwujudkan 🎉</p>
         </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Left — Form tambah */}
         <div className="lg:col-span-2">
-          <div className="sticky top-6 rounded-2xl border border-[#34D399]/15 bg-linear-to-br from-[#34D399]/6 to-[#111113] p-6">
+          <div className="sticky top-6 rounded-2xl border border-[#E7E5E4] bg-white p-6 shadow-xl shadow-black/2">
             <div className="flex items-center gap-3 mb-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#34D399]/15">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="1.8">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF4F2] text-[#C84B31] border border-[#E7E5E4]">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-semibold text-[#FFF5F8]">Tambah Wishlist</p>
-                <p className="text-xs text-[#5C5470]">Tulis hal yang ingin dilakukan</p>
+                <p className="font-serif text-lg font-bold text-[#1F1D1B]">Tambah Wishlist</p>
+                <p className="text-xs text-[#78716C]">Tulis hal yang ingin dilakukan</p>
               </div>
             </div>
 
             <form className="space-y-4" onSubmit={handleCreate}>
               <div>
-                <label className="block text-xs font-medium text-[#9B93B0]" htmlFor="wish-title">Judul</label>
+                <label className="block text-xs font-semibold text-[#1F1D1B]" htmlFor="wish-title">Judul Wishlist</label>
                 <input
                   id="wish-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
                   maxLength={255}
-                  placeholder="Nonton film bareng via Netflix Party"
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#34D399]/40 focus:ring-1 focus:ring-[#34D399]/20 transition"
+                  placeholder="Nonton film bareng via Teleparty"
+                  className="mt-1.5 w-full rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 text-xs text-[#1F1D1B] outline-none placeholder:text-[#A8A29E] focus:border-[#C84B31] focus:bg-white transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#9B93B0]">
+                <label className="block text-xs font-semibold text-[#1F1D1B]">
                   Kategori
                 </label>
                 <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -480,10 +536,10 @@ export default function WishlistPage() {
                       key={cat.value}
                       type="button"
                       onClick={() => setCategory(cat.value)}
-                      className={`rounded-xl border px-3 py-2 text-xs font-medium transition ${
+                      className={`rounded-xl border px-3 py-2 text-xs font-semibold transition cursor-pointer ${
                         category === cat.value
                           ? cat.color + " ring-1 ring-current"
-                          : "border-white/10 bg-white/3 text-[#9B93B0] hover:bg-white/8"
+                          : "border-[#E7E5E4] bg-white text-[#78716C] hover:bg-[#FCFBF7] hover:text-[#1F1D1B]"
                       }`}
                     >
                       {cat.emoji} {cat.label}
@@ -493,8 +549,8 @@ export default function WishlistPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#9B93B0]" htmlFor="wish-desc">
-                  Detail <span className="text-[#5C5470]">(opsional)</span>
+                <label className="block text-xs font-semibold text-[#1F1D1B]" htmlFor="wish-desc">
+                  Detail <span className="font-normal text-[#78716C]">(opsional)</span>
                 </label>
                 <textarea
                   id="wish-desc"
@@ -502,15 +558,15 @@ export default function WishlistPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
                   maxLength={500}
-                  placeholder="Info tambahan..."
-                  className="mt-1.5 w-full resize-none rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#34D399]/40 focus:ring-1 focus:ring-[#34D399]/20 transition"
+                  placeholder="Info atau referensi tambahan..."
+                  className="mt-1.5 w-full resize-none rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 text-xs text-[#1F1D1B] outline-none placeholder:text-[#A8A29E] focus:border-[#C84B31] focus:bg-white transition"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={formLoading || !title.trim()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#34D399] px-4 py-3 text-sm font-semibold text-[#0E0E12] shadow-[0_4px_20px_rgba(52,211,153,0.25)] transition hover:bg-[#6EE7B7] disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-4 py-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
               >
                 {formLoading ? (
                   <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -521,7 +577,7 @@ export default function WishlistPage() {
                     <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                   </svg>
                 )}
-                {formLoading ? "Menyimpan..." : "Tambah Wishlist"}
+                {formLoading ? "Menyimpan..." : "Tambah ke Wishlist"}
               </button>
             </form>
           </div>
@@ -534,10 +590,10 @@ export default function WishlistPage() {
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer ${
                 filter === "all"
-                  ? "border-white/20 bg-white/10 text-[#FFF5F8]"
-                  : "border-white/[0.07] bg-transparent text-[#9B93B0] hover:bg-white/5"
+                  ? "border-[#C84B31] bg-[#FDF4F2] text-[#C84B31]"
+                  : "border-[#E7E5E4] bg-white text-[#78716C] hover:text-[#1F1D1B]"
               }`}
             >
               Semua ({items.length})
@@ -550,10 +606,10 @@ export default function WishlistPage() {
                   key={cat.value}
                   type="button"
                   onClick={() => setFilter(cat.value)}
-                  className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                  className={`rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer ${
                     filter === cat.value
                       ? cat.color + " ring-1 ring-current"
-                      : "border-white/[0.07] bg-transparent text-[#9B93B0] hover:bg-white/5"
+                      : "border-[#E7E5E4] bg-white text-[#78716C] hover:text-[#1F1D1B]"
                   }`}
                 >
                   {cat.emoji} {cat.label} ({count})
@@ -566,17 +622,17 @@ export default function WishlistPage() {
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((n) => (
-                <div key={n} className="h-20 animate-pulse rounded-2xl bg-white/4" />
+                <div key={n} className="h-24 animate-pulse rounded-2xl bg-white border border-[#E7E5E4]" />
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 py-16 text-center">
-              <div className="mb-4 text-5xl">📋</div>
-              <p className="font-medium text-[#9B93B0]">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#E7E5E4] bg-white py-16 text-center">
+              <div className="mb-3 text-4xl">📋</div>
+              <p className="text-sm font-bold text-[#1F1D1B]">
                 {filter === "all" ? "Belum ada wishlist" : "Tidak ada item di kategori ini"}
               </p>
-              <p className="mt-1 text-sm text-[#5C5470]">
-                {filter === "all" ? "Tambahkan hal pertama yang ingin kalian wujudkan!" : "Coba pilih kategori lain."}
+              <p className="mt-1 text-xs text-[#78716C]">
+                {filter === "all" ? "Tambahkan hal pertama yang ingin kalian wujudkan bersama!" : "Coba pilih kategori lain di atas."}
               </p>
             </div>
           ) : (

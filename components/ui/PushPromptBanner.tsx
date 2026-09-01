@@ -57,15 +57,15 @@ export function PushPromptBanner() {
       aria-label="Aktifkan notifikasi push"
       className="fixed top-20 left-4 right-4 z-50 animate-slide-in-right sm:left-auto sm:right-4 sm:w-80"
     >
-      <div className="overflow-hidden rounded-2xl border border-[#818CF8]/25 bg-[#0E0E12]/95 shadow-2xl shadow-[#818CF8]/10 backdrop-blur-md">
+      <div className="overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-2xl shadow-black/10 backdrop-blur-md">
         {/* Top accent */}
-        <div className="h-0.5 bg-linear-to-r from-[#FF3D7F] to-[#818CF8]" />
+        <div className="h-1 bg-[#C84B31]" />
 
         <div className="p-4">
           <div className="flex items-start gap-3">
             {/* Icon */}
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#818CF8]/15">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="1.8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FDF4F2] border border-[#FBDCD5] text-[#C84B31]">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
@@ -73,11 +73,11 @@ export function PushPromptBanner() {
 
             {/* Text */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-[#FFF5F8]">
+              <p className="text-xs font-serif font-bold text-[#1F1D1B]">
                 Aktifkan Notifikasi 🔔
               </p>
-              <p className="mt-0.5 text-xs text-[#5C5470] leading-relaxed">
-                Dapat notif langsung saat partner mengajakmu main — bahkan saat tab ditutup.
+              <p className="mt-0.5 text-[11px] text-[#78716C] leading-relaxed">
+                Dapat notif langsung saat partner mengajak main game — bahkan saat tab ditutup.
               </p>
             </div>
 
@@ -85,7 +85,7 @@ export function PushPromptBanner() {
             <button
               type="button"
               onClick={handleDismiss}
-              className="shrink-0 rounded-lg p-1 text-[#5C5470] transition hover:bg-white/5 hover:text-[#9B93B0]"
+              className="shrink-0 rounded-lg p-1 text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] cursor-pointer"
               aria-label="Tutup"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -100,7 +100,7 @@ export function PushPromptBanner() {
               type="button"
               onClick={handleActivate}
               disabled={loading}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#818CF8] py-2 text-xs font-bold text-white shadow-[0_4px_12px_rgba(129,140,248,0.3)] transition hover:bg-[#A78BFA] disabled:opacity-60"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#C84B31] py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:opacity-60 cursor-pointer"
             >
               {loading ? (
                 <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -116,7 +116,7 @@ export function PushPromptBanner() {
             <button
               type="button"
               onClick={handleDismiss}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-medium text-[#9B93B0] transition hover:bg-white/10"
+              className="rounded-xl border border-[#E7E5E4] bg-white px-3 text-xs font-semibold text-[#78716C] transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] cursor-pointer shadow-2xs"
             >
               Nanti
             </button>

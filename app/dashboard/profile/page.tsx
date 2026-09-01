@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/auth-store";
+import { toast } from "@/components/ui/Toast";
+import { dialog } from "@/components/ui/Dialog";
 import { PushNotificationToggle } from "@/components/ui/PushNotificationToggle";
 
 export default function ProfilePage() {
@@ -14,19 +16,16 @@ export default function ProfilePage() {
   // Avatar state
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar_url ?? null);
   const [avatarLoading, setAvatarLoading] = useState(false);
-  const [avatarMsg, setAvatarMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Name update state
   const [nameLoading, setNameLoading] = useState(false);
-  const [nameMsg, setNameMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passLoading, setPassLoading] = useState(false);
-  const [passMsg, setPassMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [showPass, setShowPass] = useState(false);
 
   useEffect(() => {
@@ -59,7 +58,6 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
 
     setAvatarLoading(true);
-    setAvatarMsg(null);
 
     const form = new FormData();
     form.append("file", file);
@@ -69,22 +67,33 @@ export default function ProfilePage() {
 
     if (json.success) {
       setUser({ ...user!, avatar_url: json.data.avatar_url });
-      setAvatarMsg({ ok: true, text: "Foto profil diperbarui!" });
+      toast.success("Foto Profil Diperbarui!", "Foto profil kamu berhasil diunggah.");
     } else {
       setAvatarPreview(user?.avatar_url ?? null); // revert preview
-      setAvatarMsg({ ok: false, text: json.message });
+      toast.error("Gagal Mengunggah Foto", json.message || "Terjadi kesalahan saat mengunggah foto.");
     }
     setAvatarLoading(false);
   }
 
   async function handleRemoveAvatar() {
+    const confirmed = await dialog.confirm({
+      title: "Hapus Foto Profil?",
+      description: "Apakah kamu yakin ingin menghapus foto profil dan kembali ke inisial nama?",
+      confirmText: "Ya, Hapus",
+      cancelText: "Batal",
+      isDanger: true,
+    });
+    if (!confirmed) return;
+
     setAvatarLoading(true);
     const res = await fetch("/api/user/avatar", { method: "DELETE" });
     const json = await res.json();
     if (json.success) {
       setAvatarPreview(null);
       setUser({ ...user!, avatar_url: null });
-      setAvatarMsg({ ok: true, text: "Foto profil dihapus" });
+      toast.info("Foto Profil Dihapus", "Foto profil telah dikembalikan ke inisial.");
+    } else {
+      toast.error("Gagal Menghapus Foto", json.message || "Terjadi kesalahan saat menghapus foto.");
     }
     setAvatarLoading(false);
   }
@@ -95,7 +104,6 @@ export default function ProfilePage() {
     e.preventDefault();
     if (!name.trim() || name.trim() === user?.name) return;
     setNameLoading(true);
-    setNameMsg(null);
     const supabase = createClient();
     const { error } = await supabase
       .from("users")
@@ -103,10 +111,10 @@ export default function ProfilePage() {
       .eq("id", user!.id);
 
     if (error) {
-      setNameMsg({ ok: false, text: error.message });
+      toast.error("Gagal Memperbarui Nama", error.message);
     } else {
       setUser({ ...user!, name: name.trim() });
-      setNameMsg({ ok: true, text: "Nama berhasil diperbarui!" });
+      toast.success("Nama Berhasil Diperbarui!", "Nama tampilan kamu berhasil disimpan.");
     }
     setNameLoading(false);
   }
@@ -116,22 +124,21 @@ export default function ProfilePage() {
   async function handleChangePassword(e: FormEvent) {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setPassMsg({ ok: false, text: "Konfirmasi password tidak cocok" });
+      toast.error("Password Tidak Cocok", "Konfirmasi password baru tidak sesuai.");
       return;
     }
     if (newPassword.length < 8) {
-      setPassMsg({ ok: false, text: "Password minimal 8 karakter" });
+      toast.error("Password Kurang Panjang", "Password baru harus memiliki minimal 8 karakter.");
       return;
     }
     setPassLoading(true);
-    setPassMsg(null);
 
     const supabase = createClient();
 
     // Re-authenticate terlebih dahulu untuk verifikasi current password
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (!authUser?.email) {
-      setPassMsg({ ok: false, text: "Gagal verifikasi sesi. Coba logout dan login kembali." });
+      toast.error("Sesi Tidak Ditemukan", "Gagal verifikasi sesi. Silakan coba login ulang.");
       setPassLoading(false);
       return;
     }
@@ -141,16 +148,16 @@ export default function ProfilePage() {
       password: currentPassword,
     });
     if (signInError) {
-      setPassMsg({ ok: false, text: "Password saat ini salah" });
+      toast.error("Password Salah", "Password saat ini yang kamu masukkan salah.");
       setPassLoading(false);
       return;
     }
 
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
-      setPassMsg({ ok: false, text: error.message });
+      toast.error("Gagal Mengubah Password", error.message);
     } else {
-      setPassMsg({ ok: true, text: "Password berhasil diubah!" });
+      toast.success("Password Diperbarui!", "Password akun berhasil diubah. Gunakan password baru untuk login berikutnya.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -165,31 +172,27 @@ export default function ProfilePage() {
     : "—";
 
   return (
-    <main className="relative mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-12 lg:px-8">
-      {/* ambient glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-20 left-1/2 -z-10 h-80 w-80 -translate-x-1/2 rounded-full blur-[100px]"
-        style={{ background: "radial-gradient(ellipse, rgba(255,61,127,0.08) 0%, transparent 70%)" }}
-      />
-
+    <main className="relative mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#5C5470]">Dashboard / Profil</p>
-        <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-[#FFF5F8]">
-          Profil &{" "}
-          <span style={{ backgroundImage: "linear-gradient(90deg, #FF3D7F, #818CF8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Pengaturan
-          </span>
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#E7E5E4] bg-[#FDF4F2] px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#C84B31]">
+          <span>👤</span>
+          <span>Pengaturan Akun</span>
+        </div>
+        <h1 className="mt-3 font-serif text-3xl sm:text-4xl text-[#1F1D1B] tracking-tight">
+          Profil & Pengaturan
         </h1>
+        <p className="mt-1.5 text-xs sm:text-sm text-[#78716C]">
+          Kelola informasi akun, foto profil, keamanan password, dan preferensi notifikasi.
+        </p>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-6">
 
         {/* ── Account Info Card ─────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-          <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#5C5470]">Info Akun</p>
-          <div className="flex items-start gap-5">
+        <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 shadow-xl shadow-black/2">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-[#78716C]">Info Profil</p>
+          <div className="flex flex-col sm:flex-row items-start gap-5">
 
             {/* Clickable Avatar */}
             <div className="relative shrink-0 group">
@@ -197,31 +200,31 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={avatarLoading}
-                className="relative h-16 w-16 overflow-hidden rounded-2xl ring-2 ring-white/10 transition hover:ring-[#FF3D7F]/40 focus:outline-none"
+                className="relative h-20 w-20 overflow-hidden rounded-2xl ring-2 ring-[#E7E5E4] transition hover:ring-[#C84B31] focus:outline-none cursor-pointer"
                 title="Ganti foto profil"
               >
                 {avatarPreview ? (
                   <Image
                     src={avatarPreview}
                     alt="Avatar"
-                    width={64}
-                    height={64}
+                    width={80}
+                    height={80}
                     className="h-full w-full object-cover"
                     unoptimized
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#FF3D7F]/30 to-[#818CF8]/30 text-2xl font-bold text-[#FFF5F8]">
+                  <div className="flex h-full w-full items-center justify-center bg-[#FDF4F2] font-serif text-3xl font-bold text-[#C84B31]">
                     {user?.name?.[0]?.toUpperCase()}
                   </div>
                 )}
                 {/* Camera overlay on hover */}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition group-hover:opacity-100">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
                   {avatarLoading ? (
                     <svg className="animate-spin text-white" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                     </svg>
                   ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                       <circle cx="12" cy="13" r="4" />
                     </svg>
@@ -236,9 +239,9 @@ export default function ProfilePage() {
                   onClick={handleRemoveAvatar}
                   disabled={avatarLoading}
                   title="Hapus foto profil"
-                  className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0E0E12] border border-white/20 text-[#5C5470] transition hover:border-red-500/40 hover:text-red-400"
+                  className="absolute -top-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-[#E7E5E4] text-[#78716C] shadow-xs transition hover:border-red-300 hover:text-red-600 cursor-pointer"
                 >
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                     <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
                   </svg>
                 </button>
@@ -255,27 +258,29 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex-1 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <p className="text-base font-semibold text-[#FFF5F8]">{user?.name}</p>
+              <div className="flex items-center gap-2.5">
+                <p className="text-lg font-bold text-[#1F1D1B]">{user?.name}</p>
                 {user?.is_admin && (
-                  <span className="rounded-full bg-[#F472B6]/15 px-2 py-0.5 text-[10px] font-bold text-[#F472B6]">Admin</span>
+                  <span className="rounded-full border border-[#C84B31]/20 bg-[#FDF4F2] px-2.5 py-0.5 text-[10px] font-bold text-[#C84B31]">Admin</span>
                 )}
               </div>
-              <p className="text-sm text-[#9B93B0]">{user?.email}</p>
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <span className="flex items-center gap-1.5 text-xs text-[#5C5470]">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <p className="text-xs text-[#78716C]">{user?.email}</p>
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <span className="flex items-center gap-1.5 text-xs text-[#78716C]">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="4" width="18" height="18" rx="3" /><path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
                   </svg>
                   Bergabung {joinedDate}
                 </span>
-                <span className={`flex items-center gap-1.5 text-xs ${user?.status === "linked" ? "text-[#34D399]" : "text-[#5C5470]"}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${user?.status === "linked" ? "bg-[#34D399] shadow-[0_0_6px_#34D399]" : "bg-[#5C5470]"}`} />
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${
+                  user?.status === "linked" ? "border-[#10B981]/20 bg-[#EBF9EB] text-[#10B981]" : "border-[#E7E5E4] bg-[#FCFBF7] text-[#78716C]"
+                }`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${user?.status === "linked" ? "bg-[#10B981]" : "bg-[#A8A29E]"}`} />
                   {user?.status === "linked" ? "Terhubung dengan partner" : "Belum ada partner"}
                 </span>
                 {lastSignIn && (
-                  <span className="flex items-center gap-1.5 text-xs text-[#5C5470]">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <span className="flex items-center gap-1.5 text-xs text-[#78716C]">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="12" cy="12" r="10" />
                       <path d="M12 6v6l4 2" strokeLinecap="round" />
                     </svg>
@@ -284,22 +289,17 @@ export default function ProfilePage() {
                 )}
               </div>
               {/* Avatar message */}
-              {avatarMsg && (
-                <p className={`text-xs pt-0.5 ${avatarMsg.ok ? "text-[#34D399]" : "text-red-400"}`}>
-                  {avatarMsg.text}
-                </p>
-              )}
-              <p className="text-[10px] text-[#3a3650] pt-0.5">Klik foto untuk menggantinya · Maks. 3MB</p>
+              <p className="text-[11px] text-[#A8A29E] pt-1">Klik foto untuk mengganti avatar · Maksimal ukuran file 3MB</p>
             </div>
           </div>
         </div>
 
         {/* ── Edit Name ─────────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-          <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#5C5470]">Ubah Nama</p>
-          <form onSubmit={handleUpdateName} className="space-y-3">
+        <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 shadow-xl shadow-black/2">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-[#78716C]">Ubah Nama</p>
+          <form onSubmit={handleUpdateName} className="space-y-4 max-w-xl">
             <div>
-              <label htmlFor="profile-name" className="block text-xs font-medium text-[#9B93B0] mb-1.5">
+              <label htmlFor="profile-name" className="block text-xs font-semibold text-[#1F1D1B] mb-1.5">
                 Nama Tampilan
               </label>
               <input
@@ -309,23 +309,23 @@ export default function ProfilePage() {
                 required
                 minLength={2}
                 maxLength={50}
-                className="w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none placeholder:text-[#5C5470] focus:border-[#FF3D7F]/40 focus:ring-1 focus:ring-[#FF3D7F]/20 transition"
+                className="w-full rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 text-xs font-medium text-[#1F1D1B] outline-none placeholder:text-[#A8A29E] focus:border-[#C84B31] focus:bg-white transition"
                 placeholder="Nama kamu"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-[#9B93B0] mb-1.5">Email</label>
+              <label className="block text-xs font-semibold text-[#1F1D1B] mb-1.5">Alamat Email</label>
               <input
                 value={user?.email ?? ""}
                 readOnly
-                className="w-full rounded-xl border border-white/[0.07] bg-[#0E0E12] px-4 py-2.5 text-sm text-[#5C5470] cursor-not-allowed"
+                className="w-full rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 text-xs text-[#78716C] cursor-not-allowed opacity-75"
               />
-              <p className="mt-1 text-[10px] text-[#5C5470]">Email tidak bisa diubah</p>
+              <p className="mt-1 text-[10px] text-[#A8A29E]">Email terdaftar tidak dapat diubah.</p>
             </div>
             <button
               type="submit"
               disabled={nameLoading || !name.trim() || name.trim() === user?.name}
-              className="flex items-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.25)] transition hover:bg-[#FF6B9D] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-[#C84B31] px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               {nameLoading ? (
                 <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -334,19 +334,16 @@ export default function ProfilePage() {
               ) : null}
               {nameLoading ? "Menyimpan..." : "Simpan Nama"}
             </button>
-            {nameMsg && (
-              <p className={`text-xs ${nameMsg.ok ? "text-[#34D399]" : "text-red-400"}`}>{nameMsg.text}</p>
-            )}
           </form>
         </div>
 
         {/* ── Change Password ───────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-          <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#5C5470]">Ganti Password</p>
-          <form onSubmit={handleChangePassword} className="space-y-3">
+        <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 shadow-xl shadow-black/2">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-[#78716C]">Ganti Password</p>
+          <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
             {/* Current password */}
             <div>
-              <label htmlFor="current-pass" className="block text-xs font-medium text-[#9B93B0] mb-1.5">
+              <label htmlFor="current-pass" className="block text-xs font-semibold text-[#1F1D1B] mb-1.5">
                 Password Saat Ini
               </label>
               <div className="relative">
@@ -356,10 +353,10 @@ export default function ProfilePage() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   required
-                  className="w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 pr-10 text-sm text-[#FFF5F8] outline-none focus:border-[#818CF8]/40 focus:ring-1 focus:ring-[#818CF8]/20 transition"
+                  className="w-full rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 pr-10 text-xs font-medium text-[#1F1D1B] outline-none focus:border-[#C84B31] focus:bg-white transition"
                   placeholder="••••••••"
                 />
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5C5470] hover:text-[#9B93B0]">
+                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#78716C] hover:text-[#1F1D1B] cursor-pointer">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     {showPass
                       ? <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
@@ -372,8 +369,8 @@ export default function ProfilePage() {
 
             {/* New password */}
             <div>
-              <label htmlFor="new-pass" className="block text-xs font-medium text-[#9B93B0] mb-1.5">
-                Password Baru <span className="text-[#5C5470]">(min. 8 karakter)</span>
+              <label htmlFor="new-pass" className="block text-xs font-semibold text-[#1F1D1B] mb-1.5">
+                Password Baru <span className="text-[#78716C] font-normal">(min. 8 karakter)</span>
               </label>
               <input
                 id="new-pass"
@@ -382,14 +379,14 @@ export default function ProfilePage() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full rounded-xl border border-white/10 bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none focus:border-[#818CF8]/40 focus:ring-1 focus:ring-[#818CF8]/20 transition"
+                className="w-full rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-2.5 text-xs font-medium text-[#1F1D1B] outline-none focus:border-[#C84B31] focus:bg-white transition"
                 placeholder="••••••••"
               />
             </div>
 
             {/* Confirm password */}
             <div>
-              <label htmlFor="confirm-pass" className="block text-xs font-medium text-[#9B93B0] mb-1.5">
+              <label htmlFor="confirm-pass" className="block text-xs font-semibold text-[#1F1D1B] mb-1.5">
                 Konfirmasi Password Baru
               </label>
               <input
@@ -398,22 +395,22 @@ export default function ProfilePage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className={`w-full rounded-xl border bg-[#18181C] px-4 py-2.5 text-sm text-[#FFF5F8] outline-none transition ${
+                className={`w-full rounded-xl border bg-[#FCFBF7] px-4 py-2.5 text-xs font-medium text-[#1F1D1B] outline-none transition ${
                   confirmPassword && newPassword !== confirmPassword
-                    ? "border-red-500/40 focus:border-red-500/60"
-                    : "border-white/10 focus:border-[#818CF8]/40 focus:ring-1 focus:ring-[#818CF8]/20"
+                    ? "border-red-300 focus:border-red-500"
+                    : "border-[#E7E5E4] focus:border-[#C84B31] focus:bg-white"
                 }`}
                 placeholder="••••••••"
               />
               {confirmPassword && newPassword !== confirmPassword && (
-                <p className="mt-1 text-[10px] text-red-400">Password tidak cocok</p>
+                <p className="mt-1 text-[11px] font-medium text-red-600">Konfirmasi password tidak cocok</p>
               )}
             </div>
 
             <button
               type="submit"
               disabled={passLoading || !currentPassword || !newPassword || newPassword !== confirmPassword}
-              className="flex items-center gap-2 rounded-xl bg-[#818CF8] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(129,140,248,0.25)] transition hover:bg-[#A78BFA] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-[#1F1D1B] px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#383330] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               {passLoading ? (
                 <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -422,41 +419,32 @@ export default function ProfilePage() {
               ) : null}
               {passLoading ? "Mengubah..." : "Ubah Password"}
             </button>
-
-            {passMsg && (
-              <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs ${
-                passMsg.ok
-                  ? "border-[#34D399]/20 bg-[#34D399]/10 text-[#34D399]"
-                  : "border-red-500/20 bg-red-500/10 text-red-300"
-              }`}>
-                {passMsg.ok
-                  ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                }
-                {passMsg.text}
-              </div>
-            )}
           </form>
         </div>
 
         {/* ── Notifikasi Push ────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-          <p className="mb-4 text-xs font-medium uppercase tracking-widest text-[#5C5470]">Notifikasi</p>
+        <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 shadow-xl shadow-black/2">
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-wider text-[#78716C]">Notifikasi Push</p>
           <PushNotificationToggle />
-          <p className="mt-3 text-[11px] text-[#5C5470]">
-            Aktifkan agar kamu dapat notifikasi saat partner join game — bahkan saat tab ditutup.
+          <p className="mt-3 text-[11px] text-[#78716C]">
+            Aktifkan agar kamu mendapat notifikasi instan saat pasangan bergabung ke ruang permainan.
           </p>
         </div>
 
         {/* ── Couple Code ───────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-[#FF3D7F]/15 bg-linear-to-br from-[#FF3D7F]/5 to-transparent p-6">
-          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-[#5C5470]">Couple Code Kamu</p>
-          <p className="font-mono text-2xl font-bold tracking-[0.15em] text-[#FF6B9D]">
-            {user?.couple_code ?? "—"}
-          </p>
-          <p className="mt-2 text-xs text-[#9B93B0]">
-            Bagikan kode ini ke pasanganmu agar bisa terhubung.
-          </p>
+        <div className="rounded-2xl border border-[#E7E5E4] bg-white p-6 sm:p-8 shadow-xl shadow-black/2 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#78716C]">Couple Code Kamu</p>
+            <p className="mt-2 font-mono text-2xl font-bold tracking-[0.2em] text-[#C84B31]">
+              {user?.couple_code ?? "—"}
+            </p>
+            <p className="mt-1 text-xs text-[#78716C]">
+              Gunakan kode ini untuk menghubungkan akun pada menu Couple.
+            </p>
+          </div>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FDF4F2] text-[#C84B31] border border-[#E7E5E4]">
+            ♥
+          </div>
         </div>
 
       </div>

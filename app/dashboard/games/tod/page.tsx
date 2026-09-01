@@ -31,15 +31,15 @@ type JoinResponse = { session: TodSession };
 function QuestionTypeBadge({ type }: { type: "truth" | "dare" }) {
   if (type === "truth") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#818CF8]/30 bg-[#818CF8]/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#A78BFA]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[#818CF8] shadow-[0_0_6px_#818CF8]" />
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E0E7FF] bg-[#EEF2FF] px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#4F46E5]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#4F46E5]" />
         Truth
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#FF3D7F]/30 bg-[#FF3D7F]/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#FF6B9D]">
-      <span className="h-1.5 w-1.5 rounded-full bg-[#FF3D7F] shadow-[0_0_6px_#FF3D7F]" />
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#FBDCD5] bg-[#FDF4F2] px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#C84B31]">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#C84B31]" />
       Dare
     </span>
   );
@@ -455,8 +455,8 @@ function TodContent() {
       gameEmoji="🔥"
       gameSlug="tod"
       gameSubtitle="Main bareng pasangan, jujur atau tantangan!"
-      accentColor="#FF3D7F"
-      accentColorLight="#FF6B9D"
+      accentColor="#C84B31"
+      accentColorLight="#B33E26"
       phase={phase}
       // Waiting
       sessionCode={displayCode}
@@ -475,8 +475,8 @@ function TodContent() {
       // Idle
       idleContent={
         <GameIdleLayout
-          accentColor="#FF3D7F"
-          accentColorLight="#FF6B9D"
+          accentColor="#C84B31"
+          accentColorLight="#B33E26"
           joinCodeInput={joinCodeInput}
           onJoinCodeChange={setJoinCodeInput}
           onJoin={handleJoin}
@@ -484,24 +484,24 @@ function TodContent() {
           joinDisabled={loading || joinCodeInput.trim().length < 4}
           createContent={
             <>
-              <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#FF6B9D]">Buat Sesi Baru</p>
+              <p className="mb-5 text-xs font-bold uppercase tracking-widest text-[#C84B31]">Buat Sesi Baru</p>
 
               {/* Header icon+text */}
               <div className="mb-5 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF3D7F]/15">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF3D7F" strokeWidth="2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF4F2] text-[#C84B31] border border-[#FBDCD5]">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-semibold text-[#FFF5F8]">Kamu jadi host</p>
-                  <p className="text-xs text-[#5C5470]">Partner join pakai session code</p>
+                  <p className="font-bold text-[#1F1D1B]">Kamu jadi host</p>
+                  <p className="text-xs text-[#78716C]">Partner join pakai session code</p>
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-[#9B93B0] mb-2">
+                  <label className="block text-xs font-semibold text-[#1F1D1B] mb-2">
                     Kategori Pertanyaan
                   </label>
                   <SearchableSelect
@@ -520,7 +520,7 @@ function TodContent() {
                   type="button"
                   onClick={handleCreate}
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(255,61,127,0.35)] transition hover:bg-[#FF6B9D] hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-5 py-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                 >
                   {loading ? (
                     <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -533,7 +533,7 @@ function TodContent() {
                   )}
                   {loading ? "Membuat sesi…" : "✨ Mulai & Buat Sesi"}
                 </button>
-                <p className="text-center text-[10px] text-[#5C5470]">Memotong 1 coin per sesi</p>
+                <p className="text-center text-[11px] text-[#78716C]">Memotong 1 coin per sesi</p>
               </div>
             </>
           }
@@ -556,7 +556,7 @@ function TodContent() {
             <GamePlayingHeader
               sessionCode={session.session_code}
               statusText={`${completedQ}/${totalQ} pertanyaan`}
-              statusColor="#9B93B0"
+              statusColor="#C84B31"
               timerSeconds={timeLeft}
               timerTotalSeconds={totalSeconds}
               partnerOnline={partnerOnline}
@@ -567,41 +567,38 @@ function TodContent() {
             />
 
             {/* Progress bar pertanyaan */}
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E7E5E4]">
               <div
-                className="h-full rounded-full bg-linear-to-r from-[#FF3D7F] to-[#818CF8] transition-all duration-500"
+                className="h-full rounded-full bg-[#C84B31] transition-all duration-500"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
 
             {/* Question card */}
             {currentQuestion ? (
-              <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113]">
+              <div className="overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
                 <div
-                  className="h-1 w-full"
+                  className="h-1.5 w-full"
                   style={{
-                    background:
-                      currentQuestion.type === "truth"
-                        ? "linear-gradient(90deg, #818CF8, #A78BFA)"
-                        : "linear-gradient(90deg, #FF3D7F, #FF6B9D)",
+                    backgroundColor: currentQuestion.type === "truth" ? "#4F46E5" : "#C84B31",
                   }}
                 />
-                <div className="p-5 sm:p-8">
+                <div className="p-6 sm:p-8">
                   {/* Type + category */}
                   <div className="flex items-center gap-2">
                     <QuestionTypeBadge type={currentQuestion.type} />
-                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium text-[#5C5470] capitalize">
+                    <span className="rounded-full border border-[#E7E5E4] bg-[#FCFBF7] px-2.5 py-0.5 text-[10px] font-semibold text-[#78716C] capitalize">
                       {currentQuestion.category}
                     </span>
                   </div>
 
                   {/* Question text */}
-                  <p className="mt-6 text-xl font-semibold leading-relaxed text-[#FFF5F8]">
+                  <p className="mt-6 font-serif text-2xl font-bold leading-relaxed text-[#1F1D1B]">
                     {currentQuestion.question ?? "Pertanyaan dimuat…"}
                   </p>
 
                   {/* Question number */}
-                  <p className="mt-4 text-xs text-[#5C5470]">
+                  <p className="mt-4 text-xs text-[#78716C]">
                     Pertanyaan ke-{currentQuestion.order} dari {totalQ}
                   </p>
 
@@ -611,7 +608,7 @@ function TodContent() {
                       type="button"
                       onClick={handleDone}
                       disabled={loading}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.25)] transition hover:bg-[#FF6B9D] disabled:opacity-60"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-5 py-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:opacity-60 cursor-pointer"
                     >
                       {loading ? (
                         <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -629,7 +626,7 @@ function TodContent() {
                       onClick={handleNext}
                       disabled={loading}
                       title="Lewati pertanyaan ini"
-                      className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-60"
+                      className="flex items-center justify-center gap-2 rounded-xl border border-[#E7E5E4] bg-white px-4 py-3 text-xs font-semibold text-[#78716C] shadow-2xs transition hover:bg-[#FCFBF7] hover:text-[#1F1D1B] disabled:opacity-60 cursor-pointer"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
@@ -641,14 +638,14 @@ function TodContent() {
               </div>
             ) : (
               /* Waiting for partner to load first question */
-              <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-10 text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#818CF8]/10">
-                  <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2">
+              <div className="rounded-2xl border border-[#E7E5E4] bg-white p-10 text-center shadow-xl shadow-black/2">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#FDF4F2] text-[#C84B31] border border-[#FBDCD5]">
+                  <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
                   </svg>
                 </div>
-                <p className="font-medium text-[#9B93B0]">Menunggu pertanyaan pertama…</p>
-                <p className="mt-1 text-xs text-[#5C5470]">Host akan memulai sebentar lagi.</p>
+                <p className="font-serif text-base font-bold text-[#1F1D1B]">Menunggu pertanyaan pertama…</p>
+                <p className="mt-1 text-xs text-[#78716C]">Host akan memulai sebentar lagi.</p>
               </div>
             )}
 
@@ -710,41 +707,39 @@ function TodContent() {
               {/* Progress bar */}
               <div>
                 <div
-                  className="flex justify-between text-xs mb-1.5"
-                  style={{ color: finishReason === "time_up" ? "#FBBF24" : "#34D399" }}
+                  className="flex justify-between text-xs font-semibold mb-1.5"
+                  style={{ color: finishReason === "time_up" ? "#D97706" : "#10B981" }}
                 >
                   <span>Pertanyaan dijawab</span>
                   <span>{completedQ}/{totalQ}</span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/5">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[#E7E5E4]">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: totalQ > 0 ? `${Math.round((completedQ / totalQ) * 100)}%` : "0%",
-                      background: finishReason === "time_up"
-                        ? "linear-gradient(90deg, #FBBF24, #F59E0B)"
-                        : "linear-gradient(90deg, #34D399, #6EE7B7)",
+                      backgroundColor: finishReason === "time_up" ? "#D97706" : "#10B981",
                     }}
                   />
                 </div>
               </div>
 
               {/* Detail stats */}
-              <div className="flex justify-between text-xs text-[#5C5470]">
+              <div className="flex justify-between text-xs text-[#78716C]">
                 <span>Game</span>
-                <span className="text-[#9B93B0]">Truth or Dare</span>
+                <span className="font-semibold text-[#1F1D1B]">Truth or Dare</span>
               </div>
               {session?.session_code && (
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Session</span>
-                  <span className="font-mono text-[#9B93B0]">{session.session_code}</span>
+                  <span className="font-mono font-semibold text-[#1F1D1B]">{session.session_code}</span>
                 </div>
               )}
-              <div className="flex justify-between text-xs text-[#5C5470]">
+              <div className="flex justify-between text-xs text-[#78716C]">
                 <span>Hasil</span>
                 <span
-                  className="font-medium"
-                  style={{ color: finishReason === "time_up" ? "#FBBF24" : "#34D399" }}
+                  className="font-bold"
+                  style={{ color: finishReason === "time_up" ? "#D97706" : "#10B981" }}
                 >
                   {finishReason === "time_up" ? "Waktu Habis" : "Selesai"}
                 </span>

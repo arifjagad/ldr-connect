@@ -13,19 +13,13 @@ import { GamePageLayout, GamePageSkeleton } from "@/components/games/GamePageLay
 import { GamePlayingHeader } from "@/components/games/GamePlayingHeader";
 import { GameFinishedCard } from "@/components/games/GameFinishedCard";
 import { GameIdleLayout, GameRulesList } from "@/components/games/GameIdleLayout";
+import { GameSurrenderModal, GameSurrenderButton } from "@/components/games/GameSurrenderModal";
 import { usePartnerProfile } from "@/lib/hooks/usePartnerProfile";
 import type { QuoridorSession, QuoridorGameState } from "@/lib/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Phase = "idle" | "waiting" | "playing" | "finished";
 type FinishReason = "time_up" | "completed" | "expired" | null;
-
-function formatTime(s: number | null) {
-  if (s === null) return "--:--";
-  const m   = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
 
 // ── Main Content ──────────────────────────────────────────────────────────────
 function QuoridorContent() {
@@ -40,13 +34,12 @@ function QuoridorContent() {
   const [finishReason, setFinishReason] = useState<FinishReason>(null);
   const [gameState, setGameState]       = useState<QuoridorGameState | null>(null);
 
-  // Pre-join lobby: menyimpan kode sesi yang belum di-join (untuk tampilkan lobby dulu)
+  // Pre-join lobby
   const [preJoinCode, setPreJoinCode]   = useState<string | null>(null);
 
   const [mode, setMode]           = useState<"move" | "wall">("move");
   const [wallOrient, setWallOrient] = useState<"H" | "V">("H");
   const [isActing, setIsActing]   = useState(false);
-  const [error, setError]         = useState<string | null>(null);
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingJoin, setLoadingJoin]     = useState(false);
   const [showConfirm, setShowConfirm]     = useState(false);
@@ -57,14 +50,13 @@ function QuoridorContent() {
   const [partnerOnline, setPartnerOnline] = useState(false);
   const [realtimeOk, setRealtimeOk]     = useState(true);
 
-  // Profil untuk share image — di-fetch saat game selesai
+  // Profil untuk share image
   const { profiles: shareProfiles } = usePartnerProfile(phase === "finished");
 
   // Realtime refs
   const supabaseRef   = useRef(createClient());
   const channelRef    = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const prevStatusRef = useRef<string | null>(null);
-  // Ref untuk menyimpan snapshot gameState saat optimistic update (untuk rollback)
   const gameStateSnapshotRef = useRef<QuoridorGameState | null>(null);
 
   const myRole = session
@@ -137,8 +129,6 @@ function QuoridorContent() {
     )?.toUpperCase() ?? "";
 
     if (urlCode) {
-      // Datang dari join link — tampilkan pre-join lobby dulu (seperti ToD)
-      // Bersihkan URL agar tidak join ulang saat refresh
       window.history.replaceState({}, "", window.location.pathname);
       setJoinCodeInput(urlCode);
       setPreJoinCode(urlCode);
@@ -146,14 +136,11 @@ function QuoridorContent() {
       return;
     }
 
-    // Tidak ada join code di URL — cek sesi aktif milik couple
     fetch("/api/game/quoridor/session/active")
       .then((r) => r.json())
       .then((res) => {
         const s = res.data?.session;
         if (!s) return;
-        // Jika sesi masih waiting tapi user bukan host (user = partner yang belum join)
-        // → tampilkan pre-join lobby agar partner bisa klik "Join Sekarang"
         if (s.status === "waiting" && user?.id && s.host_user_id !== user.id) {
           setJoinCodeInput(s.session_code);
           setPreJoinCode(s.session_code);
@@ -175,23 +162,20 @@ function QuoridorContent() {
       return;
     }
 
-    const code      = session.session_code;
-    const supabase  = supabaseRef.current;
-    const channel   = supabase
+    const code     = session.session_code;
+    const supabase = supabaseRef.current;
+    const channel  = supabase
       .channel(`quoridor:${code}`)
-      // ── Broadcast: update instan dari server setelah setiap aksi (~50ms) ──
       .on("broadcast", { event: "game_state_update" }, ({ payload }) => {
         const gs = payload?.game_state as QuoridorGameState | undefined;
         if (!gs) return;
         setGameState(gs);
-        // Jika ada pemenang, update session status ke completed
         if (gs.winner) {
           setSession((prev) => prev ? { ...prev, status: "completed", game_state: gs } : prev);
           setFinishReason("completed");
           setPhase("finished");
         }
       })
-      // ── postgres_changes: fallback jika broadcast terlambat/gagal ─────────
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "game_sessions", filter: `session_code=eq.${code}` },
@@ -210,14 +194,13 @@ function QuoridorContent() {
         if (status === "SUBSCRIBED") {
           setRealtimeOk(true);
           if (user?.id) await channel.track({ user_id: user.id });
-          // Re-fetch state terbaru setelah subscribe
           try {
-            const res  = await fetch(`/api/game/quoridor/session/${code}`);
+            const res = await fetch(`/api/game/quoridor/session/${code}`);
             if (res.ok) {
               const data = await res.json();
               if (data.data?.session) applySession(data.data.session);
             }
-          } catch { /* ignore — realtime akan sync */ }
+          } catch { /* ignore */ }
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setRealtimeOk(false);
         }
@@ -236,7 +219,6 @@ function QuoridorContent() {
   // ── Handlers ──────────────────────────────────────────────────────────────
   async function handleCreateSession() {
     setLoadingCreate(true);
-    setError(null);
     try {
       const res  = await fetch("/api/game/quoridor/session/create", { method: "POST" });
       const data = await res.json().catch(() => ({ success: false, message: `HTTP ${res.status}` }));
@@ -257,7 +239,6 @@ function QuoridorContent() {
     const code = (preJoinCode ?? joinCodeInput).trim();
     if (!code) return;
     setLoadingJoin(true);
-    setError(null);
     try {
       const res  = await fetch("/api/game/quoridor/session/join", {
         method:  "POST",
@@ -280,12 +261,9 @@ function QuoridorContent() {
   async function handleMove(r: number, c: number) {
     if (!session || isActing || !gameState || !myRole) return;
     setIsActing(true);
-    setError(null);
 
-    // Simpan snapshot untuk rollback
     gameStateSnapshotRef.current = gameState;
 
-    // ── Optimistic update: perbarui posisi pion langsung di UI ──
     const optimistic: QuoridorGameState = {
       ...gameState,
       host_pos:    myRole === "host"    ? { r, c } : gameState.host_pos,
@@ -302,17 +280,14 @@ function QuoridorContent() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
-        // Rollback optimistic
         setGameState(gameStateSnapshotRef.current ?? optimistic);
         throw new Error(data.message ?? "Gagal bergerak");
       }
       const data = await res.json();
       if (!data.success) {
-        // Rollback optimistic jika gagal
         setGameState(gameStateSnapshotRef.current ?? optimistic);
         throw new Error(data.message);
       }
-      // Server state adalah sumber kebenaran (termasuk win detection)
       setGameState(data.data.game_state);
       if (data.data.game_state.winner) {
         setFinishReason("completed");
@@ -328,12 +303,9 @@ function QuoridorContent() {
   async function handleWall(orientation: "H" | "V", r: number, c: number) {
     if (!session || isActing || !gameState || !myRole) return;
     setIsActing(true);
-    setError(null);
 
-    // Simpan snapshot untuk rollback
     gameStateSnapshotRef.current = gameState;
 
-    // ── Optimistic update: tampilkan tembok baru langsung di UI ──
     const newWall = { orientation, r, c };
     const optimistic: QuoridorGameState = {
       ...gameState,
@@ -359,7 +331,6 @@ function QuoridorContent() {
       }
       const data = await res.json();
       if (!data.success) {
-        // Rollback optimistic jika gagal
         setGameState(gameStateSnapshotRef.current ?? optimistic);
         throw new Error(data.message);
       }
@@ -374,7 +345,6 @@ function QuoridorContent() {
 
   function handleNewGame() {
     if (session?.status === "waiting" && session.host_user_id === user?.id) {
-      // Cancel sesi menunggu
       fetch(`/api/game/session/${session.session_code}/cancel`, { method: "POST" }).catch(() => {});
     }
     setSession(null);
@@ -385,9 +355,7 @@ function QuoridorContent() {
     setMode("move");
     setWallOrient("H");
     setShowVideo(false);
-    setError(null);
     setShowConfirm(false);
-    // Clear join param from URL
     if (typeof window !== "undefined" && window.location.search) {
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -420,7 +388,6 @@ function QuoridorContent() {
   const winnerIsMe = gameState?.winner === myRole;
   const partnerWon = !!(gameState?.winner && gameState.winner !== myRole);
 
-  // Pre-join logic (when partner comes via join link)
   const isHostUser = !!(session && user && session.host_user_id === user.id);
   const isPartnerPreJoin = !!(preJoinCode && !session);
   const displayCode = session?.session_code ?? preJoinCode ?? "";
@@ -431,8 +398,8 @@ function QuoridorContent() {
       gameEmoji="♟️"
       gameSlug="quoridor"
       gameSubtitle="Blokir jalur lawan, capai garis akhir duluan!"
-      accentColor="#10B981"
-      accentColorLight="#34D399"
+      accentColor="#C84B31"
+      accentColorLight="#B33E26"
       phase={phase}
       // Waiting
       sessionCode={displayCode}
@@ -451,8 +418,8 @@ function QuoridorContent() {
       idleContent={
         <>
           <GameIdleLayout
-            accentColor="#10B981"
-            accentColorLight="#34D399"
+            accentColor="#C84B31"
+            accentColorLight="#B33E26"
             joinCodeInput={joinCodeInput}
             onJoinCodeChange={setJoinCodeInput}
             onJoin={handleJoin}
@@ -460,25 +427,25 @@ function QuoridorContent() {
             joinDisabled={loadingJoin || !joinCodeInput.trim()}
             createContent={
               <>
-                <p className="mb-5 text-xs font-semibold uppercase tracking-widest text-[#10B981]">
+                <p className="mb-5 text-xs font-bold uppercase tracking-widest text-[#C84B31]">
                   Buat Game Baru
                 </p>
 
                 <div className="mb-6 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#10B981]/15">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF4F2] text-[#C84B31] border border-[#FBDCD5]">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                     </svg>
                   </div>
                   <div>
-                    <p className="font-semibold text-[#FFF5F8]">Kamu jadi host</p>
-                    <p className="text-xs text-[#5C5470]">Partner join pakai session code</p>
+                    <p className="font-bold text-[#1F1D1B]">Kamu jadi host</p>
+                    <p className="text-xs text-[#78716C]">Partner join pakai session code</p>
                   </div>
                 </div>
 
                 {/* Rules summary */}
-                <div className="mb-6 space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5C5470]">Cara Main</p>
+                <div className="mb-6 space-y-2 rounded-2xl border border-[#E7E5E4] bg-[#FCFBF7] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">Cara Main</p>
                   {[
                     "Grid 9×9 — setiap giliran gerak ATAU pasang tembok",
                     "Kamu punya 10 tembok untuk digunakan",
@@ -487,19 +454,19 @@ function QuoridorContent() {
                     "Tembok tidak boleh memblokir total semua jalur lawan",
                     "Yang pertama mencapai baris tujuan = MENANG! ♟️",
                   ].map((rule, i) => (
-                    <p key={i} className="flex items-start gap-2 text-[10px] text-[#9B93B0]">
-                      <span className="mt-0.5 text-[#5C5470]">•</span> {rule}
+                    <p key={i} className="flex items-start gap-2 text-[11px] text-[#78716C]">
+                      <span className="mt-0.5 text-[#C84B31]">•</span> {rule}
                     </p>
                   ))}
                 </div>
 
                 <button
                   onClick={() => setShowConfirm(true)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#10B981] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition hover:bg-[#34D399]"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C84B31] px-5 py-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] cursor-pointer"
                 >
                   Siapkan Papan →
                 </button>
-                <p className="mt-2 text-center text-[10px] text-[#5C5470]">Memotong 3 coin</p>
+                <p className="mt-2 text-center text-[11px] text-[#78716C]">Memotong 3 coin</p>
               </>
             }
             joinContent={
@@ -514,32 +481,32 @@ function QuoridorContent() {
 
           {/* ── Confirm Modal ──────────────────────────────────────────────── */}
           {showConfirm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
               <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                className="absolute inset-0"
                 onClick={() => !loadingCreate && setShowConfirm(false)}
               />
-              <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#10B981]/25 bg-[#111113] shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
-                <div className="h-0.5 w-full bg-linear-to-r from-[#10B981] to-[#34D399]" />
-                <div className="p-6">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-[#10B981]">Konfirmasi</p>
-                  <h2 className="mt-1 text-xl font-bold text-[#FFF5F8]">Mulai game Quoridor?</h2>
-                  <div className="my-5 space-y-2.5 text-sm text-[#9B93B0]">
+              <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-[#E7E5E4] bg-white p-6 shadow-2xl">
+                <div className="h-1.5 w-full bg-[#C84B31] absolute top-0 left-0" />
+                <div className="pt-2">
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#C84B31]">Konfirmasi</p>
+                  <h2 className="mt-1 font-serif text-xl font-bold text-[#1F1D1B]">Mulai game Quoridor?</h2>
+                  <div className="my-5 space-y-2.5 text-xs text-[#78716C]">
                     <p className="flex items-start gap-2">
-                      <span className="mt-0.5 text-[#5C5470]">•</span>
+                      <span className="mt-0.5 text-[#C84B31]">•</span>
                       Papan 9×9 kosong disiapkan
                     </p>
                     <p className="flex items-start gap-2">
-                      <span className="mt-0.5 text-[#5C5470]">•</span>
-                      Setiap pemain mendapat <span className="font-semibold text-[#FFF5F8]">10 tembok</span>
+                      <span className="mt-0.5 text-[#C84B31]">•</span>
+                      Setiap pemain mendapat <span className="font-semibold text-[#1F1D1B]">10 tembok</span>
                     </p>
                     <p className="flex items-start gap-2">
-                      <span className="mt-0.5 text-[#5C5470]">•</span>
-                      <span><span className="font-semibold text-[#FF6B9D]">3 coin</span> akan dipotong</span>
+                      <span className="mt-0.5 text-[#C84B31]">•</span>
+                      <span><span className="font-semibold text-[#C84B31]">3 coin</span> akan dipotong</span>
                     </p>
                     <p className="flex items-start gap-2">
-                      <span className="mt-0.5 text-[#5C5470]">•</span>
-                      Durasi game: <span className="font-semibold text-[#FFF5F8]">30 menit</span>
+                      <span className="mt-0.5 text-[#C84B31]">•</span>
+                      Durasi game: <span className="font-semibold text-[#1F1D1B]">30 menit</span>
                     </p>
                   </div>
                   <div className="flex gap-3">
@@ -547,7 +514,7 @@ function QuoridorContent() {
                       type="button"
                       onClick={() => setShowConfirm(false)}
                       disabled={loadingCreate}
-                      className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-[#9B93B0] transition hover:bg-white/10 disabled:opacity-50"
+                      className="flex-1 rounded-xl border border-[#E7E5E4] bg-white py-2.5 text-xs font-semibold text-[#78716C] transition hover:border-[#D6D3D1] hover:text-[#1F1D1B] disabled:opacity-50 cursor-pointer"
                     >
                       Batal
                     </button>
@@ -555,7 +522,7 @@ function QuoridorContent() {
                       type="button"
                       onClick={handleCreateSession}
                       disabled={loadingCreate}
-                      className="flex-1 rounded-xl bg-[#10B981] py-2.5 text-sm font-bold text-white shadow-[0_4px_16px_rgba(16,185,129,0.35)] transition hover:bg-[#34D399] disabled:opacity-50"
+                      className="flex-1 rounded-xl bg-[#C84B31] py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-[#B33E26] disabled:opacity-50 cursor-pointer"
                     >
                       {loadingCreate ? (
                         <span className="flex items-center justify-center gap-2">
@@ -580,7 +547,7 @@ function QuoridorContent() {
             <GamePlayingHeader
               sessionCode={session.session_code}
               statusText={isMyTurn ? "Giliran kamu" : "Menunggu partner..."}
-              statusColor={isMyTurn ? "#10B981" : "#9B93B0"}
+              statusColor={isMyTurn ? "#10B981" : "#78716C"}
               timerSeconds={timerSeconds}
               timerTotalSeconds={totalSec}
               partnerOnline={partnerOnline}
@@ -608,47 +575,47 @@ function QuoridorContent() {
               {/* Right Panel */}
               <div className="space-y-4">
                 {/* Status pemain */}
-                <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-4">
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-widest text-[#5C5470]">
+                <div className="rounded-2xl border border-[#E7E5E4] bg-white p-4 shadow-xl shadow-black/2">
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[#78716C]">
                     Status Pemain
                   </p>
                   {/* Host */}
-                  <div className="flex items-center gap-3 rounded-xl border border-white/[0.07] px-3 py-2.5">
+                  <div className="flex items-center gap-3 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-3 py-2.5">
                     <div
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-base"
-                      style={{ background: "linear-gradient(135deg, #FF3D7F, #FF6B9D)", boxShadow: "0 0 10px rgba(255,61,127,0.4)" }}
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold text-white shadow-xs"
+                      style={{ background: "#C84B31" }}
                     >
                       ♟
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-[#FFF5F8]">
-                        Host {myRole === "host" && <span className="text-[10px] text-[#10B981]">(Kamu)</span>}
+                      <p className="text-xs font-semibold text-[#1F1D1B]">
+                        Host {myRole === "host" && <span className="text-[10px] font-bold text-[#10B981]">(Kamu)</span>}
                       </p>
-                      <p className="text-[10px] text-[#5C5470]">
+                      <p className="text-[10px] text-[#78716C]">
                         Baris {gameState.host_pos.r + 1} · Kolom {gameState.host_pos.c + 1}
                       </p>
                     </div>
-                    <span className="text-xs font-bold text-[#FF3D7F]">{gameState.walls_left.host}🧱</span>
+                    <span className="text-xs font-bold text-[#C84B31]">{gameState.walls_left.host}🧱</span>
                   </div>
                   {/* Partner */}
-                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/[0.07] px-3 py-2.5">
+                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-3 py-2.5">
                     <div
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-base"
-                      style={{ background: "linear-gradient(135deg, #818CF8, #A78BFA)", boxShadow: "0 0 10px rgba(129,140,248,0.4)" }}
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold text-white shadow-xs"
+                      style={{ background: "#4F46E5" }}
                     >
                       ♟
                     </div>
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-[#FFF5F8]">
-                        Partner {myRole === "partner" && <span className="text-[10px] text-[#10B981]">(Kamu)</span>}
+                      <p className="text-xs font-semibold text-[#1F1D1B]">
+                        Partner {myRole === "partner" && <span className="text-[10px] font-bold text-[#10B981]">(Kamu)</span>}
                       </p>
-                      <p className="text-[10px] text-[#5C5470]">
+                      <p className="text-[10px] text-[#78716C]">
                         Baris {gameState.partner_pos.r + 1} · Kolom {gameState.partner_pos.c + 1}
                       </p>
                     </div>
-                    <span className="text-xs font-bold text-[#818CF8]">{gameState.walls_left.partner}🧱</span>
+                    <span className="text-xs font-bold text-[#4F46E5]">{gameState.walls_left.partner}🧱</span>
                   </div>
-                  <p className="mt-2 text-[10px] text-[#5C5470]">
+                  <p className="mt-2 text-[10px] font-medium text-[#78716C]">
                     {partnerOnline ? "🟢 Partner online" : "⚫ Partner offline"}
                   </p>
                 </div>
@@ -667,67 +634,24 @@ function QuoridorContent() {
                 )}
 
                 {/* Session code */}
-                <div className="rounded-xl border border-white/[0.07] bg-[#111113] p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5C5470]">Session Code</p>
-                  <p className="mt-1 font-mono text-sm font-bold tracking-widest text-[#FFF5F8]">{session.session_code}</p>
+                <div className="rounded-2xl border border-[#E7E5E4] bg-white p-3.5 shadow-xl shadow-black/2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#78716C]">Session Code</p>
+                  <p className="mt-1 font-mono text-sm font-bold tracking-widest text-[#1F1D1B]">{session.session_code}</p>
                 </div>
 
-                {/* Abandon — dengan konfirmasi */}
-                <button
-                  onClick={() => setShowSurrenderConfirm(true)}
-                  className="w-full rounded-xl border border-red-500/20 bg-red-500/5 py-2.5 text-sm text-red-400 transition hover:bg-red-500/10"
-                >
-                  🏳️ Menyerah
-                </button>
+                {/* Surrender button */}
+                <GameSurrenderButton onClick={() => setShowSurrenderConfirm(true)} />
               </div>
             </div>
 
             {/* Surrender Confirmation Modal */}
             {showSurrenderConfirm && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div
-                  className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                  onClick={() => setShowSurrenderConfirm(false)}
-                />
-                <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-red-500/25 bg-[#111113] shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
-                  <div className="h-0.5 w-full bg-linear-to-r from-red-500 to-red-400" />
-                  <div className="p-6">
-                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/15">
-                      <span className="text-2xl">🏳️</span>
-                    </div>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-red-400">Konfirmasi</p>
-                    <h2 className="mt-1 text-xl font-bold text-[#FFF5F8]">Yakin ingin menyerah?</h2>
-                    <div className="my-5 space-y-2.5 text-sm text-[#9B93B0]">
-                      <p className="flex items-start gap-2">
-                        <span className="mt-0.5 text-[#5C5470]">•</span>
-                        Sesi game akan berakhir
-                      </p>
-                      <p className="flex items-start gap-2">
-                        <span className="mt-0.5 text-[#5C5470]">•</span>
-                        <span><span className="font-semibold text-[#FF6B9D]">Partner dinyatakan menang</span></span>
-                      </p>
-                      <p className="flex items-start gap-2">
-                        <span className="mt-0.5 text-[#5C5470]">•</span>
-                        Koin tidak dikembalikan
-                      </p>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setShowSurrenderConfirm(false)}
-                        className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-[#9B93B0] transition hover:bg-white/10"
-                      >
-                        Lanjut Bermain
-                      </button>
-                      <button
-                        onClick={handleSurrender}
-                        className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-bold text-white shadow-[0_4px_16px_rgba(239,68,68,0.35)] transition hover:bg-red-400"
-                      >
-                        Ya, Menyerah
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <GameSurrenderModal
+                hasWinner={true}
+                warningText="Pasanganmu akan menang otomatis"
+                onConfirm={handleSurrender}
+                onCancel={() => setShowSurrenderConfirm(false)}
+              />
             )}
           </>
         ) : null
@@ -774,23 +698,23 @@ function QuoridorContent() {
             ]}
             statsContent={
               <>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Session</span>
-                  <span className="font-mono text-[#9B93B0]">{session.session_code}</span>
+                  <span className="font-mono font-bold text-[#1F1D1B]">{session.session_code}</span>
                 </div>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Pemenang</span>
-                  <span className="font-medium" style={{ color: finishReason === "time_up" ? "#FBBF24" : winnerIsMe ? "#10B981" : "#818CF8" }}>
+                  <span className="font-semibold" style={{ color: finishReason === "time_up" ? "#D97706" : winnerIsMe ? "#10B981" : "#4F46E5" }}>
                     {finishReason === "time_up" ? "Waktu Habis" : winnerIsMe ? "Kamu 🏆" : partnerWon ? "Partner 🏆" : "Seri"}
                   </span>
                 </div>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Sisa tembok (Host)</span>
-                  <span className="font-mono text-[#FF3D7F]">{gameState.walls_left.host}</span>
+                  <span className="font-mono font-bold text-[#C84B31]">{gameState.walls_left.host}</span>
                 </div>
-                <div className="flex justify-between text-xs text-[#5C5470]">
+                <div className="flex justify-between text-xs text-[#78716C]">
                   <span>Sisa tembok (Partner)</span>
-                  <span className="font-mono text-[#818CF8]">{gameState.walls_left.partner}</span>
+                  <span className="font-mono font-bold text-[#4F46E5]">{gameState.walls_left.partner}</span>
                 </div>
               </>
             }

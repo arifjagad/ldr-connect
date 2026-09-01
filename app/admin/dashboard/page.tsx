@@ -37,9 +37,11 @@ export default async function AdminDashboardPage() {
     {
       label: "Total Users",
       value: stats.totalUsers,
-      color: "#818CF8",
+      color: "#4F46E5",
+      bg: "#EEF2FF",
+      border: "#E0E7FF",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
           <circle cx="9" cy="7" r="4" />
           <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
@@ -49,9 +51,11 @@ export default async function AdminDashboardPage() {
     {
       label: "Pasangan Terhubung",
       value: stats.totalLinked,
-      color: "#34D399",
+      color: "#10B981",
+      bg: "#EBF9EB",
+      border: "#10B98133",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
       ),
@@ -59,9 +63,11 @@ export default async function AdminDashboardPage() {
     {
       label: "Topup Pending",
       value: stats.pendingTx,
-      color: "#F59E0B",
+      color: "#D97706",
+      bg: "#FEF3C7",
+      border: "#FDE68A",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
@@ -70,9 +76,11 @@ export default async function AdminDashboardPage() {
     {
       label: "Pertanyaan Pending",
       value: stats.pendingQuestions,
-      color: "#FF6B9D",
+      color: "#C84B31",
+      bg: "#FDF4F2",
+      border: "#FBDCD5",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       ),
@@ -80,10 +88,17 @@ export default async function AdminDashboardPage() {
   ];
 
   return (
-    <div className="px-8 py-8">
+    <div className="px-6 py-8 sm:px-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#FFF5F8]">Dashboard</h1>
-        <p className="mt-1 text-sm text-[#5C5470]">Overview statistik LDR-Connect</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C84B31]">
+          Overview
+        </p>
+        <h1 className="mt-1 font-serif text-2xl font-bold tracking-tight text-[#1F1D1B] sm:text-3xl">
+          Dashboard Admin
+        </h1>
+        <p className="mt-1 text-xs text-[#78716C]">
+          Overview statistik pengguna, pasangan, dan transaksi LDR-Connect.
+        </p>
       </div>
 
       {/* Stat cards */}
@@ -91,49 +106,53 @@ export default async function AdminDashboardPage() {
         {cards.map((card) => (
           <div
             key={card.label}
-            className="rounded-2xl border border-white/[0.07] bg-[#111113] p-5"
+            className="rounded-2xl border border-[#E7E5E4] bg-white p-5 shadow-xl shadow-black/2"
           >
             <div
-              className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl"
-              style={{ background: `${card.color}18`, color: card.color }}
+              className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border"
+              style={{ background: card.bg, borderColor: card.border, color: card.color }}
             >
               {card.icon}
             </div>
-            <p className="text-3xl font-bold tabular-nums text-[#FFF5F8]">{card.value}</p>
-            <p className="mt-1 text-xs text-[#5C5470]">{card.label}</p>
+            <p className="font-serif text-3xl font-bold tabular-nums text-[#1F1D1B]">{card.value}</p>
+            <p className="mt-1 text-xs font-semibold text-[#78716C]">{card.label}</p>
           </div>
         ))}
       </div>
 
       {/* Recent transactions */}
-      <div className="mt-8 rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
-        <p className="mb-4 text-sm font-semibold text-[#FFF5F8]">Transaksi Terbaru</p>
-        <div className="space-y-2">
+      <div className="mt-8 overflow-hidden rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+        <div className="border-b border-[#E7E5E4] bg-[#FCFBF7] px-6 py-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-[#78716C]">
+            Transaksi Terbaru
+          </p>
+        </div>
+        <div className="divide-y divide-[#E7E5E4] p-4 sm:p-6 space-y-2">
           {stats.recentTx.length === 0 && (
-            <p className="py-6 text-center text-sm text-[#5C5470]">Belum ada transaksi</p>
+            <p className="py-8 text-center text-xs text-[#78716C]">Belum ada transaksi</p>
           )}
           {stats.recentTx.map((tx) => {
             const u = tx.users as unknown as { name: string; email: string } | null;
             return (
               <div
                 key={tx.id}
-                className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-[#18181C] px-4 py-3"
+                className="flex items-center justify-between rounded-xl border border-[#E7E5E4] bg-[#FCFBF7] px-4 py-3 transition hover:border-[#D6D3D1]"
               >
                 <div>
-                  <p className="text-sm font-medium text-[#FFF5F8]">{u?.name ?? "—"}</p>
-                  <p className="font-mono text-[10px] text-[#5C5470]">{tx.payment_reference}</p>
+                  <p className="text-xs font-bold text-[#1F1D1B]">{u?.name ?? "—"}</p>
+                  <p className="font-mono text-[10px] text-[#78716C]">{tx.payment_reference}</p>
                 </div>
                 <div className="text-right">
-                  <p className={`text-sm font-bold ${tx.type === "topup" ? "text-[#34D399]" : "text-[#FF6B9D]"}`}>
+                  <p className={`text-xs font-mono font-bold ${tx.type === "topup" ? "text-[#10B981]" : "text-[#C84B31]"}`}>
                     {tx.type === "topup" ? "+" : "-"}{tx.amount} coin
                   </p>
                   <span
-                    className={`text-[10px] font-semibold uppercase ${
+                    className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
                       tx.payment_status === "paid"
-                        ? "text-[#34D399]"
+                        ? "bg-[#EBF9EB] text-[#10B981] border border-[#10B981]/20"
                         : tx.payment_status === "pending"
-                        ? "text-yellow-400"
-                        : "text-red-400"
+                        ? "bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]"
+                        : "bg-red-50 text-red-600 border border-red-200"
                     }`}
                   >
                     {tx.payment_status}

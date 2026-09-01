@@ -169,10 +169,10 @@ export function ColorMatchGame({ duration = 25, startedAt, bonusActive = false, 
 
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-4 py-4">
-        <p className="text-sm font-medium text-[#9B93B0]">🎨 Color Match</p>
-        <p className="text-5xl font-bold text-[#FFF5F8]">{displayCorrect * 10}</p>
-        <p className="text-sm text-[#9B93B0]">{displayCorrect}/{ROUNDS_PER_GAME} benar</p>
+      <div className="flex flex-col items-center gap-4 py-4 rounded-2xl border border-[#E7E5E4] bg-white shadow-xl shadow-black/2">
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🎨 Color Match</p>
+        <p className="text-5xl font-serif font-bold text-[#1F1D1B]">{displayCorrect * 10}</p>
+        <p className="text-xs font-semibold text-[#78716C]">{displayCorrect}/{ROUNDS_PER_GAME} benar</p>
       </div>
     );
   }
@@ -182,27 +182,27 @@ export function ColorMatchGame({ duration = 25, startedAt, bonusActive = false, 
   return (
     <div className="flex flex-col gap-4 select-none">
       <div className="text-center">
-        <p className="text-sm font-medium text-[#9B93B0]">🎨 Color Match</p>
-        <p className="mt-1 text-xs text-[#5C5470]">
-          Pilih <span className="text-[#FFF5F8] font-semibold">WARNA TEKS</span>, bukan kata yang tertulis!
+        <p className="text-sm font-serif font-bold text-[#1F1D1B]">🎨 Color Match</p>
+        <p className="mt-1 text-xs text-[#78716C]">
+          Pilih <span className="text-[#C84B31] font-bold">WARNA TEKS</span>, bukan kata yang tertulis!
         </p>
       </div>
 
       {bonusActive && (
-        <div className="rounded-full bg-yellow-500/20 border border-yellow-500/40 px-3 py-1 text-xs font-bold text-yellow-400 text-center">
+        <div className="rounded-full bg-[#FEF3C7] border border-[#FDE68A] px-3 py-1 text-xs font-bold text-[#D97706] text-center">
           +50 BONUS AKTIF!
         </div>
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-[#818CF8]">{current + 1}/{ROUNDS_PER_GAME}</span>
+        <span className="text-xs font-bold text-[#C84B31]">{current + 1}/{ROUNDS_PER_GAME}</span>
         <span
           className={`text-sm font-bold tabular-nums ${
             timeLeft <= 5
-              ? "text-red-400 animate-pulse"
+              ? "text-red-500 animate-pulse"
               : timeLeft <= 10
-              ? "text-yellow-400"
-              : "text-[#FFF5F8]"
+              ? "text-[#D97706]"
+              : "text-[#1F1D1B]"
           }`}
         >
           {timeLeft}s
@@ -216,8 +216,8 @@ export function ColorMatchGame({ duration = 25, startedAt, bonusActive = false, 
             key={i}
             className={`h-1.5 flex-1 rounded-full transition-all ${
               i < answers.length
-                ? answers[i] ? "bg-green-500" : "bg-red-500"
-                : i === current ? "bg-[#818CF8]" : "bg-white/10"
+                ? answers[i] ? "bg-emerald-500" : "bg-red-500"
+                : i === current ? "bg-[#C84B31]" : "bg-[#E7E5E4]"
             }`}
           />
         ))}
@@ -225,28 +225,28 @@ export function ColorMatchGame({ duration = 25, startedAt, bonusActive = false, 
 
       {/* Word display — Stroop effect */}
       <div
-        className={`rounded-2xl border p-6 text-center transition-colors ${
-          feedback === "correct" ? "border-green-500/40 bg-green-500/10"
-          : feedback === "wrong" ? "border-red-500/40 bg-red-500/10"
-          : "border-white/10 bg-white/5"
+        className={`rounded-2xl border p-6 text-center transition-colors shadow-sm ${
+          feedback === "correct" ? "border-emerald-200 bg-emerald-50"
+          : feedback === "wrong" ? "border-red-200 bg-red-50"
+          : "border-[#E7E5E4] bg-white"
         }`}
       >
         <p
           className="text-5xl font-black tracking-widest leading-tight"
-          style={{ color: round.displayColor, textShadow: `0 0 30px ${round.displayColor}40` }}
+          style={{ color: round.displayColor, textShadow: `0 0 20px ${round.displayColor}30` }}
         >
           {round.wordText}
         </p>
-        <p className="text-[10px] text-[#5C5470] mt-3">
+        <p className="text-[10px] text-[#78716C] mt-3 font-medium">
           ↑ Warna apa yang dipakai untuk menulis teks ini?
         </p>
         {feedback === "wrong" && (
-          <p className="text-sm font-bold text-red-400 mt-2">
+          <p className="text-xs font-bold text-red-600 mt-2">
             ✗ Salah! ({round.correctId})
           </p>
         )}
         {feedback === "correct" && (
-          <p className="text-sm font-bold text-green-400 mt-2">✓ Benar!</p>
+          <p className="text-xs font-bold text-emerald-600 mt-2">✓ Benar!</p>
         )}
       </div>
 
@@ -257,16 +257,13 @@ export function ColorMatchGame({ duration = 25, startedAt, bonusActive = false, 
             key={c.id}
             onClick={() => handleAnswer(c.id)}
             disabled={feedback !== null}
-            className="py-3.5 rounded-2xl border-2 bg-white/5 transition active:scale-95 disabled:opacity-50 flex flex-col items-center gap-1.5"
-            style={{
-              borderColor: `${c.hex}60`,
-            }}
+            className="py-3 rounded-2xl border border-[#E7E5E4] bg-white shadow-2xs transition hover:border-[#D6D3D1] hover:bg-[#FCFBF7] active:scale-95 disabled:opacity-50 flex flex-col items-center gap-1.5 cursor-pointer"
           >
             <div
-              className="w-8 h-8 rounded-full"
-              style={{ backgroundColor: c.hex, boxShadow: `0 0 12px ${c.hex}50` }}
+              className="w-7 h-7 rounded-full border border-black/5"
+              style={{ backgroundColor: c.hex, boxShadow: `0 0 8px ${c.hex}40` }}
             />
-            <span className="text-xs font-semibold text-[#C4BFCF] capitalize">{c.id}</span>
+            <span className="text-[11px] font-bold text-[#1F1D1B] capitalize">{c.id}</span>
           </button>
         ))}
       </div>

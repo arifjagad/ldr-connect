@@ -2,65 +2,94 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-[#0A0A0B]">
-      <div className="mx-auto w-full max-w-7xl px-6 py-12 lg:px-8">
-        <div className="flex flex-col gap-10 md:flex-row md:justify-between">
-          {/* Brand */}
+    <footer className="border-t border-[#E7E5E4] bg-[#FCFBF7] py-14 text-xs text-[#78716C]">
+      <div className="mx-auto w-full max-w-6xl px-6">
+        <div className="flex flex-col justify-between gap-10 md:flex-row">
+          {/* Brand Col */}
           <div className="max-w-xs">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-base font-black text-[#FFF5F8]">LDR-Connect</span>
-              <span className="h-2 w-2 rounded-full bg-[#FF3D7F]" />
+              <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#C84B31] text-[10px] text-white">
+                ♥
+              </div>
+              <span className="text-sm font-semibold tracking-tight text-[#1F1D1B]">
+                LDR-Connect
+              </span>
             </Link>
-            <p className="mt-3 text-sm leading-relaxed text-[#5C5470]">
-              Platform game couple #1 untuk pasangan jarak jauh. Main bareng, walau beda kota.
+            <p className="mt-3 text-xs leading-relaxed text-[#78716C]">
+              Mendekatkan hati yang terpisah jarak lewat kencan mini-game interaktif yang seru dan romantis.
             </p>
           </div>
 
-          {/* Links */}
-          <div className="flex gap-16">
+          {/* Nav Cols */}
+          <div className="grid grid-cols-3 gap-8 sm:gap-14">
             <div>
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#FF6B9D]">
-                Platform
-              </p>
-              <div className="space-y-3">
-                <Link
-                  href="/games"
-                  className="block text-sm text-[#5C5470] transition-colors hover:text-[#9B93B0]"
-                >
-                  Games
-                </Link>
-                <Link
-                  href="/auth/register"
-                  className="block text-sm text-[#5C5470] transition-colors hover:text-[#9B93B0]"
-                >
-                  Daftar
-                </Link>
-                <Link
-                  href="/auth/login"
-                  className="block text-sm text-[#5C5470] transition-colors hover:text-[#9B93B0]"
-                >
-                  Masuk
-                </Link>
-              </div>
+              <span className="text-[11px] font-bold tracking-wider text-[#1F1D1B] uppercase">
+                Fitur
+              </span>
+              <ul className="mt-3 space-y-2">
+                <li>
+                  <Link href="/dashboard/games/tod" className="hover:text-[#1F1D1B]">
+                    Truth or Dare
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/dashboard/games/snake-ladder" className="hover:text-[#1F1D1B]">
+                    Snake & Ladder
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/dashboard/games/dare-derby" className="hover:text-[#1F1D1B]">
+                    Dare Derby
+                  </Link>
+                </li>
+              </ul>
             </div>
+
             <div>
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#FF6B9D]">
-                Game
-              </p>
-              <div className="space-y-3">
-                <span className="block text-sm text-[#5C5470]">Truth or Dare</span>
-                <span className="block text-sm text-[#5C5470]">Snake & Ladder</span>
-                <span className="block text-sm text-[#5C5470]">Couple Quiz</span>
-              </div>
+              <span className="text-[11px] font-bold tracking-wider text-[#1F1D1B] uppercase">
+                Komunitas
+              </span>
+              <ul className="mt-3 space-y-2">
+                <li>
+                  <span className="cursor-pointer hover:text-[#1F1D1B]">Instagram</span>
+                </li>
+                <li>
+                  <span className="cursor-pointer hover:text-[#1F1D1B]">TikTok</span>
+                </li>
+                <li>
+                  <span className="cursor-pointer hover:text-[#1F1D1B]">Grup WhatsApp</span>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-bold tracking-wider text-[#1F1D1B] uppercase">
+                Dukungan
+              </span>
+              <ul className="mt-3 space-y-2">
+                <li>
+                  <span className="cursor-pointer hover:text-[#1F1D1B]">Hubungi Kami</span>
+                </li>
+                <li>
+                  <span className="cursor-pointer hover:text-[#1F1D1B]">Kebijakan Privasi</span>
+                </li>
+                <li>
+                  <span className="cursor-pointer hover:text-[#1F1D1B]">Syarat Ketentuan</span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-8 sm:flex-row">
-          <p className="text-xs text-[#5C5470]">© 2025 LDR-Connect. Made with ♥ for couples.</p>
-          <div className="flex items-center gap-2 rounded-full border border-[#FF3D7F20] bg-[#FF3D7F08] px-3 py-1.5">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#FF3D7F]" />
-            <span className="text-xs font-semibold text-[#FF6B9D]">500+ pasangan aktif</span>
+        {/* Bottom bar */}
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-[#E7E5E4] pt-6 sm:flex-row text-[11px] text-[#A8A29E]">
+          <p>© 2026 LDR-Connect. Dibuat dengan cinta untuk semua pejuang jarak.</p>
+          <div className="flex items-center gap-4 text-[#78716C]">
+            <span className="cursor-pointer hover:text-[#1F1D1B]">Instagram</span>
+            <span>•</span>
+            <span className="cursor-pointer hover:text-[#1F1D1B]">Twitter</span>
+            <span>•</span>
+            <span className="cursor-pointer hover:text-[#1F1D1B]">YouTube</span>
           </div>
         </div>
       </div>
