@@ -14,7 +14,7 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
 });
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://ldr-connect.netlify.app";
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://ldr-connect.vercel.app";
 
 export const metadata: Metadata = {
   title: "LDR-Connect | Game Couple LDR Terbaik Indonesia",
