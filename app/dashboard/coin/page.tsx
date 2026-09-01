@@ -108,6 +108,7 @@ export default function CoinPage() {
   const [status, setStatus]           = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
   const [loading, setLoading]         = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const verifyingRef                  = useRef(false);
 
   // Unified voucher state
@@ -212,6 +213,7 @@ export default function CoinPage() {
   useEffect(() => {
     async function load() {
       try {
+        setInitialLoading(true);
         const [walletRes, packagesRes, transactionsRes] = await Promise.all([
           fetch("/api/coin/balance"),
           fetch("/api/coin/packages"),
@@ -228,6 +230,8 @@ export default function CoinPage() {
         }
       } catch {
         setError("Gagal memuat data coin");
+      } finally {
+        setInitialLoading(false);
       }
     }
     load();
@@ -400,7 +404,11 @@ export default function CoinPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Saldo Coin</p>
-                <p className="mt-2 text-5xl font-bold tabular-nums text-[#FFF5F8]">{wallet?.balance ?? 0}</p>
+                {initialLoading ? (
+                  <div className="mt-3 h-12 w-28 animate-pulse rounded-xl bg-white/10" />
+                ) : (
+                  <p className="mt-2 text-5xl font-bold tabular-nums text-[#FFF5F8]">{wallet?.balance ?? 0}</p>
+                )}
                 <p className="mt-1 text-sm text-[#5C5470]">coins tersedia</p>
               </div>
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#34D399]/15">
@@ -556,33 +564,43 @@ export default function CoinPage() {
 
             {/* Package grid */}
             <div className="mt-5 grid grid-cols-2 gap-3">
-              {packages.map((pkg) => (
-                <button
-                  key={pkg.id}
-                  type="button"
-                  onClick={() => setSelectedPackage(pkg.id)}
-                  className={`relative rounded-xl border p-4 text-left transition-all ${
-                    selectedPackage === pkg.id
-                      ? "border-[#34D399]/50 bg-[#34D399]/10 ring-1 ring-[#34D399]/30"
-                      : "border-white/[0.07] bg-[#18181C] hover:border-white/20"
-                  }`}
-                >
-                  {selectedPackage === pkg.id && (
-                    <span className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-[#34D399]">
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </span>
-                  )}
-                  <p className="text-lg font-bold text-[#FFF5F8]">
-                    {pkg.coin_amount}
-                    <span className="ml-1 text-sm font-normal text-[#5C5470]">coin</span>
-                  </p>
-                  <p className="mt-1 text-xs font-medium text-[#34D399]">{fmtRp(pkg.price)}</p>
-                  <p className="mt-0.5 text-[10px] text-[#5C5470]">{pkg.name}</p>
-                </button>
-              ))}
-              {packages.length === 0 && (
+              {initialLoading ? (
+                [1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-24 animate-pulse rounded-xl border border-white/[0.07] bg-[#18181C] p-4 space-y-2">
+                    <div className="h-5 w-16 rounded bg-white/10" />
+                    <div className="h-3 w-20 rounded bg-white/10" />
+                    <div className="h-2 w-12 rounded bg-white/5" />
+                  </div>
+                ))
+              ) : (
+                packages.map((pkg) => (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    onClick={() => setSelectedPackage(pkg.id)}
+                    className={`relative rounded-xl border p-4 text-left transition-all ${
+                      selectedPackage === pkg.id
+                        ? "border-[#34D399]/50 bg-[#34D399]/10 ring-1 ring-[#34D399]/30"
+                        : "border-white/[0.07] bg-[#18181C] hover:border-white/20"
+                    }`}
+                  >
+                    {selectedPackage === pkg.id && (
+                      <span className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-[#34D399]">
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </span>
+                    )}
+                    <p className="text-lg font-bold text-[#FFF5F8]">
+                      {pkg.coin_amount}
+                      <span className="ml-1 text-sm font-normal text-[#5C5470]">coin</span>
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-[#34D399]">{fmtRp(pkg.price)}</p>
+                    <p className="mt-0.5 text-[10px] text-[#5C5470]">{pkg.name}</p>
+                  </button>
+                ))
+              )}
+              {!initialLoading && packages.length === 0 && (
                 <div className="col-span-2 rounded-xl border border-dashed border-white/10 py-8 text-center text-sm text-[#5C5470]">
                   Belum ada paket tersedia
                 </div>
@@ -635,9 +653,21 @@ export default function CoinPage() {
         {/* ── Right column: transaction history ── */}
         <div className="lg:col-span-2">
           <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
+            {/* Riwayat Transaksi */}
             <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Riwayat Transaksi</p>
             <div className="mt-5 max-h-161 space-y-3 overflow-y-auto pr-1 [scrollbar-color:#2D2A3E_transparent] [scrollbar-width:thin]">
-              {transactions.length === 0 && (
+              {initialLoading ? (
+                [1, 2, 3, 4].map((i) => (
+                  <div key={i} className="animate-pulse rounded-xl border border-white/[0.07] bg-[#18181C] p-4 space-y-3">
+                    <div className="flex justify-between">
+                      <div className="h-4 w-20 rounded bg-white/10" />
+                      <div className="h-4 w-12 rounded bg-white/10" />
+                    </div>
+                    <div className="h-6 w-24 rounded bg-white/10" />
+                    <div className="h-3 w-32 rounded bg-white/5" />
+                  </div>
+                ))
+              ) : transactions.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-white/10 py-10 text-center">
                   <svg className="mx-auto mb-3 text-[#5C5470]" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -646,8 +676,8 @@ export default function CoinPage() {
                   </svg>
                   <p className="text-sm text-[#5C5470]">Belum ada transaksi</p>
                 </div>
-              )}
-              {transactions.map((tx) => {
+              ) : null}
+              {!initialLoading && transactions.map((tx) => {
                 const reason      = tx.metadata?.reason as string | undefined;
                 const gameType    = tx.metadata?.game_type as string | undefined;
                 const sessionCode = tx.metadata?.session_code as string | undefined;

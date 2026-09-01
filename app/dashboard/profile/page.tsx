@@ -10,6 +10,7 @@ export default function ProfilePage() {
   const { user, setUser } = useAuthStore();
   const [name, setName] = useState(user?.name ?? "");
   const [lastSignIn, setLastSignIn] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Avatar state
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar_url ?? null);
@@ -44,6 +45,9 @@ export default function ProfilePage() {
           })
         );
       }
+      setInitialLoading(false);
+    }).catch(() => {
+      setInitialLoading(false);
     });
   }, []);
 
@@ -255,13 +259,22 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex-1 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <p className="text-base font-semibold text-[#FFF5F8]">{user?.name}</p>
-                {user?.is_admin && (
-                  <span className="rounded-full bg-[#F472B6]/15 px-2 py-0.5 text-[10px] font-bold text-[#F472B6]">Admin</span>
-                )}
-              </div>
-              <p className="text-sm text-[#9B93B0]">{user?.email}</p>
+              {initialLoading && !user ? (
+                <div className="space-y-2 animate-pulse">
+                  <div className="h-5 w-36 rounded bg-white/10" />
+                  <div className="h-4 w-48 rounded bg-white/5" />
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <p className="text-base font-semibold text-[#FFF5F8]">{user?.name}</p>
+                    {user?.is_admin && (
+                      <span className="rounded-full bg-[#F472B6]/15 px-2 py-0.5 text-[10px] font-bold text-[#F472B6]">Admin</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-[#9B93B0]">{user?.email}</p>
+                </>
+              )}
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 <span className="flex items-center gap-1.5 text-xs text-[#5C5470]">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

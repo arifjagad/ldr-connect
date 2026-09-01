@@ -48,46 +48,52 @@ export default function CouplePage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
+      try {
+        setInitialLoading(true);
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        setUserId(user.id);
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("couple_code, partner_id")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile) return;
-      setMyCode(profile.couple_code ?? "");
-
-      if (profile.partner_id) {
-        const { data: partnerData } = await supabase
+        const { data: profile } = await supabase
           .from("users")
-          .select("*, wallets(balance)")
-          .eq("id", profile.partner_id)
+          .select("couple_code, partner_id")
+          .eq("id", user.id)
           .single();
 
-        if (partnerData) {
-          const pw = partnerData.wallets as { balance: number } | null;
-          setPartner({
-            id: partnerData.id,
-            name: partnerData.name,
-            email: partnerData.email,
-            couple_code: partnerData.couple_code,
-            partner_id: partnerData.partner_id,
-            status: partnerData.status,
-            is_admin: partnerData.is_admin ?? false,
-            wallet_balance: pw?.balance ?? 0,
-            created_at: partnerData.created_at,
-            avatar_url: partnerData.avatar_url ?? null,
-          });
+        if (!profile) return;
+        setMyCode(profile.couple_code ?? "");
+
+        if (profile.partner_id) {
+          const { data: partnerData } = await supabase
+            .from("users")
+            .select("*, wallets(balance)")
+            .eq("id", profile.partner_id)
+            .single();
+
+          if (partnerData) {
+            const pw = partnerData.wallets as { balance: number } | null;
+            setPartner({
+              id: partnerData.id,
+              name: partnerData.name,
+              email: partnerData.email,
+              couple_code: partnerData.couple_code,
+              partner_id: partnerData.partner_id,
+              status: partnerData.status,
+              is_admin: partnerData.is_admin ?? false,
+              wallet_balance: pw?.balance ?? 0,
+              created_at: partnerData.created_at,
+              avatar_url: partnerData.avatar_url ?? null,
+            });
+          }
         }
+      } finally {
+        setInitialLoading(false);
       }
     }
     load();
@@ -194,9 +200,13 @@ export default function CouplePage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Couple Code Kamu</p>
-            <p className="mt-3 font-mono text-3xl md:text-4xl font-bold tracking-[0.15em] text-[#A78BFA]">
-              {myCode || "——————"}
-            </p>
+            {initialLoading ? (
+              <div className="mt-3 h-10 w-44 animate-pulse rounded-xl bg-white/10" />
+            ) : (
+              <p className="mt-3 font-mono text-3xl md:text-4xl font-bold tracking-[0.15em] text-[#A78BFA]">
+                {myCode || "——————"}
+              </p>
+            )}
             <p className="mt-2 text-xs text-[#5C5470]">Bagikan ke partner agar bisa terhubung denganmu.</p>
           </div>
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#818CF8]/15">
@@ -206,7 +216,7 @@ export default function CouplePage() {
             </svg>
           </div>
         </div>
-        {myCode ? (
+        {!initialLoading && myCode ? (
           <div className="mt-4">
             <CopyButton text={myCode} />
           </div>
@@ -217,7 +227,15 @@ export default function CouplePage() {
       <div className="mb-4 rounded-2xl border border-white/[0.07] bg-[#111113] p-6">
         <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Partner Saat Ini</p>
 
-        {isLinked && partner ? (
+        {initialLoading ? (
+          <div className="mt-4 flex items-center gap-4 animate-pulse">
+            <div className="h-14 w-14 rounded-2xl bg-white/10" />
+            <div className="space-y-2">
+              <div className="h-5 w-36 rounded bg-white/10" />
+              <div className="h-3 w-48 rounded bg-white/5" />
+            </div>
+          </div>
+        ) : isLinked && partner ? (
           <div className="mt-4">
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-[#FF3D7F]/30 to-[#818CF8]/30 text-2xl font-bold text-[#FFF5F8]">
