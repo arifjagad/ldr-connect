@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
+// Skor mini-game 0-100 (lihat components/games/dare-derby/mini-games/**), + bonus
+// skip ke-2 maksimal +50 (lihat handleGameComplete di page.tsx) → cap wajar 150.
+// time_taken dalam ms — semua mini-game berdurasi puluhan detik, cap generous
+// 10 menit untuk toleransi jaringan lambat tanpa membuka celah nilai sembarang.
 const bodySchema = z.object({
-  score:      z.number().int().min(0),
-  time_taken: z.number().int().min(0),
+  score:      z.number().int().min(0).max(150),
+  time_taken: z.number().int().min(0).max(10 * 60 * 1000),
   metadata:   z.record(z.string(), z.unknown()).optional().default({}),
 });
 

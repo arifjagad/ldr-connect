@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { deleteDailyRoom } from "@/lib/daily";
 import type { QuoridorGameState } from "@/lib/types";
 
 const bodySchema = z.discriminatedUnion("type", [
@@ -150,6 +151,11 @@ export async function POST(
         { success: false, message: "Posisi tembok tidak valid", data: null },
         { status: 400 }
       );
+    if (msg.includes("INVALID_ACTION"))
+      return NextResponse.json(
+        { success: false, message: "Jenis aksi tidak dikenali", data: null },
+        { status: 400 }
+      );
     return NextResponse.json(
       { success: false, message: msg || "Gagal melakukan aksi", data: null },
       { status: 500 }
@@ -161,6 +167,11 @@ export async function POST(
   // Broadcast langsung ke partner (fire-and-forget, tidak memblok response)
   // Partner menerima update via broadcast ~50ms, jauh lebih cepat dari postgres_changes WAL (~300-800ms)
   broadcastGameState(upperCode, gs);
+
+  // Game selesai (menang) — hapus Daily.co room (best effort)
+  if (gs.winner) {
+    deleteDailyRoom(upperCode);
+  }
 
   const message = gs.winner ? "Menang!" : "ok";
   return NextResponse.json({ success: true, message, data: { game_state: gs } });

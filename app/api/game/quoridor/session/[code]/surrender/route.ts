@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { deleteDailyRoom } from "@/lib/daily";
 import type { QuoridorGameState } from "@/lib/types";
 
 /** Fire-and-forget broadcast ke channel quoridor:{code} */
@@ -118,6 +119,9 @@ export async function POST(
 
   // Broadcast ke partner (fire-and-forget)
   broadcastGameState(upperCode, newGameState);
+
+  // Game selesai (forfeit) — hapus Daily.co room (best effort)
+  deleteDailyRoom(upperCode);
 
   return NextResponse.json({
     success: true,

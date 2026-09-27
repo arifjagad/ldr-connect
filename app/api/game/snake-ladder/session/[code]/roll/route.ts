@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { deleteDailyRoom } from "@/lib/daily";
 import type { SnakeGameState } from "@/lib/types";
 
 /**
@@ -17,10 +18,11 @@ export async function POST(
   }
 
   const { code } = await params;
+  const sessionCode = code.toUpperCase();
   const serviceClient = createServiceClient();
 
   const { data: newState, error: rpcError } = await serviceClient.rpc("roll_snake_dice", {
-    p_session_code: code.toUpperCase(),
+    p_session_code: sessionCode,
     p_user_id: user.id,
   });
 
@@ -45,6 +47,12 @@ export async function POST(
   }
 
   const gs = newState as SnakeGameState;
+
+  // Game selesai (menang) — hapus Daily.co room (best effort)
+  if (gs.winner) {
+    deleteDailyRoom(sessionCode);
+  }
+
   const message = gs.winner ? "Menang!" : "ok";
 
   return NextResponse.json({ success: true, message, data: { game_state: gs } });

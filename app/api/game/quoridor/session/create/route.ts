@@ -69,13 +69,10 @@ export async function POST(_request: NextRequest) {
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 menit menunggu partner
 
-  // Auto-expire sesi lama yang sudah lewat waktunya
-  await serviceClient
-    .from("game_sessions")
-    .update({ status: "expired" })
-    .or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
-    .in("status", ["waiting", "playing"])
-    .lt("expires_at", new Date().toISOString());
+  // Catatan: auto-expire sesi lama milik couple ini sekarang ditangani DI
+  // DALAM RPC create_game_session (dengan advisory lock + refund yang benar
+  // untuk sesi 'waiting' — lihat migration 038). Jangan tambahkan UPDATE
+  // manual di sini lagi karena akan melewati refund dan race dengan lock RPC.
 
   // Buat Daily.co room sebelum sesi — sama seperti snake-ladder & dare-derby
   await createDailyRoom(sessionCode, 10 + gameDurationMinutes);

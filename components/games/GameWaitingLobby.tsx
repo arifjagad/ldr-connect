@@ -59,7 +59,7 @@ function WaitingDots() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="h-2 w-2 rounded-full bg-[#5C5470]"
+          className="h-2 w-2 rounded-full bg-[#FF6B9D]"
           style={{ animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite` }}
         />
       ))}
@@ -98,58 +98,64 @@ export function GameWaitingLobby({
   const timerSS = timerSeconds != null ? String(timerSeconds % 60).padStart(2, "0") : null;
   const timerUrgent = timerSeconds != null && timerSeconds < 120;
 
-  return (
-    <div className="mx-auto w-full max-w-md space-y-4">
-      {/* Main card */}
-      <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#111113]">
-        {/* Top gradient bar */}
-        <div className="h-0.5 w-full bg-linear-to-r from-[#818CF8] via-[#FF6B9D] to-[#F97316]" />
+  // Jika extraInfo adalah node komponen besar (misal kamera preview), render di luar badge header
+  const isComplexExtra = typeof extraInfo !== "string" && extraInfo != null;
 
-        <div className="p-6 text-center">
+  return (
+    <div className="mx-auto w-full max-w-lg space-y-4">
+      {/* Main card */}
+      <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#131317] shadow-[0_16px_40px_rgba(0,0,0,0.6)]">
+        {/* Top gradient bar */}
+        <div className="h-1 w-full bg-linear-to-r from-[#818CF8] via-[#FF3D7F] to-[#FF6B9D]" />
+
+        <div className="p-6 sm:p-8 text-center">
           {/* Game badge */}
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/5 px-4 py-1.5">
+          <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-white/8 bg-white/4 px-4 py-1.5">
             <span className="text-base">{gameEmoji}</span>
-            <span className="text-xs font-semibold text-[#9B93B0]">{gameName}</span>
-            {extraInfo && (
+            <span className="text-xs font-semibold text-white">{gameName}</span>
+            {!isComplexExtra && extraInfo && (
               <>
                 <span className="text-[#3a3650]">·</span>
-                <span className="text-xs text-[#5C5470]">{extraInfo}</span>
+                <span className="text-xs text-[#9B93B0]">{extraInfo}</span>
               </>
             )}
           </div>
+
+          {/* Render extra preview (seperti Camera Feed Preview) */}
+          {isComplexExtra && <div className="mb-6">{extraInfo}</div>}
 
           {isHost ? (
             <>
               {/* Host: waiting for partner */}
               <div className="mb-2 flex items-center justify-center gap-3">
-                <h2 className="text-xl font-bold text-[#FFF5F8]">Menunggu partner bergabung</h2>
+                <h2 className="text-xl font-bold text-white">Menunggu partner bergabung</h2>
                 <WaitingDots />
               </div>
-              <p className="text-sm text-[#5C5470]">
-                Bagikan kode atau link di bawah ke pasanganmu
+              <p className="text-xs text-[#9B93B0]">
+                Bagikan kode atau tautan undangan di bawah ke pasanganmu
               </p>
 
               {/* Session code — centered, clean */}
-              <div className="mt-6 rounded-xl border border-white/[0.07] bg-[#0E0E12] px-5 py-5">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5C5470]">
-                  Kode Sesi
+              <div className="mt-6 rounded-2xl border border-white/8 bg-[#09090B] px-5 py-5 shadow-inner">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-[#5C5470]">
+                  KODE SESI
                 </p>
-                <p className="font-mono text-2xl font-bold tracking-[0.3em] text-[#818CF8]">
+                <p className="font-mono text-3xl font-black tracking-[0.25em] text-[#818CF8] drop-shadow-[0_0_20px_rgba(129,140,248,0.25)]">
                   {sessionCode}
                 </p>
               </div>
 
               {/* Share actions — 3 buttons in a clean grid */}
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-3.5 grid grid-cols-3 gap-2.5">
                 <CopyButton text={sessionCode} label="Salin Kode" />
                 <CopyButton text={joinUrl} label="Salin Link" />
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(waText)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366]/10 px-3 py-2.5 text-xs font-semibold text-[#25D366] ring-1 ring-[#25D366]/30 transition hover:bg-[#25D366]/20"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366]/10 px-3 py-2.5 text-xs font-bold text-[#25D366] ring-1 ring-[#25D366]/30 transition hover:bg-[#25D366]/20"
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                     <path d="M11.99 2C6.477 2 2 6.484 2 12.017c0 1.99.522 3.855 1.442 5.465L2.02 22l4.641-1.404A9.96 9.96 0 0011.99 22C17.515 22 22 17.516 22 12.017 22 6.508 17.515 2 11.99 2zm0 18.044a8.018 8.018 0 01-4.098-1.126l-.294-.175-3.049.922.882-3.045-.192-.313A8.003 8.003 0 013.977 12c0-4.418 3.585-8.017 8.013-8.017 4.419 0 8.014 3.6 8.014 8.017 0 4.419-3.595 8.044-8.014 8.044z" />
                   </svg>
@@ -157,28 +163,27 @@ export function GameWaitingLobby({
                 </a>
               </div>
 
-
               {/* Timer */}
               {timerMM !== null && (
                 <div className={`mt-4 flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 ${
                   timerUrgent
                     ? "border-red-500/25 bg-red-500/8 text-red-400"
-                    : "border-white/[0.06] bg-white/[0.03] text-[#5C5470]"
+                    : "border-white/6 bg-white/3 text-[#9B93B0]"
                 }`}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" />
                     <polyline points="12 6 12 12 16 14" strokeLinecap="round" />
                   </svg>
                   <span className="text-xs">
-                    {timerUrgent ? "Hampir expired! " : "Sesi berakhir dalam "}
-                    <span className="font-mono font-bold">{timerMM}:{timerSS}</span>
+                    {timerUrgent ? "Hampir kedaluwarsa! " : "Sesi berakhir dalam "}
+                    <span className="font-mono font-bold text-white">{timerMM}:{timerSS}</span>
                   </span>
                 </div>
               )}
 
               {expiryMinutes && !timerMM && (
-                <p className="mt-3 text-xs text-[#3a3650]">
-                  Sesi akan expired otomatis dalam {expiryMinutes} menit jika partner tidak bergabung.
+                <p className="mt-4 text-xs text-[#5C5470]">
+                  Sesi akan kedaluwarsa otomatis dalam {expiryMinutes} menit jika partner tidak bergabung.
                 </p>
               )}
             </>
@@ -186,25 +191,25 @@ export function GameWaitingLobby({
             <>
               {/* Partner: waiting for host to start */}
               <div className="mb-2 flex items-center justify-center gap-3">
-                <h2 className="text-xl font-bold text-[#FFF5F8]">Kamu sudah bergabung!</h2>
+                <h2 className="text-xl font-bold text-white">Kamu sudah bergabung!</h2>
               </div>
-              <p className="text-sm text-[#5C5470]">Menunggu host memulai game...</p>
+              <p className="text-xs text-[#9B93B0]">Menunggu host memulai game...</p>
 
-              <div className="mt-6 rounded-xl border border-white/[0.07] bg-[#0E0E12] p-5">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#5C5470]">
-                  Sesi Aktif
+              <div className="mt-6 rounded-2xl border border-white/8 bg-[#09090B] p-5 shadow-inner">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-[#5C5470]">
+                  SESI AKTIF
                 </p>
-                <span className="font-mono text-2xl font-bold tracking-[0.25em] text-[#FF3D7F]">
+                <span className="font-mono text-3xl font-black tracking-[0.25em] text-[#FF3D7F] drop-shadow-[0_0_20px_rgba(255,61,127,0.25)]">
                   {sessionCode}
                 </span>
-                {extraInfo && (
+                {!isComplexExtra && extraInfo && (
                   <p className="mt-2 text-xs text-[#5C5470]">{extraInfo}</p>
                 )}
               </div>
 
-              <div className="mt-5 flex items-center justify-center gap-2 rounded-xl border border-[#34D399]/20 bg-[#34D399]/8 px-4 py-3">
+              <div className="mt-5 flex items-center justify-center gap-2.5 rounded-xl border border-[#34D399]/20 bg-[#34D399]/10 px-4 py-3">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-[#34D399]" />
-                <span className="text-xs font-medium text-[#34D399]">Terhubung — menunggu host</span>
+                <span className="text-xs font-semibold text-[#34D399]">Terhubung — menunggu host memulai</span>
               </div>
 
               {onJoin && (
@@ -213,7 +218,7 @@ export function GameWaitingLobby({
                     type="button"
                     onClick={onJoin}
                     disabled={joinLoading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF3D7F] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_16px_rgba(255,61,127,0.3)] transition hover:bg-[#FF6B9D] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-[#FF3D7F] to-[#FF6B9D] px-5 py-3 text-sm font-bold text-white shadow-[0_4px_20px_rgba(255,61,127,0.35)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {joinLoading ? (
                       <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -237,7 +242,7 @@ export function GameWaitingLobby({
       <button
         type="button"
         onClick={onCancel}
-        className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] px-5 py-2.5 text-sm font-medium text-[#5C5470] transition hover:border-red-500/20 hover:bg-red-500/5 hover:text-red-400"
+        className="w-full rounded-2xl border border-white/6 bg-white/3 px-5 py-3 text-xs font-semibold text-[#9B93B0] transition hover:border-rose-500/20 hover:bg-rose-500/10 hover:text-rose-400"
       >
         Batalkan Sesi
       </button>

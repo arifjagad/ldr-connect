@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/game/snake-ladder/session/join
@@ -13,6 +14,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
 
+  // Rate limit: cegah brute-force session_code + spam push notification ke host
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "snake:session:join",
+    maxRequests: 10,
+    windowMinutes: 5,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
   let body: { code?: string } = {};
   try { body = await request.json(); } catch { /* ok */ }
 
@@ -23,15 +32,11 @@ export async function POST(request: NextRequest) {
 
   const serviceClient = createServiceClient();
 
-  const { data: settings } = await serviceClient
-    .from("game_settings")
-    .select("expires_in_minutes")
-    .eq("game_type", "snake_ladder")
-    .single();
-  const gameDurationMinutes = (settings as { expires_in_minutes?: number } | null)?.expires_in_minutes ?? 20;
-  const expiresAt = new Date(Date.now() + gameDurationMinutes * 60 * 1000).toISOString();
-
   // Pakai join_game_session RPC yang sudah ada (beroperasi di game_sessions)
+  // RPC ini SUDAH menghitung expires_at dengan benar dari
+  // game_settings.expires_in_minutes sesuai game_type sesi — jangan hitung
+  // ulang/overwrite manual di sini (dulu ada duplikasi yang berisiko divergen
+  // dari nilai RPC kalau expires_in_minutes di DB berubah tapi kode ini tidak).
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("join_game_session", {
     p_partner_user_id: user.id,
     p_session_code: code,
@@ -55,20 +60,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Kode ini bukan untuk game Ular Tangga", data: null }, { status: 400 });
   }
 
-  // Update expires_at secara manual karena join_game_session sudah set dari game_settings tod
-  await serviceClient
-    .from("game_sessions")
-    .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
-    .eq("session_code", code);
-
-  const { data: updatedSession } = await serviceClient
-    .from("game_sessions")
-    .select("*")
-    .eq("session_code", code)
-    .single();
-
   // Kirim push notification ke host
-  const hostId = (updatedSession ?? session)?.host_user_id;
+  const hostId = session?.host_user_id;
   if (hostId) {
     sendPushToUser(hostId, {
       title: "Partner sudah bergabung! 🎲",
@@ -78,6 +71,6 @@ export async function POST(request: NextRequest) {
     }).catch((e) => console.error("[push] snake-ladder join failed:", e));
   }
 
-  return NextResponse.json({ success: true, message: "Berhasil bergabung!", data: { session: updatedSession ?? session } });
+  return NextResponse.json({ success: true, message: "Berhasil bergabung!", data: { session } });
 }
 

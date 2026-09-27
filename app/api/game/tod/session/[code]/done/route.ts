@@ -49,6 +49,7 @@ export async function POST(
     p_user_id: user.id,
     p_session_code: code.toUpperCase(),
     p_question_order: question_order,
+    p_skip: false,
   });
 
   if (rpcError) {

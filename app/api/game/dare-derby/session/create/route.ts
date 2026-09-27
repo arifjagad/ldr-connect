@@ -21,7 +21,7 @@ const COIN_COSTS: Record<number, number> = { 5: 3, 7: 4, 10: 6 };
  * Isi dengan ID game ("true_false", "tap_timing", dll.) untuk testing.
  * Kosongkan ("") untuk kembali ke urutan acak normal.
  */
-const DEBUG_FORCE_MINIGAME = "math_dash"; // kosongkan untuk urutan acak normal
+const DEBUG_FORCE_MINIGAME = ""; // kosongkan untuk urutan acak normal
 
 /**
  * POST /api/game/dare-derby/session/create
@@ -114,12 +114,10 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  await serviceClient
-    .from("game_sessions")
-    .update({ status: "expired" })
-    .or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
-    .in("status", ["waiting", "playing"])
-    .lt("expires_at", new Date().toISOString());
+  // Catatan: auto-expire sesi lama milik couple ini sekarang ditangani DI
+  // DALAM RPC create_game_session (dengan advisory lock + refund yang benar
+  // untuk sesi 'waiting' — lihat migration 038). Jangan tambahkan UPDATE
+  // manual di sini lagi karena akan melewati refund dan race dengan lock RPC.
 
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("create_game_session", {
     p_host_user_id: user.id,

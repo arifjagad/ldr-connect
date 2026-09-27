@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createDailyRoom } from "@/lib/daily";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * GET /api/game/dare-derby/session/[code]/room
@@ -25,6 +26,14 @@ export async function GET(
       { status: 401 }
     );
   }
+
+  // Rate limit: setiap request memicu panggilan Daily.co API (createDailyRoom)
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "dare_derby:session:room",
+    maxRequests: 20,
+    windowMinutes: 5,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
 
   const { code } = await params;
   const sessionCode = code.toUpperCase();

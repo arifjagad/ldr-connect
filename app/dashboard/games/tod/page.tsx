@@ -332,12 +332,23 @@ function TodContent() {
   }
 
   async function handleNext() {
-    if (!session || loadingRef.current) return;
+    if (!session || !currentQuestion || loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true); setError(null);
     try {
       const json = await apiFetch<NextResponse>(`/api/game/tod/session/${session.session_code}/next`, {
         method: "POST",
+        body: JSON.stringify({ question_order: currentQuestion.order }),
+      });
+      // Persist skip ke local state juga supaya counter progress ikut update
+      setSession((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          questions: prev.questions.map((q) =>
+            q.order === currentQuestion.order ? { ...q, is_completed: true, is_skipped: true } : q
+          ),
+        };
       });
       if (json.data.is_finished) {
         stopRealtime();
@@ -395,13 +406,24 @@ function TodContent() {
   }
 
   async function handleLeave() {
-    // Batalkan / expire sesi di database sebelum reset local state
+    // Batalkan / expire sesi di database SEBELUM reset local state, dan
+    // beri tahu user secara jujur kalau server menolak (misal race NOT_HOST)
+    // — sebelumnya error di sini ditelan diam-diam dan UI selalu reset ke
+    // idle walau sesi/coin host masih aktif di server.
     if (session) {
       const code = session.session_code;
-      if (session.status === "waiting") {
-        fetch(`/api/game/tod/session/${code}/cancel`, { method: "POST" }).catch(() => {});
-      } else if (session.status === "playing") {
-        fetch(`/api/game/tod/session/${code}/expire`, { method: "POST" }).catch(() => {});
+      try {
+        if (session.status === "waiting") {
+          const res = await fetch(`/api/game/tod/session/${code}/cancel`, { method: "POST" });
+          if (!res.ok) {
+            const json = await res.json().catch(() => null);
+            toast.error("Gagal membatalkan sesi", json?.message ?? "Sesi mungkin masih aktif di server");
+          }
+        } else if (session.status === "playing") {
+          await fetch(`/api/game/tod/session/${code}/expire`, { method: "POST" });
+        }
+      } catch {
+        toast.error("Gagal", "Tidak bisa menghubungi server, coba lagi");
       }
     }
     stopRealtime();

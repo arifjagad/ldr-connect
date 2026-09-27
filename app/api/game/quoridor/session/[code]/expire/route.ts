@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { deleteDailyRoom } from "@/lib/daily";
 
 /**
  * POST /api/game/quoridor/session/[code]/expire
@@ -21,12 +22,26 @@ export async function POST(
   const { code } = await params;
   const serviceClient = createServiceClient();
 
-  await serviceClient
+  // PENTING: filter .lte("expires_at", now) + cek partisipan — tanpa filter
+  // waktu ini, peserta yang sedang KALAH bisa memanggil endpoint ini kapan
+  // saja untuk memaksa sesi jadi 'expired' dan menghindari kekalahan.
+  // Tanpa cek partisipan, siapa pun yang tahu session_code bisa meng-expire
+  // sesi orang lain (endpoint sebelumnya tidak mengecek host/partner sama sekali).
+  const { data } = await serviceClient
     .from("game_sessions")
     .update({ status: "expired", updated_at: new Date().toISOString() })
     .eq("session_code", code.toUpperCase())
     .eq("game_type", "quoridor")
-    .in("status", ["playing", "waiting"]);
+    .in("status", ["playing", "waiting"])
+    .lte("expires_at", new Date().toISOString())
+    .or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
+    .select("session_code")
+    .maybeSingle();
+
+  if (data) {
+    // Sesi benar-benar berakhir — hapus Daily.co room (best effort)
+    deleteDailyRoom(code.toUpperCase());
+  }
 
   return NextResponse.json({ success: true, message: "ok", data: null });
 }

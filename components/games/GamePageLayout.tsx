@@ -49,7 +49,7 @@ interface GamePageLayoutProps {
   // ── Video call ──────────────────────────────────────────────────────────────
   showVideo?: boolean;
   videoSessionCode?: string;
-  videoGame?: "tod" | "snake-ladder" | "dare-derby" | "quoridor";
+  videoGame?: "tod" | "snake-ladder" | "dare-derby" | "quoridor" | "photobooth";
   onVideoLeave?: () => void;
 
   // ── Finished phase ──────────────────────────────────────────────────────────

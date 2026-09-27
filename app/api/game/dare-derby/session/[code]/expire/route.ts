@@ -1,18 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { deleteDailyRoom } from "@/lib/daily";
 
 /**
- * POST /api/game/tod/session/[code]/expire
+ * POST /api/game/dare-derby/session/[code]/expire
  * Tandai sesi sebagai expired saat timer frontend habis.
- * Dipanggil client-side ketika countdown mencapai 0.
+ * Sebelumnya endpoint ini TIDAK ADA sama sekali untuk Dare Derby — timer
+ * client (handleTimerExpire di app/dashboard/games/dare-derby/page.tsx)
+ * hanya mengubah state lokal ke "finished" tanpa memberi tahu server sama
+ * sekali, sehingga game_sessions.status tetap 'playing' selamanya di DB
+ * (hanya cron harian expire-sessions yang akhirnya membersihkannya, bisa
+ * sampai ~24 jam kemudian).
  */
 export async function POST(
-  _req: Request,
+  _req: NextRequest,
   { params }: { params: Promise<{ code: string }> }
 ) {
   const supabase = await createClient();
-
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
     return NextResponse.json(
@@ -23,17 +27,15 @@ export async function POST(
 
   const { code } = await params;
   const sessionCode = code.toUpperCase();
-
   const serviceClient = createServiceClient();
 
-  // Update ke expired — hanya jika masih playing, user bagian dari sesi, DAN
-  // waktu sungguh sudah habis di server (.lte expires_at). Tanpa cek waktu
-  // ini, peserta yang sedang KALAH bisa memanggil endpoint ini kapan saja
-  // untuk memaksa sesi jadi 'expired' dan menghindari kekalahan.
+  // Filter .lte("expires_at", now) + cek partisipan — cegah peserta yang
+  // sedang kalah memaksa sesi jadi 'expired' sebelum waktu benar-benar habis.
   const { data, error } = await serviceClient
     .from("game_sessions")
-    .update({ status: "expired" })
+    .update({ status: "expired", updated_at: new Date().toISOString() })
     .eq("session_code", sessionCode)
+    .eq("game_type", "dare_derby")
     .eq("status", "playing")
     .lte("expires_at", new Date().toISOString())
     .or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
@@ -41,21 +43,11 @@ export async function POST(
     .single();
 
   if (error || !data) {
-    // Jika tidak ada row yang di-update (sudah expired/completed, atau waktu
-    // belum benar-benar habis di server), itu OK — bukan error ke user.
-    return NextResponse.json({
-      success: true,
-      message: "Sesi tidak perlu diupdate",
-      data: null,
-    });
+    return NextResponse.json({ success: true, message: "Sesi tidak perlu diupdate", data: null });
   }
 
   // Sesi benar-benar berakhir — hapus Daily.co room (best effort)
   deleteDailyRoom(sessionCode);
 
-  return NextResponse.json({
-    success: true,
-    message: "Sesi ditandai expired",
-    data: { session_code: data.session_code },
-  });
+  return NextResponse.json({ success: true, message: "Sesi ditandai expired", data });
 }

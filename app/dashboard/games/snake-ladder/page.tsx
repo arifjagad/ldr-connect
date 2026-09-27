@@ -405,8 +405,14 @@ function SnakeGameContent() {
   }, [gameState?.host_position, gameState?.partner_position]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleNewGame() {
+    // Beri tahu server sebelum reset state lokal — tanpa ini, sesi 'playing'
+    // yang ditinggalkan (klik "Tinggalkan" saat sedang main) tidak pernah
+    // ditandai selesai di DB (coin tetap tertahan, partner masih melihatnya
+    // sebagai aktif) sampai timer/cron membersihkannya.
     if (session?.status === "waiting" && session.host_user_id === user?.id) {
       fetch(`/api/game/session/${session.session_code}/cancel`, { method: "POST" }).catch(() => {});
+    } else if (session?.status === "playing") {
+      fetch(`/api/game/snake-ladder/session/${session.session_code}/expire`, { method: "POST" }).catch(() => {});
     }
     setSession(null);
     setGameState(null);

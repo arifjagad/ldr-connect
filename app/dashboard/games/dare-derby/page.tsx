@@ -152,6 +152,7 @@ function DareDerbyContent() {
     if (!session) return;
     setFinishReason("time_up");
     setPhase("finished");
+    fetch(`/api/game/dare-derby/session/${session.session_code}/expire`, { method: "POST" }).catch(() => {});
   }, [session]);
 
   const timerSeconds = useCountdown(
@@ -333,8 +334,14 @@ function DareDerbyContent() {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   function handleReset() {
+    // Beri tahu server sebelum reset state lokal — tanpa ini, sesi 'playing'
+    // yang ditinggalkan (klik "Tinggalkan" saat sedang main) tidak pernah
+    // ditandai selesai di DB (coin tetap tertahan, partner masih melihatnya
+    // sebagai aktif) sampai timer/cron membersihkannya.
     if (session?.status === "waiting" && session.host_user_id === user?.id) {
       fetch(`/api/game/session/${session.session_code}/cancel`, { method: "POST" }).catch(() => {});
+    } else if (session?.status === "playing") {
+      fetch(`/api/game/dare-derby/session/${session.session_code}/expire`, { method: "POST" }).catch(() => {});
     }
     setSession(null);
     setGameState(null);

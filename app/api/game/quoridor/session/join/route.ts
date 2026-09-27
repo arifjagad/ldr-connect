@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/game/quoridor/session/join
@@ -16,6 +17,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Rate limit: cegah brute-force session_code + spam push notification ke host
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "quoridor:session:join",
+    maxRequests: 10,
+    windowMinutes: 5,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
   let body: { code?: string } = {};
   try { body = await request.json(); } catch { /* ok */ }
 
@@ -29,16 +38,10 @@ export async function POST(request: NextRequest) {
 
   const serviceClient = createServiceClient();
 
-  // Ambil durasi game untuk update expires_at
-  const { data: settings } = await serviceClient
-    .from("game_settings")
-    .select("expires_in_minutes")
-    .eq("game_type", "quoridor")
-    .single();
-  const gameDurationMinutes = (settings as { expires_in_minutes?: number } | null)?.expires_in_minutes ?? 30;
-  const expiresAt = new Date(Date.now() + gameDurationMinutes * 60 * 1000).toISOString();
-
   // Pakai join_game_session RPC yang sudah ada
+  // RPC ini SUDAH menghitung expires_at dengan benar dari
+  // game_settings.expires_in_minutes sesuai game_type sesi — jangan hitung
+  // ulang/overwrite manual (dulu ada duplikasi berisiko divergen).
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("join_game_session", {
     p_partner_user_id: user.id,
     p_session_code:    code,
@@ -104,20 +107,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Update expires_at dengan durasi game sesungguhnya
-  await serviceClient
-    .from("game_sessions")
-    .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
-    .eq("session_code", code);
-
-  const { data: updatedSession } = await serviceClient
-    .from("game_sessions")
-    .select("*")
-    .eq("session_code", code)
-    .single();
-
   // Push notification ke host bahwa partner sudah join
-  const hostId = (updatedSession ?? session)?.host_user_id;
+  const hostId = session?.host_user_id;
   if (hostId) {
     sendPushToUser(hostId, {
       title: "Partner sudah bergabung! ♟️",
@@ -130,6 +121,6 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     success: true,
     message: "Berhasil bergabung!",
-    data:    { session: updatedSession ?? session },
+    data:    { session },
   });
 }

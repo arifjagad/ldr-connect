@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/game/tod/session/join
@@ -19,6 +20,14 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  // Rate limit: cegah brute-force session_code + spam push notification ke host
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "tod:session:join",
+    maxRequests: 10,
+    windowMinutes: 5,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Parse body
   let body: { session_code?: string };

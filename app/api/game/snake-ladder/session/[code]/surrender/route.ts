@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { deleteDailyRoom } from "@/lib/daily";
 import type { SnakeGameState } from "@/lib/types";
 
 /**
@@ -77,6 +78,9 @@ export async function POST(
       { status: 500 }
     );
   }
+
+  // Game selesai (forfeit) — hapus Daily.co room (best effort)
+  deleteDailyRoom(upperCode);
 
   return NextResponse.json({
     success: true,

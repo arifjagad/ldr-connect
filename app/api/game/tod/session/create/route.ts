@@ -74,12 +74,17 @@ export async function POST(request: NextRequest) {
 
   const coinCost = settings?.coin_cost ?? 5;
 
+  // couple_id di DB selalu LEAST(host,partner) — pakai nilai yang sama di sini,
+  // bukan user.id mentah, supaya pertanyaan custom couple tetap muncul untuk
+  // KEDUA partner (sebelumnya hanya muncul untuk partner dengan UUID lebih kecil).
+  const resolvedCoupleId = user.id < profile.partner_id ? user.id : profile.partner_id;
+
   // Ambil pertanyaan dari pool
   let questionsQuery = serviceClient
     .from("game_tod_questions")
     .select("id, type, question, category, source")
     .eq("is_active", true)
-    .or(`couple_id.is.null,couple_id.eq.${user.id}`);
+    .or(`couple_id.is.null,couple_id.eq.${resolvedCoupleId}`);
 
   if (selectedCategories.length > 0) {
     questionsQuery = questionsQuery.in("category", selectedCategories);
@@ -111,12 +116,10 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-  await serviceClient
-    .from("game_sessions")
-    .update({ status: "expired" })
-    .or(`host_user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
-    .in("status", ["waiting", "playing"])
-    .lt("expires_at", new Date().toISOString());
+  // Catatan: auto-expire sesi lama milik couple ini sekarang ditangani DI
+  // DALAM RPC create_game_session (dengan advisory lock + refund yang benar
+  // untuk sesi 'waiting' — lihat migration 038). Jangan tambahkan UPDATE
+  // manual di sini lagi karena akan melewati refund dan race dengan lock RPC.
 
   const gameDurationMinutes = (settings as { expires_in_minutes?: number } | null)?.expires_in_minutes ?? 10;
 

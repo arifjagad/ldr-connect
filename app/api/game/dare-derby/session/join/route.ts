@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/game/dare-derby/session/join
@@ -13,6 +14,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
 
+  // Rate limit: cegah brute-force session_code + spam push notification ke host
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "dare_derby:session:join",
+    maxRequests: 10,
+    windowMinutes: 5,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
   let body: { code?: string } = {};
   try { body = await request.json(); } catch { /* ok */ }
 
@@ -22,9 +31,9 @@ export async function POST(request: NextRequest) {
   }
 
   const serviceClient = createServiceClient();
-  const gameDurationMinutes = 60;
-  const expiresAt = new Date(Date.now() + gameDurationMinutes * 60 * 1000).toISOString();
 
+  // RPC join_game_session SUDAH menghitung expires_at dengan benar dari
+  // game_settings.expires_in_minutes sesuai game_type sesi.
   const { data: rpcData, error: rpcError } = await serviceClient.rpc("join_game_session", {
     p_partner_user_id: user.id,
     p_session_code: code,
@@ -47,19 +56,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, message: "Kode ini bukan untuk game Dare Derby", data: null }, { status: 400 });
   }
 
-  await serviceClient
-    .from("game_sessions")
-    .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
-    .eq("session_code", code);
-
-  const { data: updatedSession } = await serviceClient
-    .from("game_sessions")
-    .select("*")
-    .eq("session_code", code)
-    .single();
-
   // Kirim push notification ke host
-  const hostId = (updatedSession ?? session)?.host_user_id;
+  const hostId = session?.host_user_id;
   if (hostId) {
     sendPushToUser(hostId, {
       title: "Partner sudah bergabung! 🏁",
@@ -69,5 +67,5 @@ export async function POST(request: NextRequest) {
     }).catch((e) => console.error("[push] dare-derby join failed:", e));
   }
 
-  return NextResponse.json({ success: true, message: "Berhasil bergabung!", data: { session: updatedSession ?? session } });
+  return NextResponse.json({ success: true, message: "Berhasil bergabung!", data: { session } });
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { deleteDailyRoom } from "@/lib/daily";
 import type { DareDerbyGameState } from "@/lib/types";
 
 /**
@@ -42,6 +43,12 @@ export async function POST(
   }
 
   const gs = newState as DareDerbyGameState;
+
+  // Game selesai (forfeit) — hapus Daily.co room (best effort)
+  if (gs.phase === "game_over") {
+    deleteDailyRoom(code.toUpperCase());
+  }
+
   const skipCount = gs.skip_counts?.[gs.forfeit_by === "host" ? "host" : "partner"] ?? 0;
   const message = gs.phase === "game_over" ? "Game berakhir karena forfeit!" : `Dare di-skip (${skipCount}x)`;
   return NextResponse.json({ success: true, message, data: { game_state: gs } });
