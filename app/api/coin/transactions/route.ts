@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * GET /api/coin/transactions
- * Ambil riwayat transaksi coin user yang sedang login
- * Sekaligus jalankan auto-expire untuk transaksi pending yang sudah > 60 menit
+ * Ambil riwayat transaksi coin user yang sedang login.
+ *
+ * Auto-expire transaksi pending > 60 menit TIDAK lagi dijalankan di sini —
+ * sudah dipindah ke cron job GET /api/cron/expire-topup (lihat file itu
+ * untuk alasannya). Endpoint ini murni read-only sekarang.
  */
 export async function GET() {
   const supabase = await createClient();
@@ -15,14 +18,6 @@ export async function GET() {
       { success: false, message: "Unauthenticated", data: null },
       { status: 401 }
     );
-  }
-
-  // Jalankan auto-expire untuk transaksi pending yang berumur > 60 menit
-  try {
-    const serviceClient = createServiceClient();
-    await serviceClient.rpc("expire_old_pending_topups");
-  } catch (expireErr) {
-    console.warn("[transactions] auto-expire warning:", expireErr);
   }
 
   const { data: transactions, error } = await supabase

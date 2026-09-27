@@ -3,7 +3,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { createClient } from "@/lib/supabase/client";
-import { emitCoinBalanceUpdated } from "@/lib/hooks/use-server-balance";
+import { emitCoinBalanceUpdated, useServerBalance } from "@/lib/hooks/use-server-balance";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { CoinPackage, CoinTransaction, WalletData } from "@/lib/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -120,20 +121,25 @@ export default function CoinPage() {
   const [voucherRedeeming, setVoucherRedeeming] = useState(false);
   const [voucherRedeemMsg, setVoucherRedeemMsg] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const setWalletBalance = useAuthStore((s) => s.setWalletBalance);
+  // Saldo coin: dibaca dari useServerBalance() — single source of truth
+  // realtime yang dipakai bersama navbar (lihat lib/hooks/use-server-balance.ts).
+  // Halaman ini TIDAK subscribe channel `wallets` sendiri lagi.
+  const { balance: serverBalance, loading: balanceLoading, refresh: refreshBalance } = useServerBalance();
+  const displayBalance = typeof serverBalance === "number" ? serverBalance : (wallet?.balance ?? 0);
+
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [confirmCancelTx, setConfirmCancelTx] = useState<CoinTransaction | null>(null);
 
   const refreshWalletAndTransactions = useCallback(async () => {
     const [walletRes, txRes] = await Promise.all([fetch("/api/coin/balance"), fetch("/api/coin/transactions")]);
     const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
     const newBal = walletJson.data?.wallet?.balance;
     if (typeof newBal === "number") {
-      setWalletBalance(newBal);
       emitCoinBalanceUpdated(newBal);
     }
     setWallet(walletJson.data?.wallet ?? null);
     setTransactions(txJson.data?.transactions ?? []);
-  }, [setWalletBalance]);
+  }, []);
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -162,11 +168,8 @@ export default function CoinPage() {
       lastFocusRef.current = Date.now();
 
       try {
-        const [walletRes, txRes] = await Promise.all([
-          fetch("/api/coin/balance"), fetch("/api/coin/transactions"),
-        ]);
-        const [walletJson, txJson] = await Promise.all([walletRes.json(), txRes.json()]);
-        setWallet(walletJson.data?.wallet ?? null);
+        const txRes = await fetch("/api/coin/transactions");
+        const txJson = await txRes.json();
         const txs: CoinTransaction[] = txJson.data?.transactions ?? [];
         setTransactions(txs);
 
@@ -184,6 +187,7 @@ export default function CoinPage() {
         }
         if (needRefresh) {
           await refreshWalletAndTransactions();
+          refreshBalance();
         }
       } finally {
         verifyingRef.current = false;
@@ -191,7 +195,7 @@ export default function CoinPage() {
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [refreshWalletAndTransactions]);
+  }, [refreshWalletAndTransactions, refreshBalance]);
 
   const selectedPkg = useMemo(
     () => packages.find((p) => p.id === selectedPackage) ?? null,
@@ -215,15 +219,13 @@ export default function CoinPage() {
     async function load() {
       try {
         setInitialLoading(true);
-        const [walletRes, packagesRes, transactionsRes] = await Promise.all([
-          fetch("/api/coin/balance"),
+        const [packagesRes, transactionsRes] = await Promise.all([
           fetch("/api/coin/packages"),
           fetch("/api/coin/transactions"),
         ]);
-        const [walletJson, packagesJson, txJson] = await Promise.all([
-          walletRes.json(), packagesRes.json(), transactionsRes.json(),
+        const [packagesJson, txJson] = await Promise.all([
+          packagesRes.json(), transactionsRes.json(),
         ]);
-        setWallet(walletJson.data?.wallet ?? null);
         setPackages(packagesJson.data?.packages ?? []);
         setTransactions(txJson.data?.transactions ?? []);
         if ((packagesJson.data?.packages ?? []).length > 0) {
@@ -238,35 +240,17 @@ export default function CoinPage() {
     load();
   }, []);
 
-  // Supabase Realtime: subscribe to wallet balance & transactions for live updates
+  // Supabase Realtime: subscribe to coin_transactions untuk refresh riwayat transaksi.
+  // Saldo wallet TIDAK di-subscribe di sini — itu tanggung jawab useServerBalance()
+  // (single source of truth, lihat lib/hooks/use-server-balance.ts) supaya navbar
+  // dan halaman ini selalu sinkron dari channel realtime yang sama.
   const currentUser = useAuthStore((s) => s.user);
   useEffect(() => {
     if (!currentUser?.id) return;
     const supabase = createClient();
 
     const channel = supabase
-      .channel(`dashboard-coin-${currentUser.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wallets",
-          filter: `user_id=eq.${currentUser.id}`,
-        },
-        (payload) => {
-          const newWallet = payload.new as { balance?: number; updated_at?: string } | null;
-          if (typeof newWallet?.balance === "number") {
-            setWallet((prev) =>
-              prev
-                ? { ...prev, balance: newWallet.balance!, updated_at: newWallet.updated_at ?? prev.updated_at }
-                : { user_id: currentUser.id, balance: newWallet.balance!, updated_at: newWallet.updated_at ?? new Date().toISOString() }
-            );
-            setWalletBalance(newWallet.balance);
-            emitCoinBalanceUpdated(newWallet.balance);
-          }
-        }
-      )
+      .channel(`dashboard-coin-transactions-${currentUser.id}`)
       .on(
         "postgres_changes",
         {
@@ -284,7 +268,7 @@ export default function CoinPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser?.id, refreshWalletAndTransactions, setWalletBalance]);
+  }, [currentUser?.id, refreshWalletAndTransactions]);
 
   // ── Voucher: check ──────────────────────────────────────────────────────────
   async function handleCheckVoucher(e: FormEvent) {
@@ -367,11 +351,20 @@ export default function CoinPage() {
 
     if (!res.ok) {
       setError(json.message);
+      setLoading(false);
     } else {
       setStatus(json.message);
       if (useVoucher) clearVoucher();
       await refreshWalletAndTransactions();
-      if (json.data.payment_url) window.open(json.data.payment_url, "_blank");
+      if (json.data.payment_url) {
+        // Redirect di tab yang sama (bukan tab baru) — setelah pembayaran
+        // selesai, Midtrans mengarahkan balik ke /topup/success yang lalu
+        // redirect ke halaman ini lagi (full reload, data selalu fresh).
+        // Ini juga menghindari kebingungan "ada 2 tab" saat user membatalkan
+        // dari tab asal padahal masih membuka tab pembayaran yang lain.
+        window.location.href = json.data.payment_url;
+        return; // navigasi keluar halaman — tidak perlu setLoading(false)
+      }
     }
     setLoading(false);
   }
@@ -379,14 +372,18 @@ export default function CoinPage() {
   function handlePayPending(tx: CoinTransaction) {
     const meta = tx.metadata as Record<string, unknown> | null;
     const paymentUrl = meta?.payment_url as string | undefined;
-    if (paymentUrl) window.open(paymentUrl, "_blank");
+    if (paymentUrl) window.location.href = paymentUrl;
     else setError("Link pembayaran tidak ditemukan, silakan buat topup baru.");
   }
 
-  async function handleCancelPending(tx: CoinTransaction) {
+  function handleCancelPending(tx: CoinTransaction) {
     if (cancellingId !== null) return;
-    const ok = window.confirm("Apakah kamu yakin ingin membatalkan transaksi top up ini? Voucher yang digunakan akan dikembalikan.");
-    if (!ok) return;
+    setConfirmCancelTx(tx);
+  }
+
+  async function confirmCancelPending() {
+    const tx = confirmCancelTx;
+    if (!tx) return;
 
     setCancellingId(tx.id);
     setError(null);
@@ -404,11 +401,15 @@ export default function CoinPage() {
       } else {
         setStatus(json.message || "Transaksi berhasil dibatalkan");
         await refreshWalletAndTransactions();
+        // Skenario race condition: pembayaran ternyata sudah sukses tepat
+        // sebelum dibatalkan — pastikan badge saldo ikut ter-refresh instan.
+        if (json.data?.paid_instead_of_cancelled) refreshBalance();
       }
     } catch {
       setError("Terjadi kesalahan jaringan saat membatalkan transaksi");
     } finally {
       setCancellingId(null);
+      setConfirmCancelTx(null);
     }
   }
 
@@ -453,10 +454,10 @@ export default function CoinPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-widest text-[#5C5470]">Saldo Coin</p>
-                {initialLoading ? (
+                {balanceLoading && typeof serverBalance !== "number" ? (
                   <div className="mt-3 h-12 w-28 animate-pulse rounded-xl bg-white/10" />
                 ) : (
-                  <p className="mt-2 text-5xl font-bold tabular-nums text-[#FFF5F8]">{wallet?.balance ?? 0}</p>
+                  <p className="mt-2 text-5xl font-bold tabular-nums text-[#FFF5F8]">{displayBalance}</p>
                 )}
                 <p className="mt-1 text-sm text-[#5C5470]">coins tersedia</p>
               </div>
@@ -819,6 +820,19 @@ export default function CoinPage() {
           </button>
         </div>
       )}
+
+      {/* Confirm batalkan topup — pengganti window.confirm() */}
+      <ConfirmDialog
+        open={confirmCancelTx !== null}
+        title="Batalkan Transaksi Top Up?"
+        description="Apakah kamu yakin ingin membatalkan transaksi top up ini? Voucher yang digunakan akan dikembalikan."
+        confirmLabel="Ya, Batalkan"
+        cancelLabel="Tidak"
+        variant="danger"
+        loading={cancellingId !== null}
+        onConfirm={confirmCancelPending}
+        onCancel={() => setConfirmCancelTx(null)}
+      />
     </main>
   );
 }

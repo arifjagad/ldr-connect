@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * GET /api/coin/check-voucher?code=XXX
  * Cek voucher tanpa side effect — untuk preview di UI sebelum user klik Redeem/Topup.
  * Mengembalikan info lengkap voucher (type, value, syarat) agar client bisa render UI yang sesuai.
+ *
+ * Rate limited (20x/10 menit per user) — tanpa ini, endpoint read-only ini
+ * bisa dipakai untuk enumerasi/brute-force kode voucher aktif (terutama
+ * voucher promo berkuota terbatas dengan format kode yang predictable).
  */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -12,6 +17,13 @@ export async function GET(request: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ success: false, message: "Unauthorized", data: null }, { status: 401 });
   }
+
+  const rateLimitResult = await checkRateLimit(user.id, {
+    endpoint: "coin/check-voucher",
+    maxRequests: 20,
+    windowMinutes: 10,
+  });
+  if (rateLimitResult) return rateLimitResult;
 
   const code = (request.nextUrl.searchParams.get("code") ?? "").trim().toUpperCase();
   if (!code || code.length < 3) {

@@ -2,10 +2,24 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/stores/auth-store";
-import { createClient } from "@/lib/supabase/client";
+import { subscribeWalletBalance } from "@/lib/realtime/wallet-balance-channel";
 
 /**
  * Hook untuk mendapatkan saldo coin dari server.
+ *
+ * ⭐ SINGLE SOURCE OF TRUTH untuk saldo realtime — dipakai bersama oleh
+ * navbar (`AppShell`) dan halaman manapun yang butuh saldo coin (misal
+ * halaman Coin). Setiap komponen yang memanggil hook ini boleh dipanggil
+ * berkali-kali secara bersamaan dengan aman: channel Realtime ke tabel
+ * `wallets` dikelola lewat `lib/realtime/wallet-balance-channel.ts` yang
+ * memastikan hanya SATU channel Supabase dibuat per userId, dibagikan ke
+ * semua pemanggil — mencegah error "cannot add postgres_changes callbacks
+ * ... after subscribe()" yang terjadi jika dua komponen membuat channel
+ * dengan nama sama di atas Supabase client singleton yang sama.
+ *
+ * JANGAN buat channel Realtime manual ke tabel `wallets` di komponen lain.
+ * Gunakan hook ini supaya nilai yang ditampilkan di navbar dan di halaman
+ * manapun selalu identik dan update bersamaan dari event yang sama.
  *
  * Strategi fetch (hemat request):
  * - Fetch 1x saat mount (jika user sudah login)
@@ -13,7 +27,8 @@ import { createClient } from "@/lib/supabase/client";
  *   sudah > MIN_REFETCH_MS (60 detik). Mencegah spam saat user
  *   alt-tab cepat atau banyak tab login sekaligus.
  * - TIDAK ada polling interval — balance hanya berubah saat user
- *   melakukan transaksi; halaman Coin menangani refresh sendiri.
+ *   melakukan transaksi; realtime channel `wallets` di bawah menangani
+ *   update instan, fetch di atas hanya jaring pengaman.
  *
  * Sebelumnya: setInterval(30s) × n-tab = n × 2 request/menit — boros.
  */
@@ -34,11 +49,21 @@ export function emitCoinBalanceUpdated(newBalance?: number) {
 }
 
 export function useServerBalance() {
-  const { user, setWalletBalance } = useAuthStore();
-  // Gunakan wallet_balance dari store sebagai nilai awal agar tidak ada flash loading
-  const [balance, setBalance] = useState<number | null>(user?.wallet_balance ?? null);
-  const [loading, setLoading]  = useState(balance === null);
+  const user = useAuthStore((s) => s.user);
+  const setWalletBalance = useAuthStore((s) => s.setWalletBalance);
+  // Reactive balance yang sinkron dengan Zustand store
+  const storeBalance = user?.wallet_balance ?? null;
+  const [balance, setBalance] = useState<number | null>(storeBalance);
+  const [loading, setLoading]  = useState(storeBalance === null);
   const [error, setError]      = useState<string | null>(null);
+
+  // Sync state lokal ketika store berubah
+  useEffect(() => {
+    if (typeof user?.wallet_balance === "number") {
+      setBalance(user.wallet_balance);
+      setLoading(false);
+    }
+  }, [user?.wallet_balance]);
 
   const lastFetchRef = useRef<number>(0);
 
@@ -93,37 +118,23 @@ export function useServerBalance() {
     };
     window.addEventListener(COIN_BALANCE_UPDATED_EVENT, handleBalanceEvent);
 
-    // Supabase Realtime: subscribe to wallet balance changes for this user
-    const supabase = createClient();
-    const walletChannel = supabase
-      .channel(`wallet-balance-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "wallets",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const newWallet = payload.new as { balance?: number } | null;
-          if (typeof newWallet?.balance === "number") {
-            setBalance(newWallet.balance);
-            setWalletBalance(newWallet.balance);
-          } else {
-            fetchBalance(true);
-          }
-        }
-      )
-      .subscribe();
+    // Supabase Realtime: subscribe to wallet balance changes for this user.
+    // Channel dibagi dengan pemanggil lain via wallet-balance-channel.ts —
+    // aman dipanggil dari navbar & halaman Coin secara bersamaan.
+    const unsubscribeWallet = subscribeWalletBalance(user.id, (newBalance) => {
+      setBalance(newBalance);
+      setWalletBalance(newBalance);
+    });
 
     return () => {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener(COIN_BALANCE_UPDATED_EVENT, handleBalanceEvent);
-      supabase.removeChannel(walletChannel);
+      unsubscribeWallet();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]); // hanya re-run jika user ganti (login/logout), bukan setiap render
 
-  return { balance, loading, error, refresh: () => fetchBalance(true) };
+  const currentDisplayBalance = typeof balance === "number" ? balance : (typeof user?.wallet_balance === "number" ? user.wallet_balance : null);
+
+  return { balance: currentDisplayBalance, loading, error, refresh: () => fetchBalance(true) };
 }

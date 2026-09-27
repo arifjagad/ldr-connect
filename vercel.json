@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/capsule-delivery",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/expire-topup",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/expire-sessions",
+      "schedule": "0 3 * * *"
     }
   ]
 }

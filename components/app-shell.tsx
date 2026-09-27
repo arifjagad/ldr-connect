@@ -37,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router   = useRouter();
   const { user, clearAuth } = useAuthStore();
+  const walletBalance = useAuthStore((s) => s.user?.wallet_balance);
   const { balance: serverBalance } = useServerBalance();
   const [menuOpen, setMenuOpen]     = useState(false);   // hamburger mobile
   const [moreOpen, setMoreOpen]     = useState(false);   // "Lainnya" desktop submenu
@@ -274,7 +275,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     className="flex items-center gap-1.5 rounded-full border border-[#F97316]/25 bg-[#F97316]/10 px-2.5 py-1.5 text-xs font-semibold text-[#FB923C] transition hover:border-[#F97316]/50 hover:bg-[#F97316]/20"
                   >
                     <span>🪙</span>
-                    {serverBalance !== null ? serverBalance : user.wallet_balance}
+                    {typeof serverBalance === "number"
+                      ? serverBalance
+                      : (typeof walletBalance === "number"
+                          ? walletBalance
+                          : (user.wallet_balance ?? 0))}
                   </Link>
                 )}
 

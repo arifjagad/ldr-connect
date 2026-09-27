@@ -1,12 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type VerifyState = "idle" | "loading" | "success" | "failed";
 
 function TopupSuccessContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const orderId = searchParams.get("order_id") ?? "";
@@ -32,21 +33,28 @@ function TopupSuccessContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ payment_reference: orderId }),
+          // keepalive: request tetap diselesaikan browser di background walau
+          // tab ini ditutup manual sebelum auto-close 3 detik selesai —
+          // mencegah verifikasi coin terputus di tengah jalan.
+          keepalive: true,
         });
         const json = await res.json();
         if (res.ok && json.success) {
           setMessage(json.message ?? "Coin berhasil ditambahkan!");
           setVerifyState("success");
-          setTimeout(() => window.close(), 3000);
         } else {
           setMessage(json.message ?? "Coin akan diproses otomatis oleh sistem.");
           setVerifyState("failed");
-          setTimeout(() => window.close(), 3000);
         }
       } catch {
         setMessage("Coin akan diproses otomatis oleh sistem.");
         setVerifyState("failed");
-        setTimeout(() => window.close(), 3000);
+      } finally {
+        // Halaman pembayaran sekarang dibuka di TAB YANG SAMA (bukan tab
+        // baru) — jadi setelah verifikasi selesai, kita kembalikan user ke
+        // halaman Coin (full navigation, data selalu fresh) bukan
+        // window.close() yang tidak berlaku untuk tab utama.
+        setTimeout(() => router.push("/dashboard/coin"), 2000);
       }
     }
 
@@ -144,7 +152,7 @@ function TopupSuccessContent() {
                       </svg>
                       {message ?? "Coin berhasil ditambahkan ke akun kamu!"}
                     </div>
-                    <p className="text-xs text-[#34D399]/70 text-center animate-pulse">Menutup halaman otomatis...</p>
+                    <p className="text-xs text-[#34D399]/70 text-center animate-pulse">Mengarahkan ke halaman Coin...</p>
                   </div>
                 )}
 
@@ -165,7 +173,7 @@ function TopupSuccessContent() {
                       </svg>
                       {message ?? "Coin akan diproses secara otomatis oleh sistem."}
                     </div>
-                    <p className="text-xs text-yellow-400/70 text-center animate-pulse">Menutup halaman otomatis...</p>
+                    <p className="text-xs text-yellow-400/70 text-center animate-pulse">Mengarahkan ke halaman Coin...</p>
                   </div>
                 )}
               </div>

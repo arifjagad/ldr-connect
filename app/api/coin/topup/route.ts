@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { cancelOrCreditPendingTopup } from "@/lib/coin/cancel-topup";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const MIDTRANS_API_URL = process.env.MIDTRANS_IS_PRODUCTION === "true"
   ? "https://app.midtrans.com/snap/v1/transactions"
@@ -24,6 +26,14 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  // Rate limit: defense-in-depth untuk panggilan Midtrans Snap API di bawah
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "coin/topup",
+    maxRequests: 10,
+    windowMinutes: 15,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Parse body
   let body: { coin_package_id?: number; voucher_code?: string };
@@ -82,85 +92,51 @@ export async function POST(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  // Terapkan voucher diskon jika ada
-  let discountAmount = 0;
-  let discountRedemptionId: number | null = null;
-  if (rawVoucherCode) {
-    const { data: discountData, error: discountError } = await serviceClient.rpc(
-      "apply_topup_discount",
-      { p_user_id: user.id, p_code: rawVoucherCode, p_purchase_amount: pkg.price }
-    );
-
-    if (discountError) {
-      console.error("[topup] apply_topup_discount error:", discountError.message);
-      return NextResponse.json(
-        { success: false, message: "Gagal memproses voucher diskon", data: null },
-        { status: 500 }
-      );
-    }
-
-    const discountResult = discountData as {
-      success: boolean;
-      message: string;
-      discount_amount?: number;
-      redemption_id?: number;
-    };
-
-    if (!discountResult.success) {
-      return NextResponse.json(
-        { success: false, message: discountResult.message, data: null },
-        { status: 400 }
-      );
-    }
-
-    discountAmount      = discountResult.discount_amount ?? 0;
-    discountRedemptionId = discountResult.redemption_id ?? null;
-  }
-
-  const finalPrice = Math.max(pkg.price - discountAmount, 1000); // minimum Rp1.000 (Midtrans limit)
-
   // Generate order ID pakai CSPRNG — Math.random() tidak aman untuk payment reference
   const orderId = `TOPUP-${Date.now()}-${randomBytes(4).toString("hex").toUpperCase()}`;
 
-  // Insert coin_transaction (pending) dengan service client untuk bypass RLS
-  const txMetadata = discountAmount > 0
-    ? {
-        voucher_code:    rawVoucherCode,
-        discount_amount: discountAmount,
-        original_price:  pkg.price,
-        final_price:     finalPrice,
-      }
-    : null;
+  // Buat transaksi pending + apply voucher diskon (jika ada) secara ATOMIK
+  // dalam satu RPC — mencegah voucher hangus permanen jika insert transaksi
+  // gagal di tengah jalan (lihat migration 035_atomic_topup_creation.sql).
+  const { data: createData, error: createError } = await serviceClient.rpc("create_pending_topup", {
+    p_user_id:             user.id,
+    p_coin_package_id:     pkg.id,
+    p_package_price:       pkg.price,
+    p_package_coin_amount: pkg.coin_amount,
+    p_payment_reference:   orderId,
+    p_voucher_code:        rawVoucherCode,
+  });
 
-  const { data: tx, error: txError } = await serviceClient
-    .from("coin_transactions")
-    .insert({
-      user_id:           user.id,
-      coin_package_id:   pkg.id,
-      type:              "topup",
-      amount:            pkg.coin_amount,
-      payment_status:    "pending",
-      payment_reference: orderId,
-      metadata:          txMetadata,
-    })
-    .select()
-    .single();
-
-  if (txError || !tx) {
-    console.error("[topup] insert coin_transactions error:", txError?.message, txError?.code, txError?.details);
+  if (createError) {
+    console.error("[topup] create_pending_topup RPC error:", createError.message);
     return NextResponse.json(
       { success: false, message: "Gagal membuat transaksi", data: null },
       { status: 500 }
     );
   }
 
-  // Hubungkan voucher_redemption dengan coin_transaction yang baru dibuat
-  if (discountRedemptionId) {
-    await serviceClient
-      .from("voucher_redemptions")
-      .update({ coin_transaction_id: tx.id })
-      .eq("id", discountRedemptionId);
+  const createResult = createData as {
+    success: boolean;
+    message?: string;
+    transaction?: Record<string, unknown>;
+    discount_amount?: number;
+    final_price?: number;
+  };
+
+  if (!createResult.success) {
+    return NextResponse.json(
+      { success: false, message: createResult.message ?? "Gagal memproses voucher diskon", data: null },
+      { status: 400 }
+    );
   }
+
+  const tx = createResult.transaction as {
+    id: number; type: string; amount: number; payment_status: string;
+    payment_reference: string; metadata: Record<string, unknown> | null;
+    paid_at: string | null; created_at: string;
+  };
+  const discountAmount = createResult.discount_amount ?? 0;
+  const finalPrice = createResult.final_price ?? pkg.price;
 
   // Buat Midtrans Snap token
   const serverKey = process.env.MIDTRANS_SERVER_KEY!;
@@ -233,6 +209,11 @@ export async function POST(request: NextRequest) {
     } else {
       const errText = await snapRes.text().catch(() => "");
       console.error("[topup] Midtrans Snap API HTTP error:", snapRes.status, errText);
+      // Snap API gagal SETELAH tx pending & voucher redemption sudah dibuat
+      // (create_pending_topup di atas). Rollback sekarang juga — jangan
+      // biarkan user menunggu cron/expire-topup (bisa sampai ~24 jam di
+      // Vercel Hobby) untuk mendapatkan kembali kuota vouchernya.
+      await rollbackFailedTopup(tx.id, orderId, user.id, request);
       return NextResponse.json(
         { success: false, message: "Gagal terhubung ke layanan pembayaran Midtrans", data: null },
         { status: 502 }
@@ -240,6 +221,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (fetchErr) {
     console.error("[topup] Midtrans Snap API fetch exception:", fetchErr);
+    await rollbackFailedTopup(tx.id, orderId, user.id, request);
     return NextResponse.json(
       { success: false, message: "Terjadi kesalahan jaringan ke layanan pembayaran", data: null },
       { status: 500 }
@@ -267,4 +249,32 @@ export async function POST(request: NextRequest) {
       },
     },
   });
+}
+
+/**
+ * Rollback transaksi topup yang gagal dibuatkan Snap token oleh Midtrans
+ * (Window B — lihat migration 035_atomic_topup_creation.sql untuk Window A).
+ * Transaksi & voucher redemption sudah terbuat di DB kita (create_pending_topup
+ * di atas sukses), tapi belum ada payment_reference yang valid di Midtrans
+ * (belum pernah sampai ke Snap API), sehingga aman langsung dibatalkan tanpa
+ * perlu cek status Midtrans — panggil cancelOrCreditPendingTopup dengan
+ * paymentReference null supaya langsung ke finalisasi RPC (skip Midtrans call).
+ * Gagal rollback di sini TIDAK mem-block response error ke user — cron
+ * expire-topup tetap jadi jaring pengaman terakhir.
+ */
+async function rollbackFailedTopup(transactionId: number, orderId: string, userId: string, req: NextRequest) {
+  try {
+    const result = await cancelOrCreditPendingTopup({
+      transactionId,
+      paymentReference: null, // belum pernah sampai ke Midtrans, tidak perlu dicek/dibatalkan di sana
+      userId,
+      req,
+    });
+    if (!result.ok) {
+      console.error(`[topup] rollback gagal untuk tx ${transactionId} (${orderId}):`, result.message);
+    }
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`[topup] rollback exception untuk tx ${transactionId} (${orderId}):`, message);
+  }
 }

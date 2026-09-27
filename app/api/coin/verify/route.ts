@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { logSecurityEvent } from "@/lib/security-logger";
-
-const MIDTRANS_STATUS_URL = process.env.MIDTRANS_IS_PRODUCTION === "true"
-  ? "https://api.midtrans.com/v2"
-  : "https://api.sandbox.midtrans.com/v2";
+import { createClient } from "@/lib/supabase/server";
+import { verifyAndCreditPayment } from "@/lib/coin/verify-payment";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/coin/verify
  * Cek status pembayaran ke Midtrans + update wallet jika sudah paid
  *
  * Body: { payment_reference: string }
+ *
+ * Logic inti ada di lib/coin/verify-payment.ts (dipakai bersama oleh
+ * app/api/coin/cancel-topup untuk menangani race condition cancel-vs-bayar).
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -23,6 +23,14 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  // Rate limit: defense-in-depth untuk panggilan cek status ke Midtrans
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "coin/verify",
+    maxRequests: 20,
+    windowMinutes: 10,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Parse body
   let body: { payment_reference?: string };
@@ -43,104 +51,39 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Cek Midtrans status
-  const serverKey = process.env.MIDTRANS_SERVER_KEY!;
-  const authHeader = "Basic " + Buffer.from(serverKey + ":").toString("base64");
-
-  let midtransStatus: string | null = null;
-  let midtransData: Record<string, unknown> = {};
-
-  try {
-    const statusRes = await fetch(
-      `${MIDTRANS_STATUS_URL}/${encodeURIComponent(payment_reference)}/status`,
-      { headers: { Authorization: authHeader } }
-    );
-
-    if (statusRes.ok) {
-      midtransData = await statusRes.json();
-      midtransStatus = midtransData.transaction_status as string ?? null;
-    }
-  } catch {
-    return NextResponse.json(
-      { success: false, message: "Gagal menghubungi Midtrans. Coba beberapa saat lagi.", data: null },
-      { status: 502 }
-    );
-  }
-
-  if (!midtransStatus) {
-    return NextResponse.json(
-      { success: false, message: "Transaksi tidak ditemukan di Midtrans", data: null },
-      { status: 404 }
-    );
-  }
-
-  // Map Midtrans status → internal status
-  // capture HARUS fraud_status === "accept" — sama persis dengan logika di webhook
-  const fraudStatus = midtransData.fraud_status as string | undefined;
-  const isPaid =
-    (midtransStatus === "capture" && fraudStatus === "accept") ||
-    midtransStatus === "settlement";
-  const isFailed = midtransStatus === "deny" || midtransStatus === "cancel" || midtransStatus === "expire";
-
-  if (!isPaid && !isFailed) {
-    return NextResponse.json(
-      { success: false, message: `Pembayaran masih ${midtransStatus}. Harap selesaikan pembayaran terlebih dahulu.`, data: null },
-      { status: 400 }
-    );
-  }
-
-  const newStatus = isPaid ? "paid" : "failed";
-  const paidAt = isPaid ? (midtransData.settlement_time as string ?? new Date().toISOString()) : null;
-
-  // Pastikan payment_reference milik user yang sedang login (ownership check)
-  const serviceClient = createServiceClient();
-  const { data: txOwner } = await serviceClient
-    .from("coin_transactions")
-    .select("user_id")
-    .eq("payment_reference", payment_reference)
-    .single();
-
-  if (!txOwner || txOwner.user_id !== user.id) {
-    logSecurityEvent({
-      event: "security:payment_ownership_violation",
-      userId: user.id,
-      metadata: { attempted_reference: payment_reference },
-      req: request,
-    });
-    return NextResponse.json(
-      { success: false, message: "Transaksi tidak ditemukan", data: null },
-      { status: 404 }
-    );
-  }
-
-  // Update via RPC (atomic: update tx + tambah wallet jika paid)
-  const { data: updatedTx, error: rpcError } = await serviceClient.rpc("update_payment_status", {
-    p_payment_reference: payment_reference,
-    p_new_status: newStatus,
-    p_paid_at: paidAt,
-    p_metadata: { midtrans_verification: midtransData },
+  const result = await verifyAndCreditPayment({
+    paymentReference: payment_reference,
+    userId: user.id,
+    req: request,
   });
 
-  if (rpcError) {
-    // ALREADY_PAID bukan error dari perspektif user
-    if (rpcError.message?.includes("ALREADY_PAID")) {
-      return NextResponse.json({
-        success: true,
-        message: "Coin sudah berhasil ditambahkan ke akun kamu!",
-        data: null,
-      });
-    }
+  if (!result.ok) {
+    const statusMap: Record<typeof result.code, number> = {
+      NOT_FOUND_IN_MIDTRANS: 404,
+      STILL_PENDING: 400,
+      OWNERSHIP_VIOLATION: 404,
+      RPC_ERROR: 500,
+      MIDTRANS_UNREACHABLE: 502,
+    };
     return NextResponse.json(
-      { success: false, message: rpcError.message ?? "Gagal memverifikasi pembayaran", data: null },
-      { status: 500 }
+      { success: false, message: result.message, data: null },
+      { status: statusMap[result.code] }
     );
+  }
+
+  if (result.alreadyProcessed) {
+    return NextResponse.json({
+      success: true,
+      message: "Coin sudah berhasil ditambahkan ke akun kamu!",
+      data: null,
+    });
   }
 
   return NextResponse.json({
     success: true,
-    message: isPaid
+    message: result.status === "paid"
       ? "Coin berhasil ditambahkan ke akun kamu!"
       : "Pembayaran gagal. Coin tidak ditambahkan.",
-    data: { transaction: updatedTx },
+    data: { transaction: result.transaction },
   });
 }
