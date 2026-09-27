@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const BUCKET = "avatars";
 const MAX_SIZE_MB = 3;
@@ -17,6 +18,13 @@ export async function POST(req: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ success: false, message: "Unauthenticated" }, { status: 401 });
   }
+
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "user:avatar:upload",
+    maxRequests: 10,
+    windowMinutes: 10,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;

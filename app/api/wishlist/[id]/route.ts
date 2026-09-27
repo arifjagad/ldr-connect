@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { sendPushToUser } from "@/lib/push";
 
 const patchSchema = z.object({
-  title:       z.string().min(1).max(200).trim().optional(),
-  description: z.string().max(1000).trim().nullable().optional(),
+  title:       z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(1000).nullable().optional(),
   category:    z.enum(["virtual", "offline", "dream", "gift", "other"]).optional(),
 });
 

@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const postSchema = z.object({
-  message:  z.string().min(1, "Pesan tidak boleh kosong").max(2000, "Pesan maksimal 2000 karakter").trim(),
+  message:  z.string().trim().min(1, "Pesan tidak boleh kosong").max(2000, "Pesan maksimal 2000 karakter"),
   opens_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal harus YYYY-MM-DD"),
 });
 
@@ -73,6 +74,16 @@ export async function POST(req: Request) {
   if (authError || !user) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
+
+  // Rate limiting: maks 10 kapsul per 10 menit per user — kapsul trigger
+  // push notification ke partner setiap kali dibuat, bisa dipakai untuk
+  // notification bombing tanpa batas ini.
+  const rateLimitResult = await checkRateLimit(user.id, {
+    endpoint: "capsule/create",
+    maxRequests: 10,
+    windowMinutes: 10,
+  });
+  if (rateLimitResult) return rateLimitResult;
 
   let body: z.infer<typeof postSchema>;
   try {

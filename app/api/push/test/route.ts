@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/push/test
@@ -16,6 +17,14 @@ export async function POST(req: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ success: false, message: "Unauthenticated" }, { status: 401 });
   }
+
+  // Rate limit ketat: endpoint debug, bukan untuk penggunaan reguler
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "push:test",
+    maxRequests: 5,
+    windowMinutes: 10,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
 
   let body: { title?: string; body?: string } = {};
   try { body = await req.json(); } catch { /* ok */ }

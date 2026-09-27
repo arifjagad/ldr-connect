@@ -217,13 +217,15 @@ function EditModal({
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error: err } = await supabase
-      .from("anniversaries")
-      .update({ title, date, notes: notes || null })
-      .eq("id", item.id);
+    const res = await fetch(`/api/anniversaries/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, date, notes: notes || null }),
+    });
+    const json = await res.json();
 
-    if (err) {
-      setError(err.message);
+    if (!json.success) {
+      setError(json.message);
     } else {
       onSaved();
       onClose();
@@ -363,13 +365,10 @@ export default function AnniversariesPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const loadAnniversaries = useCallback(async () => {
-    const { data, error: err } = await supabase
-      .from("anniversaries")
-      .select("*")
-      .order("date", { ascending: true });
-
-    if (err) { setError(err.message); return; }
-    setItems((data as Anniversary[]) ?? []);
+    const res = await fetch("/api/anniversaries");
+    const json = await res.json();
+    if (!json.success) { setError(json.message); return; }
+    setItems((json.data as Anniversary[]) ?? []);
   }, []);
 
   useEffect(() => {
@@ -393,14 +392,15 @@ export default function AnniversariesPage() {
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true); setError(null); setStatus(null);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
-    const { error: err } = await supabase.from("anniversaries").insert({
-      user_id: user.id, title, date, notes: notes || null, is_active: true,
+    const res = await fetch("/api/anniversaries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, date, notes: notes || null }),
     });
+    const json = await res.json();
 
-    if (err) { setError(err.message); }
+    if (!json.success) { setError(json.message); }
     else {
       setStatus("Momen berhasil disimpan!");
       setTitle(""); setDate(""); setNotes("");
@@ -411,21 +411,24 @@ export default function AnniversariesPage() {
 
   async function toggleActive(item: Anniversary) {
     setLoading(true); setError(null); setStatus(null);
-    const { error: err } = await supabase
-      .from("anniversaries")
-      .update({ is_active: !item.is_active })
-      .eq("id", item.id);
+    const res = await fetch(`/api/anniversaries/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: !item.is_active }),
+    });
+    const json = await res.json();
 
-    if (err) setError(err.message);
+    if (!json.success) setError(json.message);
     else await loadAnniversaries();
     setLoading(false);
   }
 
   async function remove(itemId: number) {
     setLoading(true); setError(null); setStatus(null);
-    const { error: err } = await supabase.from("anniversaries").delete().eq("id", itemId);
+    const res = await fetch(`/api/anniversaries/${itemId}`, { method: "DELETE" });
+    const json = await res.json();
 
-    if (err) setError(err.message);
+    if (!json.success) setError(json.message);
     else { setStatus("Momen berhasil dihapus."); await loadAnniversaries(); }
     setLoading(false);
   }

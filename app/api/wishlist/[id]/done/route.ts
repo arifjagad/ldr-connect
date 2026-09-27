@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 type Params = { params: Promise<{ id: string }> };
+
+const postSchema = z.object({
+  done_note: z.string().trim().max(500, "Catatan maksimal 500 karakter").nullable().optional(),
+});
 
 /**
  * POST /api/wishlist/[id]/done
  * Tandai wishlist item sebagai selesai (kedua partner boleh)
- * Body: { done_note?: string }
+ * Body: { done_note?: string | null }
  */
 export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params;
@@ -17,8 +23,23 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => ({}));
-  const doneNote: string | undefined = body?.done_note;
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "wishlist:done",
+    maxRequests: 20,
+    windowMinutes: 10,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  let doneNote: string | null | undefined;
+  try {
+    const raw = await req.json().catch(() => ({}));
+    doneNote = postSchema.parse(raw).done_note;
+  } catch (e) {
+    if (e instanceof z.ZodError) {
+      return NextResponse.json({ success: false, message: e.issues[0].message, data: null }, { status: 422 });
+    }
+    return NextResponse.json({ success: false, message: "Request tidak valid", data: null }, { status: 400 });
+  }
 
   const serviceClient = createServiceClient();
 
@@ -56,7 +77,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       is_done: true,
       done_by: user.id,
       done_at: new Date().toISOString(),
-      done_note: doneNote?.trim() || null,
+      done_note: doneNote || null,
     })
     .eq("id", id)
     .select()

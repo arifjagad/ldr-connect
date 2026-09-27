@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { sendPushToUser } from "@/lib/push";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const postSchema = z.object({
-  title:       z.string().min(1, "Judul tidak boleh kosong").max(200, "Judul maksimal 200 karakter").trim(),
-  description: z.string().max(1000, "Deskripsi maksimal 1000 karakter").trim().optional(),
+  title:       z.string().trim().min(1, "Judul tidak boleh kosong").max(200, "Judul maksimal 200 karakter"),
+  description: z.string().trim().max(1000, "Deskripsi maksimal 1000 karakter").optional(),
   category:    z.enum(["virtual", "offline", "dream", "gift", "other"]).default("other"),
 });
 
@@ -53,6 +54,15 @@ export async function POST(req: Request) {
   if (authError || !user) {
     return NextResponse.json({ success: false, message: "Unauthenticated", data: null }, { status: 401 });
   }
+
+  // Rate limiting: maks 20 wishlist per 10 menit per user — mencegah spam
+  // yang trigger push notification ke partner setiap kali create.
+  const rateLimitResult = await checkRateLimit(user.id, {
+    endpoint: "wishlist/create",
+    maxRequests: 20,
+    windowMinutes: 10,
+  });
+  if (rateLimitResult) return rateLimitResult;
 
   let body: z.infer<typeof postSchema>;
   try {

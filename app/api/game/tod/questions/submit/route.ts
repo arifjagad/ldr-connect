@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/game/tod/questions/submit
@@ -18,6 +19,13 @@ export async function POST(request: NextRequest) {
       { status: 401 }
     );
   }
+
+  const rateLimitResponse = await checkRateLimit(user.id, {
+    endpoint: "tod:questions:submit",
+    maxRequests: 10,
+    windowMinutes: 10,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
 
   // Parse body
   let body: { type?: string; category?: string; question?: string };
