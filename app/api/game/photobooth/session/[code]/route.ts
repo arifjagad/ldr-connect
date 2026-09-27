@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { withSignedPhotoUrls } from "@/lib/games/photobooth/storage";
+import type { PhotoboothSession } from "@/lib/types";
 
 /**
  * GET /api/game/photobooth/session/[code]
@@ -23,7 +25,7 @@ export async function GET(
   const { data: session, error } = await serviceClient
     .from("game_sessions")
     .select("*")
-    .eq("session_code", code)
+    .eq("session_code", code.toUpperCase())
     .eq("game_type", "photobooth")
     .single();
 
@@ -45,6 +47,6 @@ export async function GET(
   return NextResponse.json({
     success: true,
     message: "Sesi berhasil dimuat",
-    data: { session },
+    data: { session: await withSignedPhotoUrls(session as PhotoboothSession) },
   });
 }

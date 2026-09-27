@@ -4,8 +4,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import type { PhotoboothSession } from "@/lib/types";
 
 // Snapshot webcam 1280x720 JPEG q0.9 umumnya 150-400 KB base64 — 1 juta
-// karakter (~730 KB biner) memberi ruang cukup tanpa membiarkan kolom
-// game_state JSONB diisi string raksasa.
+// karakter (~730 KB biner) memberi ruang cukup, di bawah batas 2 MB bucket
+// photobooth-captures.
 export const MAX_IMAGE_DATA_URL_LENGTH = 1_000_000;
 
 export const slotIndexSchema = z.number().int().min(1).max(20);
@@ -32,9 +32,15 @@ const ERRORS: Record<string, { status: number; message: string }> = {
   ALREADY_SUBMITTED:  { status: 409, message: "Foto kamu untuk slot ini sudah terkirim" },
   NO_RETAKES_LEFT:    { status: 400, message: "Kuota retake foto sudah habis (maks 3x)" },
   INVALID_SLOT:       { status: 400, message: "Slot foto tidak valid" },
+  INVALID_IMAGE:      { status: 400, message: "Path foto tidak valid" },
   WRONG_PHASE:        { status: 409, message: "Aksi tidak bisa dilakukan di tahap ini" },
   INVALID_ACTION:     { status: 400, message: "Jenis aksi tidak dikenali" },
 };
+
+export function photoboothError(code: keyof typeof ERRORS): NextResponse {
+  const { status, message } = ERRORS[code];
+  return NextResponse.json({ success: false, message, data: null }, { status });
+}
 
 export async function parseBody<T extends z.ZodTypeAny>(
   request: Request,

@@ -733,6 +733,7 @@ File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supa
 | `038_tod_audit_fixes.sql` | Advisory lock `create_game_session` + refund auto-expire sesi `waiting`, `answer_tod_question` dengan `p_skip` |
 | `039_revoke_server_only_rpc.sql` | `REVOKE EXECUTE` 27 RPC server-only dari `anon`/`authenticated` (fix IDOR `p_user_id`) |
 | `040_photobooth_atomic_actions.sql` | RPC `photobooth_action` — gameplay photobooth atomik + guard fase/slot/kuota retake |
+| `041_photobooth_storage_captures.sql` | Bucket privat `photobooth-captures`; `photobooth_action` simpan path foto (bukan base64) di `game_state` |
 | `add_avatar_url.sql` | Kolom avatar_url di users |
 | `push_subscriptions.sql` | Tabel push_subscriptions |
 

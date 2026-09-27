@@ -537,7 +537,7 @@ Semua route gameplay photobooth (`select-template`, `trigger-countdown`, `submit
 - Frontend: capture mengirim `capture.slot`, dan error dari trigger/submit/retake/complete sekarang ditampilkan (sebelumnya selalu dianggap sukses).
 - Tidak diberi `checkRateLimit` — konsisten dengan keputusan game action turn-based lain (sudah state-gated via RPC).
 
-**Belum diperbaiki (di luar scope, perlu keputusan):** foto pemain tetap disimpan sebagai base64 di `game_sessions.game_state`. Dengan 3 slot × 2 foto, row bisa > 1 MB — Supabase Realtime `postgres_changes` memotong kolom besar pada payload > 1 MB, sehingga sinkronisasi realtime berisiko gagal di slot terakhir. Opsi jangka panjang: upload ke bucket Storage privat dan simpan path saja. Keaslian foto (benar hasil webcam) tetap tidak bisa diverifikasi server; dampaknya terbatas ke album couple sendiri.
+**Lanjutan (migration 041), ditemukan lewat uji end-to-end:** foto base64 di `game_state` membuat row sesi mencapai ~2.9 MB (4 slot × 2 foto ~370 KB). Supabase Realtime berhenti mengirim kolom `game_state` untuk row sebesar itu (hanya 5 dari 18 event yang memuatnya), sehingga client partner berhenti menerima `countdown_started_at` di tengah permainan dan game macet. Fix: foto di-upload ke bucket **privat** `photobooth-captures` (tanpa policy anon/authenticated), `game_state` hanya menyimpan path (`{session_code}/...`, divalidasi RPC), GET sesi (`[code]`, `active`) menambahkan signed URL 2 jam setelah cek peserta, dan frontend mengambil signed URL saat realtime membawa path baru. File lama dihapus saat retake, dan file yang di-upload untuk submit yang ditolak RPC langsung dihapus. Keaslian foto (benar hasil webcam) tetap tidak bisa diverifikasi server; dampaknya terbatas ke album couple sendiri.
 
 ---
 

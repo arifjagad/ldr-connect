@@ -41,6 +41,13 @@ function PhotoboothContent() {
 
   // Countdown & Capture
   const [countdown, setCountdown] = useState<number | null>(null);
+
+  // Foto disimpan sebagai path di bucket privat (migration 041). Payload
+  // realtime hanya membawa path, signed URL-nya diambil dari GET sesi.
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const photoUrlsRef = useRef<Record<string, string>>({});
+  const fetchingUrlsRef = useRef(false);
+  const latestSessionRef = useRef<PhotoboothSession | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
@@ -124,6 +131,51 @@ function PhotoboothContent() {
     handleTimerExpire
   );
 
+  // ── Photo URL Cache ─────────────────────────────────────────────────────────
+  const harvestPhotoUrls = useCallback((s: PhotoboothSession | null) => {
+    const found: Record<string, string> = {};
+    for (const photo of Object.values(s?.game_state?.photos ?? {}) as PhotoboothPhoto[]) {
+      if (photo.host_image_path && photo.host_image_url) found[photo.host_image_path] = photo.host_image_url;
+      if (photo.partner_image_path && photo.partner_image_url) found[photo.partner_image_path] = photo.partner_image_url;
+    }
+    if (Object.keys(found).length === 0) return;
+    photoUrlsRef.current = { ...photoUrlsRef.current, ...found };
+    setPhotoUrls(photoUrlsRef.current);
+  }, []);
+
+  const ensurePhotoUrls = useCallback(async (s: PhotoboothSession, attempt = 0) => {
+    latestSessionRef.current = s;
+    const hasMissing = (x: PhotoboothSession) =>
+      (Object.values(x.game_state?.photos ?? {}) as PhotoboothPhoto[])
+        .flatMap((p) => [p.host_image_path, p.partner_image_path])
+        .some((path) => path && !photoUrlsRef.current[path]);
+    if (!hasMissing(s) || fetchingUrlsRef.current) return;
+
+    fetchingUrlsRef.current = true;
+    try {
+      const res = await fetch(`/api/game/photobooth/session/${s.session_code}`);
+      const json = await res.json().catch(() => null);
+      if (res.ok) harvestPhotoUrls(json?.data?.session ?? null);
+    } finally {
+      fetchingUrlsRef.current = false;
+    }
+
+    // Path baru bisa datang lewat realtime selama fetch di atas berjalan.
+    const latest = latestSessionRef.current;
+    if (latest && attempt < 3 && hasMissing(latest)) ensurePhotoUrls(latest, attempt + 1);
+  }, [harvestPhotoUrls]);
+
+  function photoSrc(photo: PhotoboothPhoto | undefined): string | undefined {
+    if (!photo) return undefined;
+    return (
+      (photo.host_image_path && photoUrls[photo.host_image_path]) ||
+      (photo.partner_image_path && photoUrls[photo.partner_image_path]) ||
+      photo.host_image_url ||
+      photo.partner_image_url ||
+      photo.combined_image_url
+    );
+  }
+
   // ── Apply Session State ─────────────────────────────────────────────────────
   const applySession = useCallback((s: PhotoboothSession | null) => {
     if (!s) {
@@ -132,12 +184,14 @@ function PhotoboothContent() {
       return;
     }
     setSession(s);
+    harvestPhotoUrls(s);
+    ensurePhotoUrls(s);
     if (s.status === "waiting") setPhase("waiting");
     else if (s.status === "playing") setPhase("playing");
     else if (s.status === "completed" || s.status === "expired" || s.status === "cancelled") {
       setPhase("finished");
     }
-  }, []);
+  }, [harvestPhotoUrls, ensurePhotoUrls]);
 
   // ── Check Active Session ────────────────────────────────────────────────────
   useEffect(() => {
@@ -394,7 +448,7 @@ function PhotoboothContent() {
       const slots: PhotoboothSlot[] = currentTemplate.slots || [];
       for (const slot of slots) {
         const photo = currentPhotos[slot.index];
-        const imgUrl = photo?.host_image_url || photo?.partner_image_url || photo?.combined_image_url;
+        const imgUrl = photoSrc(photo);
         if (imgUrl) {
           const img = new window.Image();
           img.crossOrigin = "anonymous";
@@ -701,7 +755,7 @@ function PhotoboothContent() {
                 {/* Render Photo Slots */}
                 {(currentTemplate?.slots || []).map((slot) => {
                   const photo = currentPhotos[slot.index];
-                  const img = photo?.host_image_url || photo?.partner_image_url || photo?.combined_image_url;
+                  const img = photoSrc(photo);
                   const scaleW = 180 / (currentTemplate?.canvas_width || 600);
                   const scaleH = 540 / (currentTemplate?.canvas_height || 1800);
 
@@ -786,7 +840,7 @@ function PhotoboothContent() {
             <div className="relative h-[600px] w-[200px] overflow-hidden rounded-xl border border-white/10 bg-black">
               {(currentTemplate?.slots || []).map((slot) => {
                 const photo = currentPhotos[slot.index];
-                const img = photo?.host_image_url || photo?.partner_image_url || photo?.combined_image_url;
+                const img = photoSrc(photo);
                 const scaleW = 200 / (currentTemplate?.canvas_width || 600);
                 const scaleH = 600 / (currentTemplate?.canvas_height || 1800);
 

@@ -2752,7 +2752,7 @@ REVOKE EXECUTE ON FUNCTION public.cancel_topup_transaction(BIGINT, UUID) FROM PU
 REVOKE EXECUTE ON FUNCTION public.expire_old_pending_topups() FROM PUBLIC, anon, authenticated;
 
 -- ============================================================
--- FUNCTION: photobooth_action (migration 040)
+-- FUNCTION: photobooth_action (migration 040, foto ke Storage sejak 041)
 -- Atomic gameplay photobooth: select_template | trigger_countdown |
 -- submit_photo | retake | complete. SELECT ... FOR UPDATE mencegah foto
 -- host/partner saling timpa (keduanya submit hampir bersamaan tiap slot)
@@ -2891,10 +2891,17 @@ BEGIN
       RAISE EXCEPTION 'ALREADY_SUBMITTED' USING DETAIL = 'Foto kamu untuk slot ini sudah terkirim';
     END IF;
 
-    v_photo := COALESCE(v_photos->(v_slot::TEXT), jsonb_build_object('slot_index', v_slot))
+    IF COALESCE(p_payload->>'image_path', '') !~ ('^' || p_session_code || '/') THEN
+      RAISE EXCEPTION 'INVALID_IMAGE' USING DETAIL = 'Path foto tidak valid';
+    END IF;
+
+    -- Hapus *_image_url lama (base64 dari sebelum migration 041) supaya row
+    -- tidak membengkak lagi.
+    v_photo := (COALESCE(v_photos->(v_slot::TEXT), jsonb_build_object('slot_index', v_slot))
+                - (v_role || '_image_url'))
       || jsonb_build_object(
-        v_role || '_image_url', p_payload->>'image_url',
-        'captured_at',          to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+        v_role || '_image_path', p_payload->>'image_path',
+        'captured_at',           to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
       );
     v_photos  := v_photos || jsonb_build_object(v_slot::TEXT, v_photo);
     v_capture := jsonb_set(v_capture, '{submitted}', (v_capture->'submitted') || to_jsonb(v_role));

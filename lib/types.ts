@@ -353,8 +353,10 @@ export type PhotoboothTemplate = {
 
 export type PhotoboothPhoto = {
   slot_index: number;
-  host_image_url?: string;     // snapshot webcam host (data URL atau path)
-  partner_image_url?: string;  // snapshot webcam partner
+  host_image_path?: string;    // path di bucket privat photobooth-captures (migration 041)
+  partner_image_path?: string;
+  host_image_url?: string;     // signed URL dari API (atau base64 lama sebelum migration 041)
+  partner_image_url?: string;
   combined_image_url?: string; // hasil layout 2 kamera di slot ini
   captured_at: string;
 };

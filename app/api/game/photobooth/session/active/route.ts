@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { withSignedPhotoUrls } from "@/lib/games/photobooth/storage";
+import type { PhotoboothSession } from "@/lib/types";
 
 /**
  * GET /api/game/photobooth/session/active
@@ -38,6 +40,6 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     message: session ? "Sesi aktif ditemukan" : "Tidak ada sesi aktif",
-    data: { session: session ?? null },
+    data: { session: await withSignedPhotoUrls((session ?? null) as PhotoboothSession | null) },
   });
 }
