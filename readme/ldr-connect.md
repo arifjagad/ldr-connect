@@ -264,7 +264,7 @@ return () => { supabase.removeChannel(channel); };
 | `roll_snake_dice(...)` | `008_atomic_snake_and_cancel.sql` | Menghitung pergerakan dadu & board event ular tangga (Atomic) |
 | `confirm_snake_challenge(...)` | `008_atomic_snake_and_cancel.sql` | Mengonfirmasi penyelesaian tantangan ular tangga |
 | `cancel_game_session(...)` | `008_atomic_snake_and_cancel.sql` | Membatalkan sesi & mengembalikan coin host |
-| `expire_waiting_sessions()` | `011_enforce_session_expiry.sql` | Cron job handler untuk kadaluwarsa sesi otomatis |
+| `expire_waiting_sessions()` | `003_functions.sql`, dipanggil sejak `038_tod_audit_fixes.sql` | Handler `GET /api/cron/expire-sessions` untuk kadaluwarsa sesi `waiting` + refund otomatis |
 
 ---
 

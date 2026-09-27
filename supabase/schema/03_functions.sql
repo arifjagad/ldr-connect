@@ -13,6 +13,9 @@
 --   013: get_active_session_for_couple → + param p_game_type + filter expires_at
 --   028: + check_login_rate_limit (two-tier brute-force protection per email)
 --        + clear_login_rate_limit (reset on successful login)
+--   038: create_game_session → advisory lock per couple (cegah race 2 sesi
+--        aktif) + refund saat auto-expire sesi 'waiting' lama.
+--        answer_tod_question → + parameter p_skip (persist tombol "Skip")
 --
 -- Semua function: SECURITY DEFINER (berjalan sebagai postgres,
 -- bukan sebagai user yang memanggil).
@@ -44,9 +47,18 @@ END;
 $$;
 
 -- ============================================================
--- FUNCTION: link_couple
+-- FUNCTION: link_couple (hardened — migration 036)
 -- Hubungkan dua user sebagai pasangan (atomic)
--- Dipanggil dari: POST /api/couple/link
+-- Dipanggil dari: client (supabase.rpc) di app/dashboard/couple/page.tsx
+--
+-- Hardening migration 036:
+--   - IDOR fix: p_user_id WAJIB sama dengan auth.uid() — mencegah user
+--     memaksa-link akun orang lain (fungsi ini SECURITY DEFINER/bypass RLS).
+--   - Race condition fix: kedua baris (user & partner) dikunci via
+--     SELECT ... FOR UPDATE dalam urutan GLOBAL konsisten
+--     (LEAST/GREATEST by UUID) sebelum re-read status & update — mencegah
+--     data pasangan asimetris jika dua link_couple berjalan bersamaan,
+--     dan mencegah deadlock antar transaksi yang overlap.
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.link_couple(
   p_user_id     UUID,
@@ -59,14 +71,21 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_partner_id     UUID;
   v_user_status    VARCHAR(10);
   v_partner_status VARCHAR(10);
+  v_first_id       UUID;
+  v_second_id      UUID;
 BEGIN
-  SELECT u.id, u.status
-  INTO v_partner_id, v_partner_status
+  IF p_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'UNAUTHORIZED'
+      USING DETAIL = 'Kamu hanya bisa menghubungkan akunmu sendiri';
+  END IF;
+
+  SELECT u.id INTO v_partner_id
   FROM public.users u
   WHERE u.couple_code = p_couple_code
     AND u.id != p_user_id;
@@ -76,9 +95,14 @@ BEGIN
       USING DETAIL = 'Couple code tidak ditemukan atau kamu mencoba link ke diri sendiri';
   END IF;
 
-  SELECT status INTO v_user_status
-  FROM public.users
-  WHERE id = p_user_id;
+  v_first_id  := LEAST(p_user_id, v_partner_id);
+  v_second_id := GREATEST(p_user_id, v_partner_id);
+
+  PERFORM 1 FROM public.users WHERE id = v_first_id  FOR UPDATE;
+  PERFORM 1 FROM public.users WHERE id = v_second_id FOR UPDATE;
+
+  SELECT status INTO v_user_status FROM public.users WHERE id = p_user_id;
+  SELECT status INTO v_partner_status FROM public.users WHERE id = v_partner_id;
 
   IF v_user_status = 'linked' THEN
     RAISE EXCEPTION 'ALREADY_LINKED'
@@ -103,18 +127,29 @@ END;
 $$;
 
 -- ============================================================
--- FUNCTION: unlink_couple
+-- FUNCTION: unlink_couple (hardened — migration 036)
 -- Putuskan hubungan pasangan (atomic)
--- Dipanggil dari: POST /api/couple/unlink
+-- Dipanggil dari: client (supabase.rpc) di app/dashboard/couple/page.tsx
+--
+-- Hardening migration 036: sama seperti link_couple — IDOR fix
+-- (p_user_id = auth.uid()) + row lock konsisten.
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.unlink_couple(p_user_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_partner_id UUID;
+  v_first_id   UUID;
+  v_second_id  UUID;
 BEGIN
+  IF p_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'UNAUTHORIZED'
+      USING DETAIL = 'Kamu hanya bisa memutuskan hubungan akunmu sendiri';
+  END IF;
+
   SELECT partner_id INTO v_partner_id
   FROM public.users
   WHERE id = p_user_id;
@@ -123,6 +158,12 @@ BEGIN
     RAISE EXCEPTION 'NOT_LINKED'
       USING DETAIL = 'Kamu tidak sedang terhubung dengan siapapun';
   END IF;
+
+  v_first_id  := LEAST(p_user_id, v_partner_id);
+  v_second_id := GREATEST(p_user_id, v_partner_id);
+
+  PERFORM 1 FROM public.users WHERE id = v_first_id  FOR UPDATE;
+  PERFORM 1 FROM public.users WHERE id = v_second_id FOR UPDATE;
 
   UPDATE public.users
   SET partner_id = NULL, status = 'single', updated_at = now()
@@ -155,6 +196,7 @@ DECLARE
   v_couple_id      UUID;
   v_wallet_balance INTEGER;
   v_session        public.game_sessions;
+  v_stale_session  RECORD;
 BEGIN
   SELECT partner_id INTO v_partner_id
   FROM public.users
@@ -167,12 +209,32 @@ BEGIN
 
   v_couple_id := LEAST(p_host_user_id, v_partner_id);
 
-  -- Auto-expire sesi yang sudah habis waktu sebelum cek aktif
-  UPDATE public.game_sessions
-  SET status = 'expired', updated_at = now()
-  WHERE couple_id = v_couple_id
-    AND status IN ('waiting', 'playing')
-    AND expires_at <= NOW();
+  -- Serialisasi create_game_session per couple — mencegah race condition di
+  -- mana host & partner (atau dua tab/device yang sama) menekan "buat sesi"
+  -- hampir bersamaan dan keduanya lolos cek EXISTS di bawah sebelum salah
+  -- satu meng-INSERT baris barunya (menghasilkan 2 sesi aktif untuk 1 couple).
+  PERFORM pg_advisory_xact_lock(hashtext('game_session_create:' || v_couple_id::text));
+
+  -- Auto-expire sesi lama milik couple yang sudah habis waktu, sebelum cek aktif.
+  -- Sesi 'waiting' yang expired di-refund ke host (partner tidak pernah join —
+  -- lihat refund_expired_session). Sesi 'playing' yang expired TIDAK direfund
+  -- (kedua pihak sudah "memakai" coin untuk bermain, sesuai desain yang sama
+  -- dengan cancel_game_session).
+  FOR v_stale_session IN
+    SELECT id, status FROM public.game_sessions
+    WHERE couple_id = v_couple_id
+      AND status IN ('waiting', 'playing')
+      AND expires_at <= NOW()
+    FOR UPDATE
+  LOOP
+    IF v_stale_session.status = 'waiting' THEN
+      PERFORM public.refund_expired_session(v_stale_session.id);
+    ELSE
+      UPDATE public.game_sessions
+      SET status = 'expired', updated_at = now()
+      WHERE id = v_stale_session.id;
+    END IF;
+  END LOOP;
 
   -- Cek apakah masih ada sesi yang benar-benar aktif (belum habis waktu)
   IF EXISTS (
@@ -334,7 +396,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.answer_tod_question(
   p_user_id        UUID,
   p_session_code   VARCHAR(12),
-  p_question_order INTEGER
+  p_question_order INTEGER,
+  p_skip           BOOLEAN DEFAULT false
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -363,11 +426,18 @@ BEGIN
     RAISE EXCEPTION 'NOT_IN_SESSION';
   END IF;
 
+  -- p_skip=true (dipanggil dari "Skip"): tandai selesai TAPI answered_by tetap
+  -- NULL dan is_skipped=true, supaya progres tetap persist ke DB (tidak desync
+  -- antar-partner) namun kartu ini tidak terhitung "dijawab" di statistik.
   v_questions := (
     SELECT jsonb_agg(
       CASE
         WHEN (q->>'order')::int = p_question_order
-        THEN q || jsonb_build_object('is_completed', true, 'answered_by', p_user_id::text)
+        THEN q || jsonb_build_object(
+          'is_completed', true,
+          'is_skipped',   p_skip,
+          'answered_by',  CASE WHEN p_skip THEN NULL ELSE p_user_id::text END
+        )
         ELSE q
       END
     )
@@ -1904,6 +1974,124 @@ END;
 $$;
 
 -- ============================================================
+-- FUNCTION: create_pending_topup (migration 035)
+-- Atomic: apply voucher diskon + insert coin_transactions + link
+-- voucher_redemptions dalam SATU transaksi implisit. Menggantikan pola
+-- 2-langkah (apply_topup_discount lalu insert manual dari API route) yang
+-- rawan voucher hangus permanen jika insert coin_transactions gagal di
+-- tengah jalan (tidak ada baris tx untuk dikaitkan balik saat rollback).
+-- Dipanggil dari: POST /api/coin/topup
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.create_pending_topup(
+  p_user_id              UUID,
+  p_coin_package_id      BIGINT,
+  p_package_price        INTEGER,
+  p_package_coin_amount  INTEGER,
+  p_payment_reference    VARCHAR(255),
+  p_voucher_code         TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_voucher       public.vouchers%ROWTYPE;
+  v_discount      INTEGER := 0;
+  v_redemption_id BIGINT;
+  v_tx            public.coin_transactions;
+  v_final_price   INTEGER;
+  v_metadata      JSONB;
+  v_code          TEXT;
+BEGIN
+  IF p_voucher_code IS NOT NULL AND TRIM(p_voucher_code) != '' THEN
+    v_code := UPPER(TRIM(p_voucher_code));
+
+    SELECT * INTO v_voucher FROM public.vouchers WHERE code = v_code FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Voucher tidak ditemukan');
+    END IF;
+    IF v_voucher.type != 'topup_discount' THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Voucher ini bukan voucher diskon pembelian');
+    END IF;
+    IF NOT v_voucher.is_active THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Voucher tidak aktif');
+    END IF;
+    IF v_voucher.valid_from IS NOT NULL AND NOW() < v_voucher.valid_from THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Voucher belum berlaku');
+    END IF;
+    IF v_voucher.valid_until IS NOT NULL AND NOW() > v_voucher.valid_until THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Voucher sudah kadaluarsa');
+    END IF;
+    IF v_voucher.uses_remaining <= 0 THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Voucher sudah habis digunakan');
+    END IF;
+    IF v_voucher.min_purchase IS NOT NULL AND p_package_price < v_voucher.min_purchase THEN
+      RETURN jsonb_build_object('success', false, 'message',
+        'Minimum pembelian Rp' || to_char(v_voucher.min_purchase, 'FM999,999,999') ||
+        ' untuk voucher ini');
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM public.voucher_redemptions
+      WHERE voucher_id = v_voucher.id AND user_id = p_user_id
+    ) THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Kamu sudah pernah menggunakan voucher ini');
+    END IF;
+
+    IF v_voucher.discount_type = 'percentage' THEN
+      v_discount := FLOOR(p_package_price * v_voucher.discount_value / 100.0);
+      IF v_voucher.max_discount IS NOT NULL THEN
+        v_discount := LEAST(v_discount, v_voucher.max_discount);
+      END IF;
+    ELSE
+      v_discount := LEAST(v_voucher.discount_value, p_package_price);
+    END IF;
+
+    UPDATE public.vouchers SET uses_remaining = uses_remaining - 1 WHERE id = v_voucher.id;
+  END IF;
+
+  v_final_price := GREATEST(p_package_price - v_discount, 1000);
+
+  v_metadata := CASE WHEN v_discount > 0 THEN
+    jsonb_build_object(
+      'voucher_code',    v_code,
+      'discount_amount', v_discount,
+      'original_price',  p_package_price,
+      'final_price',     v_final_price
+    )
+  ELSE NULL END;
+
+  INSERT INTO public.coin_transactions (
+    user_id, coin_package_id, type, amount, payment_status, payment_reference, metadata
+  )
+  VALUES (
+    p_user_id, p_coin_package_id, 'topup', p_package_coin_amount, 'pending', p_payment_reference, v_metadata
+  )
+  RETURNING * INTO v_tx;
+
+  IF v_voucher.id IS NOT NULL THEN
+    INSERT INTO public.voucher_redemptions (voucher_id, user_id, coin_transaction_id)
+    VALUES (v_voucher.id, p_user_id, v_tx.id)
+    RETURNING id INTO v_redemption_id;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'success',         true,
+    'transaction',     to_jsonb(v_tx),
+    'discount_amount', v_discount,
+    'final_price',     v_final_price,
+    'redemption_id',   v_redemption_id
+  );
+
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN jsonb_build_object('success', false,
+      'message', 'Gagal membuat transaksi — silakan coba lagi');
+END;
+$$;
+
+-- ============================================================
 -- FUNCTION: quoridor_has_path (migration 026)
 -- BFS dari (p_start_r, p_start_c) menuju baris p_target_row.
 -- Return TRUE jika jalur ada, FALSE jika diblokir total.
@@ -2522,3 +2710,271 @@ BEGIN
     AND endpoint = 'auth:login';
 END;
 $$;
+
+-- ============================================================
+-- REVOKE: hilangkan akses client langsung ke RPC server-only (migration 039)
+--
+-- Semua RPC di bawah ini HANYA dipanggil dari API route via
+-- createServiceClient() (service role) — service role tidak terpengaruh
+-- REVOKE ini. Tanpa REVOKE ini, client bisa memanggil RPC ini langsung
+-- via supabase.rpc() dengan p_user_id sembarang (karena SECURITY DEFINER
+-- + tidak ada validasi auth.uid() di dalamnya) dan menyamar sebagai user
+-- lain. link_couple/unlink_couple TIDAK di-revoke karena memang dipanggil
+-- client-side dan sudah dilindungi auth.uid() sejak migration 036.
+-- ============================================================
+REVOKE EXECUTE ON FUNCTION public.get_couple_id(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.create_game_session(UUID, VARCHAR, VARCHAR, JSONB, INTEGER, TIMESTAMPTZ, JSONB, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.join_game_session(UUID, VARCHAR) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.answer_tod_question(UUID, VARCHAR, INTEGER, BOOLEAN) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.refund_expired_session(BIGINT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.expire_waiting_sessions() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.update_payment_status(VARCHAR, VARCHAR, TIMESTAMPTZ, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_pending_topup_count(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_active_session_for_couple(UUID, VARCHAR) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.cancel_game_session(VARCHAR, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.roll_snake_dice(VARCHAR, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.confirm_snake_challenge(VARCHAR, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.check_and_record_rate_limit(UUID, TEXT, INTEGER, INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.check_login_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.clear_login_rate_limit(TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.select_dare_derby_minigames(INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.ready_up_dare_derby(VARCHAR, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.submit_dare_derby_round(VARCHAR, UUID, INTEGER, INTEGER, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.complete_dare_derby_dare(VARCHAR, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.confirm_dare_derby_dare(VARCHAR, UUID, BOOLEAN) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.skip_dare_derby_dare(VARCHAR, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.redeem_voucher(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.apply_topup_discount(UUID, TEXT, INTEGER) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.create_pending_topup(UUID, BIGINT, INTEGER, INTEGER, VARCHAR, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.quoridor_has_path(INTEGER, INTEGER, INTEGER, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.quoridor_action(VARCHAR, UUID, VARCHAR, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.cancel_topup_transaction(BIGINT, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.expire_old_pending_topups() FROM PUBLIC, anon, authenticated;
+
+-- ============================================================
+-- FUNCTION: photobooth_action (migration 040)
+-- Atomic gameplay photobooth: select_template | trigger_countdown |
+-- submit_photo | retake | complete. SELECT ... FOR UPDATE mencegah foto
+-- host/partner saling timpa (keduanya submit hampir bersamaan tiap slot)
+-- dan bypass kuota retakes_left via request paralel.
+-- Dipanggil dari: app/api/game/photobooth/session/[code]/* via
+-- lib/games/photobooth/action.ts
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.photobooth_action(
+  p_session_code VARCHAR(12),
+  p_user_id      UUID,
+  p_action       VARCHAR(20),
+  p_payload      JSONB DEFAULT '{}'::jsonb
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_session    public.game_sessions;
+  v_gs         JSONB;
+  v_role       TEXT;
+  v_phase      TEXT;
+  v_now_ms     BIGINT := (extract(epoch FROM clock_timestamp()) * 1000)::BIGINT;
+  v_total      INTEGER;
+  v_photos     JSONB;
+  v_capture    JSONB;
+  v_slot       INTEGER;
+  v_next_slot  INTEGER;
+  v_photo      JSONB;
+  v_retakes    INTEGER;
+  v_template   public.game_photobooth_templates;
+  v_status     TEXT := 'playing';
+  i            INTEGER;
+BEGIN
+  SELECT * INTO v_session
+  FROM public.game_sessions
+  WHERE session_code = p_session_code
+    AND game_type = 'photobooth'
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'SESSION_NOT_FOUND' USING DETAIL = 'Sesi photobooth tidak ditemukan';
+  END IF;
+
+  IF v_session.host_user_id = p_user_id THEN
+    v_role := 'host';
+  ELSIF v_session.partner_user_id = p_user_id THEN
+    v_role := 'partner';
+  ELSE
+    RAISE EXCEPTION 'NOT_IN_SESSION' USING DETAIL = 'Kamu bukan peserta sesi ini';
+  END IF;
+
+  IF v_session.status != 'playing' THEN
+    RAISE EXCEPTION 'SESSION_NOT_ACTIVE' USING DETAIL = 'Sesi tidak aktif';
+  END IF;
+
+  IF v_session.expires_at IS NOT NULL AND v_session.expires_at < now() THEN
+    RAISE EXCEPTION 'SESSION_EXPIRED' USING DETAIL = 'Waktu sesi sudah habis';
+  END IF;
+
+  v_gs      := COALESCE(v_session.game_state, '{}'::jsonb);
+  v_phase   := COALESCE(v_gs->>'phase', 'ready');
+  v_photos  := CASE WHEN jsonb_typeof(v_gs->'photos') = 'object' THEN v_gs->'photos' ELSE '{}'::jsonb END;
+  v_capture := CASE WHEN jsonb_typeof(v_gs->'capture') = 'object' THEN v_gs->'capture' END;
+  v_total   := COALESCE((v_session.board_config->'template'->>'photo_count')::INTEGER, 3);
+
+  -- ══ SELECT TEMPLATE ═════════════════════════════════════════════════════
+  IF p_action = 'select_template' THEN
+    IF v_phase NOT IN ('selecting_template', 'ready') OR v_photos != '{}'::jsonb THEN
+      RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Template hanya bisa diganti sebelum foto diambil';
+    END IF;
+
+    SELECT * INTO v_template
+    FROM public.game_photobooth_templates
+    WHERE id = (p_payload->>'template_id')::INTEGER
+      AND is_active = true;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'TEMPLATE_NOT_FOUND' USING DETAIL = 'Template tidak ditemukan';
+    END IF;
+
+    v_session.board_config := jsonb_build_object('template', to_jsonb(v_template));
+    v_gs := v_gs || jsonb_build_object(
+      'template_id',          v_template.id,
+      'phase',                'ready',
+      'current_slot',         1,
+      'countdown_started_at', NULL,
+      'capture',              NULL,
+      'photos',               '{}'::jsonb,
+      'retakes_left',         COALESCE((v_gs->>'retakes_left')::INTEGER, 3)
+    );
+
+  -- ══ TRIGGER COUNTDOWN ═══════════════════════════════════════════════════
+  ELSIF p_action = 'trigger_countdown' THEN
+    IF jsonb_typeof(v_session.board_config->'template') IS DISTINCT FROM 'object' THEN
+      RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Pilih template terlebih dahulu';
+    END IF;
+
+    -- 'taking' yang macet (> 15 detik, misal kedua client gagal capture)
+    -- boleh dipicu ulang supaya game tidak terkunci.
+    IF NOT (
+      v_phase = 'ready'
+      OR (v_phase = 'taking'
+          AND COALESCE((v_gs->>'countdown_started_at')::BIGINT, 0) < v_now_ms - 15000)
+    ) THEN
+      RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Countdown tidak bisa dimulai sekarang';
+    END IF;
+
+    v_slot := COALESCE((v_gs->>'current_slot')::INTEGER, 1);
+    IF v_slot < 1 OR v_slot > v_total THEN
+      v_slot := 1;
+    END IF;
+
+    v_gs := v_gs || jsonb_build_object(
+      'phase',                'taking',
+      'current_slot',         v_slot,
+      'countdown_started_at', v_now_ms,
+      'capture', jsonb_build_object(
+        'slot',       v_slot,
+        'started_at', v_now_ms,
+        'submitted',  '[]'::jsonb
+      )
+    );
+
+  -- ══ SUBMIT PHOTO ════════════════════════════════════════════════════════
+  ELSIF p_action = 'submit_photo' THEN
+    v_slot := (p_payload->>'slot_index')::INTEGER;
+
+    IF v_capture IS NULL
+       OR v_slot IS DISTINCT FROM (v_capture->>'slot')::INTEGER
+       OR (v_capture->>'started_at')::BIGINT < v_now_ms - 60000 THEN
+      RAISE EXCEPTION 'CAPTURE_CLOSED' USING DETAIL = 'Tidak ada sesi foto aktif untuk slot ini';
+    END IF;
+
+    IF (v_capture->'submitted') ? v_role THEN
+      RAISE EXCEPTION 'ALREADY_SUBMITTED' USING DETAIL = 'Foto kamu untuk slot ini sudah terkirim';
+    END IF;
+
+    v_photo := COALESCE(v_photos->(v_slot::TEXT), jsonb_build_object('slot_index', v_slot))
+      || jsonb_build_object(
+        v_role || '_image_url', p_payload->>'image_url',
+        'captured_at',          to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+      );
+    v_photos  := v_photos || jsonb_build_object(v_slot::TEXT, v_photo);
+    v_capture := jsonb_set(v_capture, '{submitted}', (v_capture->'submitted') || to_jsonb(v_role));
+
+    v_gs := v_gs || jsonb_build_object('photos', v_photos, 'capture', v_capture);
+
+    -- Submit pertama di ronde ini yang memajukan phase. Submit kedua hanya
+    -- melengkapi foto slot yang sama.
+    IF v_phase = 'taking' THEN
+      v_next_slot := NULL;
+      FOR i IN 1..v_total LOOP
+        IF NOT (v_photos ? i::TEXT) THEN
+          v_next_slot := i;
+          EXIT;
+        END IF;
+      END LOOP;
+
+      IF v_next_slot IS NULL THEN
+        v_gs := v_gs || jsonb_build_object(
+          'phase', 'review_retake', 'current_slot', v_total, 'countdown_started_at', NULL
+        );
+      ELSE
+        v_gs := v_gs || jsonb_build_object(
+          'phase', 'ready', 'current_slot', v_next_slot, 'countdown_started_at', NULL
+        );
+      END IF;
+    END IF;
+
+  -- ══ RETAKE ══════════════════════════════════════════════════════════════
+  ELSIF p_action = 'retake' THEN
+    IF v_phase != 'review_retake' THEN
+      RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Retake hanya bisa dilakukan saat review';
+    END IF;
+
+    v_slot := (p_payload->>'slot_index')::INTEGER;
+    IF v_slot IS NULL OR v_slot < 1 OR v_slot > v_total THEN
+      RAISE EXCEPTION 'INVALID_SLOT' USING DETAIL = 'Slot foto tidak valid';
+    END IF;
+
+    v_retakes := COALESCE((v_gs->>'retakes_left')::INTEGER, 3);
+    IF v_retakes <= 0 THEN
+      RAISE EXCEPTION 'NO_RETAKES_LEFT' USING DETAIL = 'Kuota retake foto sudah habis';
+    END IF;
+
+    v_gs := v_gs || jsonb_build_object(
+      'phase',                'ready',
+      'current_slot',         v_slot,
+      'retakes_left',         v_retakes - 1,
+      'countdown_started_at', NULL,
+      'capture',              NULL
+    );
+
+  -- ══ COMPLETE ════════════════════════════════════════════════════════════
+  ELSIF p_action = 'complete' THEN
+    IF v_phase != 'review_retake' THEN
+      RAISE EXCEPTION 'WRONG_PHASE' USING DETAIL = 'Selesaikan semua foto terlebih dahulu';
+    END IF;
+
+    v_status := 'completed';
+    v_gs := v_gs || jsonb_build_object(
+      'phase',                'completed',
+      'completed_by',         v_role,
+      'countdown_started_at', NULL,
+      'capture',              NULL
+    );
+
+  ELSE
+    RAISE EXCEPTION 'INVALID_ACTION' USING DETAIL = 'Jenis aksi tidak dikenali';
+  END IF;
+
+  UPDATE public.game_sessions
+  SET game_state   = v_gs,
+      board_config = v_session.board_config,
+      status       = v_status,
+      updated_at   = now()
+  WHERE id = v_session.id
+  RETURNING * INTO v_session;
+
+  RETURN to_jsonb(v_session);
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.photobooth_action(VARCHAR, UUID, VARCHAR, JSONB) FROM PUBLIC, anon, authenticated;

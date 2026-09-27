@@ -329,11 +329,20 @@ CREATE POLICY "wishlists_delete_own"
 -- capsules (migration 023, updated 029)
 -- ============================================================
 
--- Sender & receiver bisa lihat kapsul mereka
+-- Sender & receiver bisa lihat kapsul mereka.
+-- Hardening migration 037: receiver HANYA bisa SELECT baris yang sudah
+-- tidak 'locked' — tanpa ini, isi `message` bisa dibaca langsung via
+-- supabase.from("capsules") atau realtime payload sebelum status berubah
+-- jadi 'delivered' (sensor `message: null` sebelumnya hanya dilakukan di
+-- app/api/capsule/route.ts, bukan di level RLS). Sender tetap bisa lihat
+-- semua baris miliknya (termasuk locked — bukan risiko keamanan).
 DROP POLICY IF EXISTS "capsules_select_couple" ON public.capsules;
 CREATE POLICY "capsules_select_couple"
   ON public.capsules FOR SELECT
-  USING (sender_id = auth.uid() OR receiver_id = auth.uid());
+  USING (
+    sender_id = auth.uid()
+    OR (receiver_id = auth.uid() AND status != 'locked')
+  );
 
 -- Hanya sender yang bisa buat kapsul
 DROP POLICY IF EXISTS "capsules_insert_sender" ON public.capsules;

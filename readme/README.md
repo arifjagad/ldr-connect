@@ -180,8 +180,9 @@ Project ini sudah menerapkan berbagai praktik keamanan (OWASP):
 
 Jika kamu adalah developer baru atau AI assistant yang akan bekerja di codebase ini, baca:
 
-- **[`CLAUDE.md`](./CLAUDE.md)** — Panduan teknis lengkap: arsitektur, konvensi kode, alur game, API routes, dan hal-hal penting yang tidak boleh diubah.
-- **[`supabase/README.md`](./supabase/README.md)** — Panduan urutan migration dan struktur database.
+- **[`CLAUDE.md`](../CLAUDE.md)** — Panduan teknis lengkap: arsitektur, konvensi kode, alur game, API routes, dan hal-hal penting yang tidak boleh diubah.
+- **[`supabase/schema/README.md`](../supabase/schema/README.md)** — Panduan urutan migration dan struktur database.
+- **[`DEPLOYMENT_CRON.md`](./DEPLOYMENT_CRON.md)** — Konfigurasi cron job saat ini (Vercel Hobby, 1x/hari) dan panduan migrasi ke jadwal lebih rapat setelah upgrade Vercel Pro atau pindah ke VPS.
 
 ---
 

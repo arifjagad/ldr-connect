@@ -51,6 +51,13 @@ Jalankan file-file berikut **secara berurutan** di Supabase SQL Editor:
 | 027 | `quoridor_action` v4 — fix deteksi lompatan lurus (delta-based) | ✅ `03_functions.sql` (versi terbaru, state akhir) |
 | `add_avatar_url` | Kolom `avatar_url TEXT` pada tabel `users` | ✅ `01_tables.sql` |
 | `push_subscriptions` | Tabel `push_subscriptions` + RLS | ✅ `01_tables.sql` + `02_rls.sql` |
+| 031 | `cancel_topup_transaction` + `expire_old_pending_topups` (rollback voucher) | ✅ `03_functions.sql` |
+| 035 | `create_pending_topup` — atomic apply-voucher + insert coin_transactions | ✅ `03_functions.sql` |
+| 036 | Trigger `protect_sensitive_user_columns` (cegah privilege escalation via UPDATE kolom `users` langsung dari client) + hardening `link_couple`/`unlink_couple` (fix IDOR + race condition) | ✅ `01_tables.sql` + `03_functions.sql` |
+| 037 | Fix RLS `capsules_select_couple` (receiver tidak bisa baca `message` sebelum `status != 'locked'`) + trigger `protect_anniversary_owner` (cegah reassign `user_id` untuk bypass delete-owner-only) | ✅ `01_tables.sql` + `02_rls.sql` |
+| 038 | `create_game_session` → advisory lock per couple + refund saat auto-expire sesi `waiting`; `answer_tod_question` → parameter `p_skip` (persist tombol Skip ToD) | ✅ `03_functions.sql` |
+| 039 | `REVOKE EXECUTE` dari `anon`/`authenticated` untuk semua RPC server-only (game + payment) — cegah IDOR via `p_user_id` sembarang, RPC ini SECURITY DEFINER tanpa validasi `auth.uid()` dan sebelumnya bisa dipanggil langsung dari client | ✅ `03_functions.sql` |
+| 040 | `photobooth_action` — gameplay photobooth atomik (`SELECT ... FOR UPDATE`) + guard fase/slot/kuota retake; fix foto host/partner saling timpa & bypass `retakes_left` via request paralel. Sudah `REVOKE` dari client | ✅ `03_functions.sql` |
 
 ## Fungsi yang Dihapus (Deprecated)
 

@@ -78,9 +78,9 @@ ldr-connect/
 │       ├── coin/                 # Topup, verify, webhook, voucher redeem/validate/check
 │       ├── couple/               # Link/unlink pasangan
 │       ├── game/                 # Game sessions (tod, snake-ladder, dare-derby, quoridor)
-│       ├── anniversaries/        # CRUD anniversary
+│       ├── anniversaries/        # CRUD anniversary (migration 037 — sebelumnya operasi langsung dari client via supabase.from(), sekarang wajib lewat API route ini)
 │       ├── wishlist/             # CRUD wishlist + mark done
-│       ├── capsule/              # CRUD time capsule + open
+│       ├── capsule/              # CRUD time capsule + open (lazy-delivery fallback di GET)
 │       ├── push/                 # Subscribe & test web push
 │       ├── cron/                 # Anniversary reminders & capsule delivery
 │       ├── user/                 # Avatar, partner-profile
@@ -185,13 +185,15 @@ Pool dare untuk game Dare Derby. Kategori: `sweet`, `funny`, `bold`, `challenge`
 Konfigurasi mini-game untuk Dare Derby. `game_id` contoh: `tap_timing`, `memory_seq`.
 
 #### `anniversaries`
-Pengingat hari spesial pasangan (tanggal jadian, anniversary, dll). RLS shared per couple via `couple_id`.
+Pengingat hari spesial pasangan (tanggal jadian, anniversary, dll). **Tidak ada kolom `couple_id`** — hanya `user_id` (pemilik). RLS `anniversaries_select_couple`/`_update_couple` menghitung visibilitas via `partner_id` lookup (`user_id = auth.uid() OR user_id = partner_id`), bukan `LEAST(...)` seperti `wishlists`/`capsules`.
+> ⚠️ **Hardening migration 037**: kolom `user_id` diblokir dari UPDATE langsung client oleh trigger `protect_anniversary_owner` — sebelumnya partner bisa reassign `user_id` lalu hapus entry milik pihak lain via `anniversaries_delete_own` (yang seharusnya owner-only). Operasi CRUD **wajib** lewat `app/api/anniversaries/` (GET, POST) dan `app/api/anniversaries/[id]/` (PATCH, DELETE) — jangan panggil `supabase.from("anniversaries")` langsung dari client baru manapun.
 
 #### `wishlists`
-Bucket list / wishlist bersama. Kategori: `virtual`, `offline`, `dream`, `gift`, `other`. Shared per couple.
+Bucket list / wishlist bersama. Kategori: `virtual`, `offline`, `dream`, `gift`, `other`. Shared per couple via `couple_id = LEAST(user_id, partner_id)`.
 
 #### `capsules`
-Time capsule — pesan terkunci sampai `delivery_date`. Status: `locked` → `delivered` → `opened`.
+Time capsule — pesan terkunci sampai `opens_at`. Status: `locked` → `delivered` → `opened`.
+> ⚠️ **Hardening migration 037**: RLS `capsules_select_couple` sebelumnya membolehkan receiver SELECT baris `locked` (sensor `message: null` hanya dilakukan di `app/api/capsule/route.ts`, bukan di RLS) — bisa dibaca langsung via `supabase.from("capsules")` atau payload realtime `postgres_changes`. Sekarang RLS sendiri menolak SELECT `message` (atau baris apapun) untuk receiver selama `status = 'locked'`.
 
 #### `vouchers` & `voucher_redemptions`
 Sistem voucher promosi. Tipe: `coin_credit` (tambah saldo langsung) dan `topup_discount` (potongan % saat checkout Midtrans).
@@ -242,6 +244,51 @@ Semua API routes harus mengembalikan format ini:
 2. Trigger `on_auth_user_created` otomatis buat row di `public.users` + `public.wallets`
 3. Semua API routes wajib validasi session via `@supabase/ssr` sebelum proses request
 
+### ⚠️ Rate Limiting
+
+Helper utama: `checkRateLimit(userId, { endpoint, maxRequests, windowMinutes })` di `lib/rate-limit.ts`, dipanggil **setelah auth check, sebelum parsing body** di setiap route. Backend-nya RPC `check_and_record_rate_limit` (`03_functions.sql`) yang pakai `pg_advisory_xact_lock` per `user_id:endpoint` — **fail-open** by design (kalau RPC error, request diloloskan; availability diprioritaskan di atas strictness, jangan diubah tanpa diskusi).
+
+Pola pakai standar:
+```typescript
+const rateLimitResponse = await checkRateLimit(user.id, {
+  endpoint: "domain:action",
+  maxRequests: N,
+  windowMinutes: M,
+});
+if (rateLimitResponse) return rateLimitResponse;
+```
+
+**Login TIDAK memakai helper ini** — auth login pakai sistem 2-tier terpisah berbasis email (`check_login_rate_limit`/`clear_login_rate_limit`, migration `028`), karena belum ada session saat percobaan login. Lihat `app/api/auth/login/route.ts`.
+
+Daftar lengkap endpoint yang sudah dilindungi `checkRateLimit` (per Februari 2025, key kadang gaya `domain/action`, kadang `domain:action` — campuran historis, tidak distandarkan):
+
+| Endpoint | Key | Limit | Alasan |
+|---|---|---|---|
+| `POST /api/coin/redeem-voucher` | `coin/redeem-voucher` | 10x/10m | Cegah brute-force kode voucher |
+| `POST /api/coin/check-voucher` | `coin/check-voucher` | 20x/10m | Cegah brute-force kode voucher |
+| `POST /api/coin/validate-voucher` | `coin/validate-voucher` | 20x/10m | Cegah brute-force kode voucher |
+| `POST /api/coin/topup` | `coin/topup` | 10x/15m | Defense-in-depth panggilan Midtrans Snap API |
+| `POST /api/coin/cancel-topup` | `coin/cancel-topup` | 10x/15m | Defense-in-depth panggilan Midtrans Snap API |
+| `POST /api/coin/verify` | `coin/verify` | 20x/10m | Defense-in-depth panggilan cek status Midtrans |
+| `POST /api/wishlist` | `wishlist/create` | 20x/10m | Trigger push notification ke partner |
+| `POST /api/wishlist/[id]/done` | `wishlist:done` | 20x/10m | Trigger push notification ke partner |
+| `POST /api/capsule` | `capsule/create` | 10x/10m | Trigger push notification ke partner |
+| `POST /api/anniversaries` | `anniversaries/create` | 20x/10m | Trigger push notification ke partner |
+| `POST /api/game/tod/questions/generate` | — | 5x/10m | Panggilan AI Gemini (biaya) |
+| `POST /api/game/snake-ladder/questions/generate` | — | 3x/10m | Panggilan AI OpenRouter (biaya) |
+| `POST /api/game/tod/questions/submit` | `tod:questions:submit` | 10x/10m | Cegah spam pertanyaan custom (butuh approval admin) |
+| `POST /api/game/{tod,snake-ladder,dare-derby,quoridor,photobooth}/session/create` | `{game}:session:create` | 3x/15m | Cegah spam create session (biaya coin + push) |
+| `POST /api/game/{tod,snake-ladder,dare-derby,quoridor,photobooth}/session/join` | `{game}:session:join` | 10x/5m | Cegah brute-force session code + spam push ke host |
+| `GET /api/game/{tod,snake-ladder,dare-derby,quoridor,photobooth}/session/[code]/room` | `{game}:session:room` | 20x/5m | Setiap request panggil Daily.co API (`createDailyRoom`) |
+| `POST /api/user/avatar` | `user:avatar:upload` | 10x/10m | Cegah spam upload file ke Supabase Storage |
+| `POST /api/push/test` | `push:test` | 5x/10m | Endpoint debug, bukan untuk penggunaan reguler |
+
+**Sengaja TIDAK diberi rate limit** (keputusan sadar, bukan gap):
+- Route admin (`app/api/admin/**`) — sudah cukup dilindungi `requireAdmin()`.
+- Game action route turn-based (roll dice, confirm challenge, quoridor move/wall, dare confirm/skip/submit, photobooth select-template/trigger-countdown/submit-photo/retake/complete) — sudah state-gated ketat via RPC (turn validation, `WRONG_PHASE`, `ALREADY_SUBMITTED`, dll); tambahan rate limit berisiko ganggu gameplay normal.
+- `capsule/[id]/open`, PATCH/DELETE ringan tanpa push (`anniversaries/[id]`, `wishlist/[id]`), `push/subscribe` — risiko rendah, idempotent/upsert semantics sudah aman.
+- `coin/webhook` — **tidak bisa** pakai `checkRateLimit` (server-to-server Midtrans, tidak ada `user.id`); sudah dilindungi verifikasi signature SHA512. Rate limit berbasis IP untuk endpoint ini belum diimplementasikan (di luar scope, butuh helper baru).
+
 ---
 
 ## 6. Alur Fitur Utama
@@ -262,10 +309,34 @@ User A copy Couple Code miliknya
   → Kirim ke User B (via WA, chat, dll)
 User B masuk /dashboard/couple
   → Input couple code User A
-  → POST /api/couple/link (panggil stored proc link_couple)
+  → supabase.rpc("link_couple", { p_user_id, p_couple_code }) — DIPANGGIL
+    LANGSUNG DARI CLIENT (app/dashboard/couple/page.tsx), TIDAK ADA
+    API route perantara.
   → Stored proc atomic: update partner_id di kedua user, set status = 'linked'
   → Keduanya kini "linked"
 ```
+
+> ⚠️ **Hardening migration 036**: `link_couple`/`unlink_couple` sebelumnya
+> punya 2 celah kritis — (1) IDOR: `p_user_id` tidak divalidasi terhadap
+> `auth.uid()`, jadi siapa pun bisa memanggil RPC ini dengan UUID orang
+> lain untuk memutuskan/memaksa-link akun mereka; (2) race condition: tidak
+> ada row lock, dua user yang link ke kode pasangan yang sama nyaris
+> bersamaan bisa menghasilkan data pasangan asimetris. Keduanya sudah
+> diperbaiki — RPC sekarang menolak `p_user_id != auth.uid()` dan mengunci
+> baris user+partner dengan urutan konsisten (`LEAST/GREATEST` by UUID)
+> sebelum validasi & update. **Jangan hapus pengecekan ini** saat mengubah
+> fungsi ini di masa depan.
+
+> ⚠️ **RLS kolom `users` (migration 036)**: policy `users_update_own` di
+> `02_rls.sql` hanya membatasi BARIS (harus milik sendiri), bukan KOLOM.
+> Trigger `protect_sensitive_user_columns` (`01_tables.sql`) menutup celah
+> ini — client (role `authenticated`/`anon`) TIDAK BOLEH mengubah
+> `is_admin`, `couple_code`, `partner_id`, `status`, `email`, `id` lewat
+> `supabase.from("users").update(...)` langsung. Kolom-kolom itu hanya
+> boleh berubah lewat RPC `SECURITY DEFINER` (`link_couple`,
+> `unlink_couple`, `handle_new_auth_user`) atau service role di API route.
+> **Field `name`, `avatar_url` masih boleh diupdate langsung dari client**
+> (tidak sensitif dari sisi otorisasi).
 
 ### 6.3 Top-up Coin
 ```
@@ -407,6 +478,7 @@ Partner (User B):
 - `POST /api/game/dare-derby/session/{code}/dare/complete`
 - `POST /api/game/dare-derby/session/{code}/dare/skip`
 - `POST /api/game/dare-derby/session/{code}/surrender`
+- `POST /api/game/dare-derby/session/{code}/expire` (migration 038 — sebelumnya TIDAK ADA, timer client tidak pernah beri tahu server)
 - `GET  /api/game/dare-derby/session/{code}/room` (Daily.co room)
 
 ### 7.4 Quoridor (Game Board Strategi)
@@ -479,15 +551,28 @@ Semua operasi kompleks (yang butuh atomicity) dijalankan via stored procedures P
 
 | Procedure | File Migration | Dipanggil dari |
 |---|---|---|
-| `link_couple(user_id, couple_code)` | 003 | `POST /api/couple/link` |
-| `unlink_couple(user_id)` | 003 | `POST /api/couple/unlink` |
+| `link_couple(user_id, couple_code)` | 003, hardened 036 | Dipanggil LANGSUNG dari client via `supabase.rpc()` di `app/dashboard/couple/page.tsx` — TIDAK ADA API route perantara. Wajib `p_user_id = auth.uid()` sejak migration 036 (fix IDOR). |
+| `unlink_couple(user_id)` | 003, hardened 036 | Sama seperti `link_couple` — dipanggil langsung dari client, wajib `p_user_id = auth.uid()` sejak migration 036. |
 | `create_game_session(...)` | 003 | `POST /api/game/*/session/create` |
 | `join_game_session(...)` | 003 | `POST /api/game/*/session/join` |
-| `update_payment_status(...)` | 003 | `POST /api/coin/webhook` |
+| `update_payment_status(...)` | 003 | `POST /api/coin/webhook`, `POST /api/coin/verify`, `POST /api/coin/cancel-topup` (via `lib/coin/verify-payment.ts`) |
 | `roll_snake_dice(...)` | 008 | `POST /api/game/snake/session/{code}/roll` |
 | `confirm_snake_challenge(...)` | 008 | `POST /api/game/snake/session/{code}/confirm` |
 | `cancel_game_session(...)` | 008 | `POST /api/game/tod/session/{code}/cancel` |
-| `expire_waiting_sessions()` | 003 | Cron / scheduled trigger |
+| `expire_waiting_sessions()` | 003, 038 | `GET /api/cron/expire-sessions` (sebelum migration 038, fungsi ini ada tapi TIDAK PERNAH dipanggil — bug, lihat migration 038) |
+| `create_game_session(...)` | 012, 038 | Semua `POST /api/game/*/session/create` — migration 038 tambah advisory lock per couple (cegah race 2 sesi aktif) + refund otomatis saat auto-expire sesi `waiting` lama |
+| `answer_tod_question(...)` | 038 | `POST /api/game/tod/session/{code}/done` (`p_skip=false`) dan `POST /api/game/tod/session/{code}/next` (`p_skip=true`, persist tombol "Skip" ke DB) |
+| `create_pending_topup(...)` | 035 | `POST /api/coin/topup` — atomic apply-voucher + insert transaksi (via `lib/coin/cancel-topup.ts` untuk rollback jika Midtrans gagal) |
+| `photobooth_action(code, user_id, action, payload)` | 040 | `POST /api/game/photobooth/session/{code}/{select-template,trigger-countdown,submit-photo,retake,complete}` via `lib/games/photobooth/action.ts` |
+| `cancel_topup_transaction(...)` | 031 | `POST /api/coin/cancel-topup`, `GET /api/cron/expire-topup` (via `cancelOrCreditPendingTopup` di `lib/coin/cancel-topup.ts`) |
+
+### ⚠️ RPC Server-Only vs Client-Callable (migration 039)
+
+Semua RPC di tabel atas SELAIN `link_couple`/`unlink_couple` HANYA boleh dipanggil dari API route via `createServiceClient()` (service role) — **tidak pernah** langsung dari browser dengan anon/authenticated key. Ini sudah ditegakkan di level database: migration 039 menjalankan `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated` untuk 26 RPC server-only (semua RPC game + `redeem_voucher`, `create_pending_topup`, `cancel_topup_transaction`, `apply_topup_discount`, `expire_old_pending_topups`, rate-limit helpers, dll).
+
+**Kenapa ini penting**: RPC `SECURITY DEFINER` di project ini (hampir semua di tabel atas) menerima `p_user_id` sebagai parameter bebas TANPA memvalidasi `p_user_id = auth.uid()` di dalam fungsinya (beda dari `link_couple`/`unlink_couple` yang sudah punya cek ini sejak migration 036). Supabase/PostgREST secara default memberi akses EXECUTE ke role `authenticated` untuk fungsi baru — tanpa REVOKE ini, siapa pun yang login bisa memanggil `supabase.rpc("confirm_dare_derby_dare", { p_user_id: "<uuid korban>", ... })` langsung dari browser dan menyamar sebagai user lain (bypass API route sepenuhnya, karena fungsinya bypass RLS).
+
+**Kalau menambah RPC `SECURITY DEFINER` baru yang dipanggil eksklusif dari service role**: WAJIB tambahkan `REVOKE EXECUTE ON FUNCTION public.nama_fungsi(...) FROM PUBLIC, anon, authenticated;` di migration yang membuatnya — jangan andalkan validasi di API route saja, karena RPC tetap bisa dipanggil langsung dari client kecuali di-revoke secara eksplisit.
 
 ---
 
@@ -525,6 +610,12 @@ NEXT_PUBLIC_DAILY_DOMAIN=              # yourapp.daily.co
 - Konvensi `couple_id = LEAST(user_id, partner_id)`
 - Format response API: `{ success, message, data }`
 - Logika deduct coin di `create_game_session` — ini stored procedure, atomik
+- **Trigger `protect_sensitive_user_columns`** (migration 036) — JANGAN drop atau matikan trigger ini. Ini satu-satunya penghalang privilege escalation via `supabase.from("users").update(...)` langsung dari client (RLS policy `users_update_own` hanya membatasi baris, tidak kolom).
+- **Pengecekan `p_user_id = auth.uid()` di `link_couple`/`unlink_couple`** (migration 036) — JANGAN dihapus. Tanpa ini, RPC (SECURITY DEFINER, bypass RLS) bisa dipanggil siapa pun untuk memanipulasi couple relationship orang lain (IDOR).
+- **RLS `capsules_select_couple` filter `status != 'locked'` untuk receiver** (migration 037) — JANGAN dikembalikan ke versi lama yang hanya cek ownership. Tanpa filter status ini, isi `message` kapsul bisa dibaca langsung sebelum tanggal `opens_at`.
+- **Trigger `protect_anniversary_owner`** (migration 037) — JANGAN drop. Mencegah partner reassign `user_id` anniversary lalu menghapusnya lewat `anniversaries_delete_own` (owner-only).
+- **Operasi CRUD `anniversaries` wajib lewat `app/api/anniversaries/`** (migration 037) — jangan tambah kode baru yang memanggil `supabase.from("anniversaries")` langsung dari client untuk write (read masih boleh, dibatasi RLS).
+- **`REVOKE EXECUTE` pada 26 RPC server-only** (migration 039) — JANGAN di-`GRANT` balik ke `anon`/`authenticated`. RPC ini `SECURITY DEFINER` tanpa validasi `auth.uid()` internal (beda dari `link_couple`/`unlink_couple`), jadi kalau di-grant ulang, siapa pun bisa menyamar sebagai user lain lewat `p_user_id` sembarang langsung dari browser. Lihat [Section 10 § RPC Server-Only vs Client-Callable](#10-stored-procedures-utama).
 
 ### Hal yang Perlu Diperhatikan
 - **Next.js versi 16** — Baca `node_modules/next/dist/docs/` jika ragu tentang API
@@ -565,7 +656,7 @@ Lihat bagian [Section 8](#8-realtime-supabase). Selalu cleanup channel saat komp
 ### Security yang Sudah Diimplementasikan
 - CSP dengan nonce-based (bukan `unsafe-inline`) via `middleware.ts`
 - HSTS header
-- Rate limiting via `lib/rate-limit.ts`
+- Rate limiting via `lib/rate-limit.ts` — lihat daftar lengkap endpoint di [Section 5 § Rate Limiting](#5-konvensi-kritis)
 - Security event logging via `lib/security-logger.ts`
 - Semua payment route: `Cache-Control: no-store`
 - Order ID Midtrans pakai `crypto.randomBytes(4).toString("hex")` (bukan `Math.random`)
@@ -635,6 +726,13 @@ File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supa
 | `028_login_rate_limit.sql` | Rate limiting login 2-tier di DB |
 | `029_capsules.sql` | Capsule enhancement + unlock procedures |
 | `030_add_new_minigames.sql` | Mini-game baru Dare Derby |
+| `031_cancel_and_expire_topups.sql` | `cancel_topup_transaction` + `expire_old_pending_topups` (rollback voucher) |
+| `035_atomic_topup_creation.sql` | RPC `create_pending_topup` — atomic apply-voucher + insert coin_transactions dalam satu transaksi (fix voucher hangus jika insert gagal) |
+| `036_account_security_hardening.sql` | Trigger `protect_sensitive_user_columns` (cegah privilege escalation via UPDATE kolom `users` langsung dari client) + hardening `link_couple`/`unlink_couple` (fix IDOR + race condition) |
+| `037_couple_features_hardening.sql` | Fix RLS `capsules_select_couple` (receiver tidak bisa baca `message` sebelum `status != 'locked'`) + trigger `protect_anniversary_owner` (cegah reassign `user_id`) |
+| `038_tod_audit_fixes.sql` | Advisory lock `create_game_session` + refund auto-expire sesi `waiting`, `answer_tod_question` dengan `p_skip` |
+| `039_revoke_server_only_rpc.sql` | `REVOKE EXECUTE` 27 RPC server-only dari `anon`/`authenticated` (fix IDOR `p_user_id`) |
+| `040_photobooth_atomic_actions.sql` | RPC `photobooth_action` — gameplay photobooth atomik + guard fase/slot/kuota retake |
 | `add_avatar_url.sql` | Kolom avatar_url di users |
 | `push_subscriptions.sql` | Tabel push_subscriptions |
 
@@ -654,6 +752,14 @@ File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supa
     {
       "path": "/api/cron/capsule-delivery",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/expire-topup",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/expire-sessions",
+      "schedule": "0 3 * * *"
     }
   ]
 }
@@ -661,3 +767,7 @@ File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supa
 - Endpoint dilindungi via header `Authorization: Bearer ${CRON_SECRET}`.
 - `anniversary-reminders`: Push notif H-7, H-3, H-1, dan hari-H anniversary.
 - `capsule-delivery`: Unlock pesan time capsule yang `delivery_date <= today`, kirim push notif ke penerima.
+- `expire-topup`: Batalkan transaksi topup `pending` > 60 menit — menutup akses pembayaran di Midtrans (Snap session + Core API) SEBELUM finalisasi DB, dan mengkredit coin (bukan menggagalkan) jika ternyata user sudah bayar tepat sebelum expire diproses. Logic inti di `lib/coin/cancel-topup.ts`, dipakai bersama oleh `POST /api/coin/cancel-topup` (manual) dan cron ini.
+- `expire-sessions` (migration 038): jaring pengaman untuk `game_sessions` yang ditelantarkan — (1) expire + **refund** coin host untuk sesi `waiting` yang partner tidak pernah join (via RPC `expire_waiting_sessions()`, yang sebelumnya TIDAK PERNAH dipanggil siapa pun), dan (2) expire (tanpa refund) sesi `playing` yang lolos dari timer client (tab ditutup sebelum `/expire` terpanggil). Juga best-effort hapus Daily.co room terkait.
+
+> ⚠️ Vercel Hobby plan membatasi cron ke 1x/hari — transaksi topup pending bisa "menggantung" sampai ~24 jam sebelum di-expire (bukan bug, limitasi platform). Lihat **[`readme/DEPLOYMENT_CRON.md`](./readme/DEPLOYMENT_CRON.md)** untuk cara mempercepat jadwal ini setelah upgrade ke Vercel Pro atau pindah ke VPS.

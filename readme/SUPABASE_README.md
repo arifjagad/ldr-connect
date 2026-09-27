@@ -53,8 +53,8 @@ game_settings       — Konfigurasi game (coin cost, expiry)
 | `create_game_session(...)` | `POST /api/game/tod/session/create` | Deduct coin + buat sesi, atomic |
 | `join_game_session(...)` | `POST /api/game/tod/session/join` | Partner join sesi |
 | `answer_tod_question(...)` | `POST /api/game/tod/session/{code}/done` | Tandai selesai + ambil next |
-| `refund_expired_session(session_id)` | API route / cron | Refund coin sesi expired |
-| `expire_waiting_sessions()` | Cron job | Expire semua sesi waiting yang timeout |
+| `refund_expired_session(session_id)` | `create_game_session` / `expire_waiting_sessions()` | Refund coin sesi `waiting` expired |
+| `expire_waiting_sessions()` | `GET /api/cron/expire-sessions` (migration 038) | Expire semua sesi waiting yang timeout + refund |
 | `update_payment_status(...)` | `POST /api/coin/webhook` | Update status + tambah saldo |
 | `get_pending_topup_count(user_id)` | `POST /api/coin/topup` | Rate limiting topup |
 | `get_active_session_for_couple(...)` | API route | Cek sesi aktif sebelum buat baru |

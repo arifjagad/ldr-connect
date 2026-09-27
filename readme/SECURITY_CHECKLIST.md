@@ -416,6 +416,143 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 
 ---
 
+### ACCOUNT & AUTHORIZATION
+
+---
+
+#### ✅ ACC-01 `[RACE]` Privilege escalation via RLS column-gap pada `users` — **FIXED**
+Policy `users_update_own` (`02_rls.sql`) hanya membatasi BARIS (`auth.uid() = id`), tidak membatasi KOLOM. Karena `app/dashboard/profile/page.tsx` dan komponen lain memanggil `supabase.from("users").update(...)` langsung dari browser (anon key), user manapun bisa menjalankan `supabase.from("users").update({ is_admin: true }).eq("id", myId)` dari console dan self-promote jadi admin — lalu mengakses semua fitur `/admin/*` karena `app/admin/layout.tsx` dan setiap route admin membaca `is_admin` langsung dari tabel yang sama.
+**Fix (migration 036):** trigger `protect_sensitive_user_columns` di `01_tables.sql` menolak UPDATE kolom `is_admin`, `couple_code`, `partner_id`, `status`, `email`, `id` jika `current_user` adalah role `authenticated`/`anon`. RPC `SECURITY DEFINER` dan service role tidak terpengaruh.
+
+---
+
+#### ✅ ACC-02 `[PAY]` IDOR pada RPC `link_couple`/`unlink_couple` — **FIXED**
+Kedua fungsi (`03_functions.sql`) menerima `p_user_id` sebagai parameter bebas tanpa memvalidasi `p_user_id = auth.uid()`. Karena RPC ini `SECURITY DEFINER` (bypass RLS) dan dipanggil langsung dari client tanpa API route perantara, siapa pun yang login bisa memanggil `supabase.rpc("unlink_couple", { p_user_id: "<uuid korban>" })` dan memutuskan/memaksa-link akun orang lain tanpa consent.
+**Fix (migration 036):** kedua fungsi sekarang menolak eksekusi (`RAISE EXCEPTION 'UNAUTHORIZED'`) jika `p_user_id IS DISTINCT FROM auth.uid()`.
+
+---
+
+#### ✅ ACC-03 `[RACE]` Race condition pada `link_couple` tanpa row lock — **FIXED**
+Berbeda dari RPC game (`create_game_session`, `roll_snake_dice`, dll) yang konsisten memakai `SELECT ... FOR UPDATE`, `link_couple` membaca status user & partner tanpa lock apa pun. Dua user yang link ke couple_code yang sama nyaris bersamaan bisa menghasilkan data pasangan asimetris (A.partner_id=B tapi B.partner_id ternyata C).
+**Fix (migration 036):** kedua baris (user & partner) dikunci via `SELECT ... FOR UPDATE` dalam urutan GLOBAL konsisten (`LEAST`/`GREATEST` by UUID, bukan berdasarkan siapa pemanggil) sebelum re-read status & update — mencegah race sekaligus deadlock antar transaksi yang overlap.
+
+---
+
+#### ✅ ACC-04 `[PAY]` RLS `capsules_select_couple` bocorkan isi pesan sebelum dibuka — **FIXED**
+Policy hanya cek `sender_id = auth.uid() OR receiver_id = auth.uid()`, tanpa memeriksa `status`. Sensor `message: null` hanya dilakukan di layer aplikasi (`app/api/capsule/route.ts`, service-role client) — bukan di RLS. Akibatnya, isi pesan kapsul yang masih `locked` (belum boleh dibuka receiver) bisa dibaca lewat dua jalur independen: (a) panggilan `supabase.from("capsules").select("message")` langsung dari console browser, dan (b) payload realtime `postgres_changes` yang dikirim ke browser receiver tanpa filter kolom.
+**Fix (migration 037):** `capsules_select_couple` sekarang mensyaratkan `receiver_id = auth.uid() AND status != 'locked'` — sender tetap bisa SELECT semua baris miliknya (bukan risiko, "spoiler untuk diri sendiri").
+
+---
+
+#### ✅ ACC-05 Gap kolom `user_id` pada RLS `anniversaries_update_couple` — **FIXED**
+`WITH CHECK` hanya memvalidasi nilai BARU `user_id` (harus diri sendiri atau partner), tapi tidak melarang PERUBAHAN `user_id` itu sendiri. Partner B bisa reassign anniversary milik A jadi "milik" B (lolos WITH CHECK karena nilai baru = B = auth.uid()), lalu menghapusnya lewat `anniversaries_delete_own` yang seharusnya owner-only. Diperparah karena semua operasi CRUD anniversary sebelumnya dipanggil 100% langsung dari client (`supabase.from("anniversaries")`), tanpa API layer/rate-limiting sama sekali.
+**Fix (migration 037):** trigger `protect_anniversary_owner` menolak UPDATE kolom `user_id` dari role `authenticated`/`anon`. Sekaligus operasi CRUD dipindah ke `app/api/anniversaries/` (GET/POST) dan `app/api/anniversaries/[id]/` (PATCH/DELETE) dengan Zod validation + rate limiting (20x/10 menit) — konsisten dengan pola wishlist/capsule.
+
+---
+
+#### ✅ ACC-06 `[PAY]` Tidak ada rate limiting pada create wishlist/capsule/anniversary — **FIXED**
+`POST /api/wishlist` dan `POST /api/capsule` tidak punya rate limiting sama sekali, padahal keduanya trigger push notification ke partner di setiap create — bisa dipakai untuk notification bombing pasangan sendiri (spam ratusan/ribuan item dalam waktu singkat). Anniversary lebih rentan lagi karena tidak lewat API route sama sekali (lihat ACC-05).
+**Fix:** `checkRateLimit()` ditambahkan ke `POST /api/wishlist` (20x/10 menit), `POST /api/capsule` (10x/10 menit), dan `POST /api/anniversaries` (20x/10 menit) — mengikuti pola yang sudah ada di `redeem-voucher`.
+
+---
+
+#### ✅ ACC-07 Bug validasi Zod: `.min(1)` dicek sebelum `.trim()` — **FIXED**
+Di Zod, method chain `.min(1).trim()` mengevaluasi `.min(1)` terhadap string ASLI (sebelum transform `.trim()` diterapkan). Input berisi hanya spasi (`" "`) punya panjang 1 → lolos validasi → baru di-trim jadi string kosong sebelum disimpan ke DB. Wishlist item bisa tersimpan tanpa judul, kapsul tanpa isi pesan, hanya dengan mengirim satu karakter spasi.
+**Fix:** urutan diperbaiki jadi `.trim().min(1)` di `app/api/wishlist/route.ts`, `app/api/wishlist/[id]/route.ts`, `app/api/capsule/route.ts` — validasi panjang sekarang dievaluasi SETELAH trim.
+
+---
+
+#### ✅ GAME-01 `[PAY][RACE]` Audit menyeluruh Truth or Dare — 5 bug ditemukan & diperbaiki — **FIXED**
+Audit end-to-end game Truth or Dare (create/join/next/done/cancel/expire/room) menemukan:
+1. **`expire_waiting_sessions()` TIDAK PERNAH dipanggil siapa pun** — tidak ada cron entry, tidak ada API route. Sesi `waiting` yang ditelantarkan (partner tidak pernah join) tidak pernah direfund otomatis.
+2. **Coin hilang permanen tanpa refund**: cleanup manual di `session/create/route.ts` men-`expired`-kan sesi `waiting/playing` lama milik user tanpa refund, membuatnya lolos dari jalur refund resmi selamanya (sekali status bukan `waiting`, tidak akan pernah disentuh `refund_expired_session`).
+3. **Race condition create-session**: `create_game_session` RPC cek sesi aktif via `EXISTS` tanpa lock level-couple — dua create bersamaan bisa lolos dan membuat 2 sesi aktif untuk couple yang sama (tidak ada unique constraint pemblokir).
+4. **Filter pool pertanyaan custom couple salah** di `session/create/route.ts`: `couple_id.eq.${user.id}` seharusnya `couple_id.eq.${resolvedCoupleId}` (LEAST) — pertanyaan custom couple bisa tidak muncul untuk partner dengan UUID lebih besar.
+5. **"Skip" tidak persist ke DB** — endpoint `/next` hanya baca, tidak menandai `is_completed`, menyebabkan desync progress antar-partner dan sesi tidak pernah masuk status `completed` kalau semua kartu di-skip; room Daily.co juga tidak pernah dibersihkan lewat jalur ini.
+6. Error cancel session ditelan diam-diam di frontend (`handleLeave`) — UI selalu reset ke idle walau server menolak permintaan batal.
+
+**Fix (migration 038):**
+- `create_game_session` sekarang pakai `pg_advisory_xact_lock` per `couple_id` (fix #3) dan memanggil `refund_expired_session` saat auto-expire sesi `waiting` lama (fix #2) — cleanup manual tanpa-refund di semua 5 route `session/create` (tod, snake-ladder, dare-derby, quoridor, photobooth) dihapus karena sudah digantikan RPC.
+- `answer_tod_question` tambah parameter `p_skip` supaya endpoint `/next` bisa persist progres skip ke DB (fix #5).
+- Endpoint cron baru `GET /api/cron/expire-sessions` (jadwal 1x/hari di `vercel.json`, mengikuti limitasi Vercel Hobby) memanggil `expire_waiting_sessions()` — jaring pengaman resmi pertama untuk sesi `waiting` yang ditelantarkan (fix #1).
+- Filter pool pertanyaan di `session/create/route.ts` diperbaiki pakai `resolvedCoupleId` (fix #4).
+- `handleLeave` di frontend sekarang menunggu hasil fetch cancel dan menampilkan toast error jika server menolak (fix #6).
+
+---
+
+#### ✅ GAME-02 `[PAY][RACE]` Audit menyeluruh Snake & Ladder — 5 bug ditemukan & diperbaiki, berdampak ke 5 game — **FIXED**
+Audit end-to-end game Snake & Ladder (create/join/roll/confirm/surrender/expire/room) menemukan 5 bug, beberapa berlaku juga untuk game lain (dare-derby, quoridor, photobooth) karena pola kode yang diduplikasi:
+1. **Endpoint `/expire` tidak memvalidasi `expires_at`** (ToD, snake-ladder, quoridor) — peserta yang sedang KALAH bisa memanggil endpoint ini kapan saja (selama status masih `playing`) untuk memaksa sesi jadi `expired`, menghindari kekalahan tanpa waktu benar-benar habis di server. Endpoint expire quoridor sebelumnya juga tidak memvalidasi kepesertaan sama sekali (siapa pun yang tahu `session_code` bisa meng-expire sesi orang lain).
+2. **Endpoint `/expire` tidak ada sama sekali** untuk Dare Derby (timer client hanya ubah state lokal, server tidak pernah diberi tahu) dan untuk Photobooth (frontend memanggil endpoint yang **404**, error ditelan diam-diam via `.catch(()=>{})`) — sesi `playing` yang lolos timer client menggantung sampai cron harian `expire-sessions` membersihkannya (~24 jam).
+3. **Duplikasi manual update `expires_at`** di 3 route `session/join` (snake-ladder, quoridor, dare-derby) — RPC `join_game_session` (shared) sudah menghitungnya dengan benar dari `game_settings.expires_in_minutes`, update manual berikutnya adalah sumber potensi divergensi jika logic RPC berubah tanpa kode ini disesuaikan.
+4. **`deleteDailyRoom` tidak konsisten dipanggil** di jalur game-selesai (menang lewat roll dadu/quoridor action, surrender di 3 game, confirm/skip dare-derby yang memicu forfeit) — hanya ToD `/done` yang sudah membersihkan room. Room-room ini sebelumnya hanya mengandalkan auto-expire Daily.co (`exp` timestamp, buffer 30 menit) atau cron `expire-sessions` untuk sesi yang ditelantarkan.
+5. Error 500 generik ("Gagal menyerah, coba lagi") pada race dua surrender bersamaan — bukan pesan yang informatif, tapi TIDAK diubah (risiko race sudah tertutup oleh `WHERE status='playing'`, hanya UX minor, di luar scope perbaikan fungsional).
+
+**Fix:**
+- Endpoint `/expire` di ToD, snake-ladder, quoridor sekarang wajib `.lte("expires_at", now())` sebelum update — request yang datang sebelum waktu benar-benar habis akan mendapat "Sesi tidak perlu diupdate" (bukan error), bukan memaksa expire.
+- Endpoint `/expire` baru dibuat untuk Dare Derby dan Photobooth (pola sama, termasuk validasi waktu & kepesertaan) — frontend Dare Derby (`handleTimerExpire`) diupdate untuk memanggilnya.
+- Duplikasi update `expires_at` manual di 3 route join dihapus, sepenuhnya mempercayakan RPC `join_game_session`.
+- `deleteDailyRoom` (best effort) ditambahkan ke: `roll_snake_dice` saat menang, `quoridor_action` saat menang, surrender di 3 game (snake-ladder, dare-derby, quoridor), `photobooth/complete`, dan `dare-derby/dare/confirm` + `dare/skip` saat `phase==="game_over"`.
+
+---
+
+#### ✅ GAME-03 `[PAY][RACE]` IDOR sistemik di hampir semua RPC game & payment + celah kecurangan skor Dare Derby + debug flag aktif — **FIXED**
+Audit menyeluruh game Dare Derby menemukan 3 bug, salah satunya (IDOR) bersifat sistemik dan berdampak ke SEMUA RPC game serta beberapa RPC payment:
+
+1. **IDOR sistemik pada RPC `SECURITY DEFINER`**: hampir semua stored function game (`create_game_session`, `join_game_session`, `cancel_game_session`, `roll_snake_dice`, `confirm_snake_challenge`, `answer_tod_question`, `quoridor_action`, seluruh RPC Dare Derby, dll) dan beberapa RPC payment (`redeem_voucher`, `create_pending_topup`, `cancel_topup_transaction`, dll) menerima `p_user_id` sebagai parameter bebas **tanpa pernah memvalidasi `p_user_id = auth.uid()`** — pola identik dengan bug IDOR `link_couple`/`unlink_couple` yang sudah diperbaiki di migration 036, tapi tidak pernah diterapkan ke fungsi lain. Karena fungsi ini `SECURITY DEFINER` (bypass RLS) dan Supabase/PostgREST secara default memberi akses EXECUTE ke role `authenticated`, siapa pun yang login bisa memanggil misalnya `supabase.rpc("confirm_dare_derby_dare", { p_user_id: "<uuid korban>", ... })` langsung dari browser (bypass Next.js API route sepenuhnya) dan melakukan aksi ATAS NAMA user lain — roll dadu, submit skor, gerak Quoridor, konfirmasi/skip dare, bahkan redeem voucher orang lain.
+2. **Skor Dare Derby tidak divalidasi**: endpoint `submit/route.ts` hanya memvalidasi `score >= 0` dan `time_taken >= 0` tanpa batas atas, dan RPC `submit_dare_derby_round` tidak pernah memverifikasi ulang nilai ini terhadap logika mini-game. Semua mini-game menghasilkan skor 0-100 (+bonus 50, cap 150 hanya di client) — pemain bisa memanggil `/submit` langsung dengan skor besar sembarang tanpa pernah bermain mini-game-nya, otomatis menang tiap ronde.
+3. **Debug flag aktif di production**: `DEBUG_FORCE_MINIGAME = "math_dash"` di `session/create/route.ts` membuat SEMUA sesi Dare Derby baru memaksa seluruh ronde memakai mini-game yang sama, mengabaikan `select_dare_derby_minigames` RPC sepenuhnya.
+
+**Fix (migration 039):**
+- `REVOKE EXECUTE ON FUNCTION ... FROM PUBLIC, anon, authenticated` untuk 26 RPC server-only (semua RPC game + RPC payment yang hanya dipanggil via `createServiceClient()`) — service role tidak terpengaruh REVOKE ini karena selalu bisa eksekusi terlepas dari GRANT/REVOKE. `link_couple`/`unlink_couple` SENGAJA TIDAK di-revoke karena memang didesain dipanggil client-side dan sudah dilindungi `auth.uid()` sejak migration 036.
+- Zod schema di `submit/route.ts` diperketat: `score` max 150, `time_taken` max 10 menit (dalam ms).
+- `DEBUG_FORCE_MINIGAME` dikosongkan kembali ke `""`.
+
+---
+
+#### ✅ GAME-04 `[PAY]` Audit menyeluruh Quoridor + bug "tinggalkan game" cross-game (4 game) — **FIXED**
+Audit Quoridor sendiri (evolusi `quoridor_action`/`quoridor_has_path` migration 024→027) tidak menemukan celah baru — logika move/jump/wall/BFS-path-block sudah matang lewat 4 iterasi perbaikan sebelumnya, dan client-side validation di board hanya cosmetic (server RPC selalu jadi source of truth via row lock, aman dari race maupun bypass). Satu gap kecil ditemukan: mapping error `INVALID_ACTION` (case fallback RPC) belum ada di `action/route.ts`, jatuh ke 500 generik — ditambahkan mapping 400 yang lebih tepat.
+
+Bug utama yang ditemukan justru **cross-game** dan cukup signifikan: tombol "Tinggalkan"/keluar sesi saat status masih `playing` di **4 dari 5 game** (Quoridor, Snake & Ladder, Dare Derby, Photobooth) hanya mereset state React lokal **tanpa pernah memberi tahu server**. Photobooth bahkan tidak memanggil server sama sekali baik untuk `waiting` maupun `playing`. Akibatnya sesi `playing` yang ditinggalkan (bukan lewat surrender resmi) tetap tercatat aktif di DB selamanya — coin tertahan, partner masih melihat sesi seolah berjalan — sampai timer client partner habis atau cron harian `expire-sessions` membersihkannya (bisa ~24 jam).
+
+**Fix:**
+- `handleNewGame` di Quoridor & Snake and Ladder, `handleReset` di Dare Derby: ditambah cabang `else if (status === "playing")` yang memanggil endpoint `/expire` masing-masing game sebelum reset state.
+- Photobooth: dibuat helper `handleLeave` baru (menggantikan `onCancel={() => setPhase("idle")}` dan `onLeave={() => setPhase("idle")}` yang sebelumnya sama sekali tidak menyentuh server) — cancel jika `waiting` (host), expire jika `playing`.
+- `action/route.ts` Quoridor: tambah mapping `INVALID_ACTION` → 400.
+
+---
+
+#### ✅ GAME-05 `[RACE]` Audit menyeluruh Virtual Photobooth — race condition foto & kuota retake, tanpa guard fase/slot — **FIXED**
+Semua route gameplay photobooth (`select-template`, `trigger-countdown`, `submit-photo`, `retake`, `complete`) melakukan read-modify-write `game_state` di JS lalu menimpa seluruh kolom tanpa lock, dan tidak memakai RPC sama sekali:
+1. **Foto host/partner saling timpa di gameplay normal** — countdown dipicu via realtime, jadi kedua client meng-capture dan `submit-photo` hampir bersamaan di setiap slot. Request yang membaca snapshot lama menimpa foto yang baru disimpan request lain.
+2. **Kuota `retakes_left` bisa dilewati** lewat request retake paralel (decrement dari snapshot, bukan atomik).
+3. **Tanpa guard fase/status** — `submit-photo` bisa dipanggil tanpa countdown (foto dari mana saja), `trigger-countdown` bisa di-spam untuk mereset timer partner di fase apa pun, retake di luar fase review, dan semua aksi tetap jalan walau sesi sudah `completed`/`expired`.
+4. **`slot_index` tidak divalidasi** — slot sampah (misal 999) menambah hitungan slot terisi dan memaksa phase `review_retake` prematur.
+5. **`image_url` tanpa validasi** — bisa URL eksternal (tracking pixel yang dirender `<img>` di browser partner) atau string raksasa ke kolom JSONB.
+
+**Fix (migration 040):**
+- RPC baru `photobooth_action(code, user_id, action, payload)` dengan `SELECT ... FOR UPDATE`, sudah `REVOKE` dari `anon`/`authenticated`. Guard: status `playing` + belum lewat `expires_at`; `select_template` hanya sebelum ada foto; `trigger_countdown` hanya dari `ready` (atau `taking` macet > 15 detik) dengan slot dari server; `submit_photo` hanya untuk slot capture aktif, sekali per pemain per capture, maks 60 detik; `retake` hanya dari `review_retake`, slot 1..`photo_count`; `complete` hanya dari `review_retake`.
+- `game_state.capture = { slot, started_at, submitted[] }` menyimpan ronde capture aktif sehingga submit pemain kedua tetap diterima setelah submit pertama memajukan phase. Slot berikutnya = slot kosong terendah, sehingga setelah retake langsung kembali ke review.
+- Route memakai helper bersama `lib/games/photobooth/action.ts`; Zod membatasi `image_url` ke `data:image/(jpeg|png|webp);base64,...` maks 1 juta karakter dan `slot_index` integer 1..20. Field `is_combined` (tidak dipakai frontend, bisa menimpa foto kedua pihak) tidak lagi diterima.
+- Frontend: capture mengirim `capture.slot`, dan error dari trigger/submit/retake/complete sekarang ditampilkan (sebelumnya selalu dianggap sukses).
+- Tidak diberi `checkRateLimit` — konsisten dengan keputusan game action turn-based lain (sudah state-gated via RPC).
+
+**Belum diperbaiki (di luar scope, perlu keputusan):** foto pemain tetap disimpan sebagai base64 di `game_sessions.game_state`. Dengan 3 slot × 2 foto, row bisa > 1 MB — Supabase Realtime `postgres_changes` memotong kolom besar pada payload > 1 MB, sehingga sinkronisasi realtime berisiko gagal di slot terakhir. Opsi jangka panjang: upload ke bucket Storage privat dan simpan path saja. Keaslian foto (benar hasil webcam) tetap tidak bisa diverifikasi server; dampaknya terbatas ke album couple sendiri.
+
+---
+
+#### ✅ ACC-08 `[PAY]` Rate limiting audit menyeluruh — 15 endpoint tanpa proteksi ditemukan & diperbaiki — **FIXED**
+Audit menyeluruh (sub-agent context-gatherer) menemukan 15 endpoint yang trigger biaya eksternal (Midtrans, Daily.co), efek samping berulang (upload, push notification), atau spam vector, tapi tidak punya time-window rate limiting sama sekali:
+- `session/join` untuk 4 game (tod, snake-ladder, dare-derby, quoridor) — inkonsisten dengan `photobooth/session/join` yang sudah dilindungi; risiko brute-force session code + spam push ke host.
+- `coin/topup`, `coin/cancel-topup`, `coin/verify` — masing-masing panggil Midtrans API (Snap create/close/status check); hanya dilindungi guard "maks 3 pending" (bukan time-window).
+- `session/[code]/room` untuk 5 game (tod, snake-ladder, dare-derby, quoridor, photobooth) — GET dengan efek samping panggil `createDailyRoom()` ke Daily.co API tiap request.
+- `user/avatar` POST (upload ke Supabase Storage), `wishlist/[id]/done` POST (trigger push ke partner), `game/tod/questions/submit` POST (insert pertanyaan custom tanpa batas).
+- `push/test` — endpoint debug yang komentar kodenya sendiri bilang "hanya untuk debugging, hapus setelah production OK", tapi tetap kirim push notification tanpa batas.
+
+**Fix:** `checkRateLimit()` ditambahkan ke seluruh 15 endpoint di atas (lihat tabel lengkap di `CLAUDE.md` § Rate Limiting untuk daftar key & limit tiap endpoint). Endpoint yang **sengaja tidak** diberi rate limit (admin routes, game action turn-based yang sudah state-gated via RPC, PATCH/DELETE ringan tanpa push, `capsule/open` idempotent) didokumentasikan juga di `CLAUDE.md` supaya tidak disalahartikan sebagai gap di audit berikutnya. `coin/webhook` tetap TIDAK bisa pakai `checkRateLimit` (server-to-server, tidak ada `user_id`) — dicatat sebagai item outstanding baru di bawah.
+
+---
+
 ## 📊 Ringkasan Audit
 
 | Kategori | `[x]` OK | `[-]` Manual | `[(x)]` Masalah |
@@ -456,6 +593,41 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 | ✅ DONE | RATE-01 | Rate limit login 5x/1m & 10x/1jam dengan DB function `check_login_rate_limit` via `/api/auth/login` |
 | ✅ DONE | SESS-01 | Max session age 24 jam dipaksa via cookie `ldr_session_age` di middleware |
 | ✅ DONE | STORE-01 | Live coin balance diambil langsung dari server menggunakan hook `useServerBalance` / `/api/coin/balance` |
+| ✅ DONE | ACC-01 | Trigger `protect_sensitive_user_columns` (migration 036) — cegah privilege escalation via UPDATE kolom `users` langsung dari client |
+| ✅ DONE | ACC-02 | IDOR fix `link_couple`/`unlink_couple` — wajib `p_user_id = auth.uid()` (migration 036) |
+| ✅ DONE | ACC-03 | Race condition fix `link_couple` — `SELECT ... FOR UPDATE` urutan konsisten (migration 036) |
+| ✅ DONE | ACC-04 | RLS `capsules_select_couple` — receiver tidak bisa baca `message` sebelum `status != 'locked'` (migration 037) |
+| ✅ DONE | ACC-05 | Trigger `protect_anniversary_owner` + pindah CRUD anniversary ke API route (migration 037) |
+| ✅ DONE | ACC-06 | Rate limiting create wishlist/capsule/anniversary |
+| ✅ DONE | ACC-07 | Fix urutan Zod `.trim()` sebelum `.min()` di wishlist & capsule |
+| ✅ DONE | ACC-08 | Rate limiting ditambahkan ke 15 endpoint: session/join (4 game), coin topup/cancel-topup/verify, session/room (5 game), avatar upload, wishlist done, tod questions submit, push/test |
+| ✅ DONE | GAME-01 | Audit ToD: advisory lock create_game_session, refund otomatis saat auto-expire, cron expire-sessions baru, fix filter pool couple, persist skip ke DB, fix error cancel ditelan diam-diam (migration 038) |
+| ✅ DONE | GAME-02 | Audit Snake & Ladder: fix endpoint expire tanpa validasi waktu (3 game), tambah endpoint expire yang hilang (Dare Derby, Photobooth), hapus duplikasi update expires_at manual (3 route join), tambah deleteDailyRoom ke semua jalur game-selesai yang belum membersihkan room |
+| ✅ DONE | GAME-03 | REVOKE EXECUTE 26 RPC server-only dari anon/authenticated (IDOR sistemik, migration 039), cap skor Dare Derby max 150 di Zod, matikan DEBUG_FORCE_MINIGAME |
+| ✅ DONE | GAME-04 | Fix tombol "Tinggalkan" saat playing yang cuma reset UI tanpa beri tahu server (Quoridor, Snake & Ladder, Dare Derby, Photobooth) — sekarang panggil endpoint /expire; tambah mapping INVALID_ACTION di action/route.ts Quoridor |
+| ✅ DONE | GAME-05 | Audit Photobooth: RPC atomik `photobooth_action` (migration 040) — fix foto host/partner saling timpa, bypass kuota retake, guard fase/slot/status, validasi format & ukuran `image_url` |
+
+---
+
+## 🔴 Item Outstanding — Area Akun & Keamanan (belum diperbaiki)
+
+Ditemukan saat audit area Account & Security (2026), severity medium/rendah, belum diperbaiki:
+
+| # | Severity | Deskripsi |
+|---|----------|-----------|
+| 1 | Medium | `unlink_couple` tidak cleanup `game_sessions` aktif (`waiting`/`playing`) milik couple yang lama — sesi bisa jadi "orphan" tak terjangkau jika salah satu pihak lalu link ke partner baru. |
+| 2 | Medium | Tidak ada rate limiting pada RPC `link_couple` — couple_code (10 karakter hex dari UUID, keyspace besar) tetap bisa dicoba berulang tanpa dibatasi; error message `INVALID_CODE` vs `PARTNER_ALREADY_LINKED` juga jadi oracle enumerasi. |
+| 3 | Medium | Rate limiter login (`check_login_rate_limit`) fail-open jika RPC error — proteksi brute-force terlewati saat sistem under stress. |
+| 4 | Medium | Trigger `handle_new_auth_user` (signup) menelan exception (`WHEN OTHERS THEN RAISE LOG ... RETURN NEW`) — jika insert ke `public.users`/`wallets` gagal, `auth.users` tetap terbuat tapi profile tidak pernah ada (orphaned account, tidak ada self-recovery). |
+| 5 | Rendah | Validasi tipe file avatar (`app/api/user/avatar/route.ts`) hanya cek `Content-Type` dari client, bukan magic-byte/file-header sesungguhnya. |
+| 6 | Rendah | Tidak ada notifikasi email saat password diubah. |
+| 7 | Rendah | Tidak ditemukan flow forgot-password/reset-password di codebase — perlu konfirmasi apakah ini fitur yang disengaja belum dibangun. |
+| 8 | Rendah | Logout hanya invalidate sesi lokal (`signOut()` scope default), tidak revoke refresh token di device lain kecuali via mekanisme SESS-03 saat login berikutnya. |
+| 9 | Rendah | Anniversary reminder cron (`app/api/cron/anniversary-reminders/route.ts`) melakukan full-table-scan 3x (untuk H-7/H-3/H-1) tanpa filter tanggal di level query DB — tidak scalable untuk volume besar. Tidak ada tracking "sudah terkirim" sehingga re-run cron di hari yang sama bisa mengirim notifikasi duplikat. |
+| 10 | Rendah | RLS `capsules_update_open` tidak punya `WITH CHECK` eksplisit — secara teknis membuat policy ini tidak pernah bisa dipakai dari client langsung (update `status` keluar dari kondisi `USING` setelah perubahan). Saat ini tidak masalah karena endpoint `open` pakai service-role client, tapi ini dead code / trap desain untuk refactor di masa depan. |
+| 11 | Rendah | Lazy-delivery capsule (`GET /api/capsule`) tidak mengirim push notification saat mengubah status jadi `delivered` (hanya cron yang kirim push) — jika cron gagal/lambat dan lazy-delivery menang race, receiver tidak akan dapat notifikasi push meski status di DB sudah delivered. |
+| 12 | Rendah | `POST /api/coin/webhook` tidak punya rate limiting (server-to-server dari Midtrans, tidak ada `user_id` sehingga `checkRateLimit()` tidak bisa dipakai langsung). Sudah dilindungi verifikasi signature SHA512, tapi belum ada mekanisme rate limit berbasis IP sebagai defense-in-depth tambahan — butuh helper baru, di luar scope audit rate limiting saat ini. |
+| 13 | Rendah | `POST /api/push/test` adalah endpoint debug yang komentar kodenya sendiri menyatakan harus dihapus sebelum production, tapi masih ada di codebase (hanya diberi rate limit ketat 5x/10 menit, tidak dihapus). Pertimbangkan menghapus endpoint ini sepenuhnya jika sudah tidak dipakai untuk debugging. |
 
 ---
 
@@ -470,4 +642,4 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 
 > Sumber: [OWASP Secure Coding Practices Quick Reference Guide](https://owasp.org/www-project-secure-coding-practices-quick-reference-guide/stable-en/02-checklist/05-checklist)  
 > Versi ini ditambahkan label kontekstual `[RACE]` dan `[PAY]` untuk kemudahan penggunaan.  
-> Audit terakhir diperbarui: 2026-06-02 (re-validasi manual dari codebase aktual)
+> Audit terakhir diperbarui: 2026-09-12 (audit area Account & Security + Fitur Couple Lainnya — ACC-01 s.d. ACC-07 fixed; audit rate limiting komprehensif — ACC-08 fixed 15 endpoint, item outstanding baru #12-#13 ditambahkan)

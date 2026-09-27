@@ -289,6 +289,57 @@ CREATE TRIGGER trg_users_updated_at
   BEFORE UPDATE ON public.users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- ============================================================
+-- TRIGGER FUNCTION: protect_sensitive_user_columns (migration 036)
+-- Blokir UPDATE langsung dari client (role authenticated/anon) terhadap
+-- kolom sensitif users (is_admin, couple_code, partner_id, status, email,
+-- id). RLS policy `users_update_own` hanya membatasi BARIS, tidak KOLOM —
+-- tanpa trigger ini, client bisa memanggil
+--   supabase.from("users").update({ is_admin: true }).eq("id", myId)
+-- langsung dari browser dan self-promote jadi admin.
+-- RPC SECURITY DEFINER (link_couple, unlink_couple, handle_new_auth_user)
+-- dan service role TIDAK terpengaruh — current_user berubah jadi role
+-- owner fungsi selama eksekusi SECURITY DEFINER.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.protect_sensitive_user_columns()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') THEN
+    IF NEW.is_admin IS DISTINCT FROM OLD.is_admin THEN
+      RAISE EXCEPTION 'FORBIDDEN_COLUMN_UPDATE'
+        USING DETAIL = 'Kolom is_admin tidak boleh diubah langsung oleh client';
+    END IF;
+    IF NEW.couple_code IS DISTINCT FROM OLD.couple_code THEN
+      RAISE EXCEPTION 'FORBIDDEN_COLUMN_UPDATE'
+        USING DETAIL = 'Kolom couple_code tidak boleh diubah langsung oleh client';
+    END IF;
+    IF NEW.partner_id IS DISTINCT FROM OLD.partner_id THEN
+      RAISE EXCEPTION 'FORBIDDEN_COLUMN_UPDATE'
+        USING DETAIL = 'Kolom partner_id hanya boleh diubah via link_couple/unlink_couple';
+    END IF;
+    IF NEW.status IS DISTINCT FROM OLD.status THEN
+      RAISE EXCEPTION 'FORBIDDEN_COLUMN_UPDATE'
+        USING DETAIL = 'Kolom status hanya boleh diubah via link_couple/unlink_couple';
+    END IF;
+    IF NEW.email IS DISTINCT FROM OLD.email THEN
+      RAISE EXCEPTION 'FORBIDDEN_COLUMN_UPDATE'
+        USING DETAIL = 'Kolom email harus diubah lewat Supabase Auth, bukan tabel users langsung';
+    END IF;
+    IF NEW.id IS DISTINCT FROM OLD.id THEN
+      RAISE EXCEPTION 'FORBIDDEN_COLUMN_UPDATE'
+        USING DETAIL = 'Kolom id tidak boleh diubah';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_protect_sensitive_user_columns
+  BEFORE UPDATE ON public.users
+  FOR EACH ROW EXECUTE FUNCTION public.protect_sensitive_user_columns();
+
 CREATE TRIGGER trg_wallets_updated_at
   BEFORE UPDATE ON public.wallets
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -312,6 +363,32 @@ CREATE TRIGGER trg_game_sessions_updated_at
 CREATE TRIGGER trg_anniversaries_updated_at
   BEFORE UPDATE ON public.anniversaries
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- TRIGGER FUNCTION: protect_anniversary_owner (migration 037)
+-- RLS `anniversaries_update_couple` memvalidasi nilai BARU user_id boleh
+-- diri sendiri atau partner, tapi tidak melarang PERUBAHAN user_id itu
+-- sendiri — partner bisa reassign kepemilikan lalu hapus via
+-- `anniversaries_delete_own` yang seharusnya owner-only.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.protect_anniversary_owner()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') THEN
+    IF NEW.user_id IS DISTINCT FROM OLD.user_id THEN
+      RAISE EXCEPTION 'FORBIDDEN_COLUMN_UPDATE'
+        USING DETAIL = 'Kolom user_id pada anniversaries tidak boleh diubah langsung oleh client';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_protect_anniversary_owner
+  BEFORE UPDATE ON public.anniversaries
+  FOR EACH ROW EXECUTE FUNCTION public.protect_anniversary_owner();
 
 CREATE TRIGGER trg_game_settings_updated_at
   BEFORE UPDATE ON public.game_settings
