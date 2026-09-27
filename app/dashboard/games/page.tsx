@@ -10,6 +10,7 @@ const GAME_ROUTES: Record<string, string> = {
   quiz:         "/dashboard/games/quiz",
   dare_derby:   "/dashboard/games/dare-derby",
   quoridor:     "/dashboard/games/quoridor",
+  photobooth:   "/dashboard/games/photobooth",
 };
 
 const games = [
@@ -281,6 +282,72 @@ function GamesHubContent() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#10B981] hover:bg-[#34D399] text-white px-5 py-2.5 text-sm font-semibold shadow-[0_4px_20px_rgba(16,185,129,0.35)] transition-all duration-200"
               >
                 Mulai Game
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  className="transition-transform group-hover:translate-x-0.5"
+                >
+                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Photobooth */}
+        <div
+          className="group relative flex flex-col overflow-hidden rounded-3xl border bg-linear-to-br from-[#EC4899]/20 via-[#F43F5E]/10 to-transparent border-[#EC4899]/25 hover:border-[#EC4899]/60 p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
+        >
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full blur-3xl"
+            style={{ background: "rgba(236,72,153,0.15)" }}
+          />
+
+          {/* Top row: icon + badge */}
+          <div className="flex items-start justify-between">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#EC4899" strokeWidth="1.5">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </div>
+            <span className="flex items-center gap-1.5 rounded-full border border-[#EC4899]/25 bg-[#EC4899]/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#F472B6]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#EC4899] shadow-[0_0_8px_#EC4899]" />
+              New Game
+            </span>
+          </div>
+
+          {/* Content */}
+          <div className="mt-5 flex flex-1 flex-col">
+            <h2 className="text-xl font-bold text-[#FFF5F8]">Virtual Photobooth</h2>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-[#9B93B0]">
+              Foto studio couple online! Abadikan momen estetik bersama pasangan lewat video call &amp; strip frame transparan resolusi tinggi.
+            </p>
+
+            {/* Tags */}
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {["Kamera HD", "Strip Frame", "Video Call"].map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-medium text-[#5C5470]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <div className="mt-6">
+              <Link
+                href="/dashboard/games/photobooth"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#EC4899] hover:bg-[#F43F5E] text-white px-5 py-2.5 text-sm font-semibold shadow-[0_4px_20px_rgba(236,72,153,0.35)] transition-all duration-200"
+              >
+                Mulai Foto
                 <svg
                   width="14"
                   height="14"

@@ -61,6 +61,16 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    href: "/admin/photobooth",
+    label: "Photobooth",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+        <circle cx="12" cy="13" r="4" />
+      </svg>
+    ),
+  },
 ];
 
 export function AdminShell({
@@ -98,42 +108,43 @@ export function AdminShell({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+                className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-medium transition ${
                   active
-                    ? "bg-[#FF3D7F]/15 font-medium text-[#FF6B9D]"
-                    : "text-[#5C5470] hover:bg-white/5 hover:text-[#9B93B0]"
+                    ? "bg-[#FF3D7F]/10 font-semibold text-[#FF6B9D]"
+                    : "text-[#5C5470] hover:bg-white/4 hover:text-[#9B93B0]"
                 }`}
               >
-                <span className={active ? "text-[#FF6B9D]" : "text-[#5C5470]"}>
-                  {item.icon}
-                </span>
+                {item.icon}
                 {item.label}
               </Link>
             );
           })}
         </nav>
 
-        {/* Footer */}
+        {/* User info */}
         <div className="border-t border-white/6 p-3">
-          <div className="mb-2 rounded-xl bg-white/3 px-3 py-2.5">
-            <p className="text-[10px] text-[#5C5470]">Logged in as</p>
-            <p className="truncate text-xs font-medium text-[#9B93B0]">{adminName}</p>
+          <div className="flex items-center justify-between px-2 py-1.5">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-[#FFF5F8]">{adminName}</p>
+              <p className="text-[10px] text-[#5C5470]">Administrator</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              className="rounded-lg p-1.5 text-[#5C5470] transition hover:bg-white/5 hover:text-red-400"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-[#5C5470] transition hover:bg-white/5 hover:text-red-400"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Keluar
-          </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-y-auto">{children}</main>
     </div>
   );
 }

@@ -108,8 +108,9 @@ export type TodQuestion = {
   question: string | null;
   category: string;
   source: "admin" | "user" | "ai";
-  answered_by: string | null;   // UUID user yang menjawab
+  answered_by: string | null;   // UUID user yang menjawab (null jika di-skip)
   is_completed: boolean;
+  is_skipped?: boolean;         // true jika kartu ini dilewati, bukan dijawab
 };
 
 export type TodCustomQuestion = {
@@ -321,6 +322,79 @@ export type QuoridorSession = {
   coin_refunded_at:  string | null;
   created_at:        string;
   updated_at:        string;
+};
+
+// ── Photobooth ───────────────────────────────────────────────────────────────
+
+export type PhotoboothSlot = {
+  index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rounded?: number;
+};
+
+export type PhotoboothTemplate = {
+  id: number;
+  name: string;
+  description: string | null;
+  image_url: string;
+  thumbnail_url: string | null;
+  aspect_ratio: string;
+  canvas_width: number;
+  canvas_height: number;
+  photo_count: number;
+  slots: PhotoboothSlot[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PhotoboothPhoto = {
+  slot_index: number;
+  host_image_url?: string;     // snapshot webcam host (data URL atau path)
+  partner_image_url?: string;  // snapshot webcam partner
+  combined_image_url?: string; // hasil layout 2 kamera di slot ini
+  captured_at: string;
+};
+
+export type PhotoboothPhase = "selecting_template" | "ready" | "taking" | "review_retake" | "completed";
+
+export type PhotoboothGameState = {
+  template_id: number | null;
+  phase: PhotoboothPhase;
+  current_slot: number; // 1-based index (slot aktif)
+  countdown_started_at: number | null; // epoch timestamp ms saat countdown 5 detik dipicu
+  photos: Record<number, PhotoboothPhoto>; // map slot_index -> PhotoboothPhoto
+  retakes_left: number; // kuota retake tersisa (default 3)
+  // Ronde capture aktif (migration 040) — tetap ada setelah submit pertama
+  // memajukan phase, supaya submit pemain kedua untuk slot yang sama diterima.
+  capture?: {
+    slot: number;
+    started_at: number;
+    submitted: ("host" | "partner")[];
+  } | null;
+  completed_by?: "host" | "partner";
+};
+
+export type PhotoboothSession = {
+  id: number;
+  session_code: string;
+  game_type: "photobooth";
+  couple_id: string;
+  host_user_id: string;
+  partner_user_id: string | null;
+  status: "waiting" | "playing" | "completed" | "expired" | "cancelled";
+  questions: [];
+  board_config: { template?: PhotoboothTemplate };
+  game_state: PhotoboothGameState;
+  coin_deducted: number;
+  partner_joined_at: string | null;
+  expires_at: string | null;
+  coin_refunded_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 // Response format standar dari API Routes
