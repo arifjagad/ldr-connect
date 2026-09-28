@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { deleteDailyRoom } from "@/lib/daily";
+import { CAPTURE_RETENTION_DAYS, purgeOldCaptures } from "@/lib/games/photobooth/storage";
 
 /**
  * GET /api/cron/expire-sessions
@@ -24,6 +25,9 @@ import { deleteDailyRoom } from "@/lib/daily";
  * Kedua kasus juga best-effort menghapus Daily.co room terkait (resource
  * cleanup) karena baik /done, /cancel, maupun timer client tidak akan lagi
  * berjalan untuk sesi yang sudah ditelantarkan ini.
+ *
+ * 3. Retensi foto Photobooth: foto di bucket privat photobooth-captures dari
+ *    sesi yang sudah berakhir > CAPTURE_RETENTION_DAYS hari dihapus.
  */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -74,8 +78,11 @@ export async function GET(req: NextRequest) {
 
   await Promise.all(codesToCleanup.map((code) => deleteDailyRoom(code).catch(() => {})));
 
+  // 3. Hapus foto Photobooth yang sudah melewati masa retensi.
+  const purged = await purgeOldCaptures();
+
   console.log(
-    `[cron/expire-sessions] Done. waiting_expired=${waitingRows.length} refunded=${refundedCount} refund_failed=${refundFailedCount} playing_expired=${(stalePlaying ?? []).length}`
+    `[cron/expire-sessions] Done. waiting_expired=${waitingRows.length} refunded=${refundedCount} refund_failed=${refundFailedCount} playing_expired=${(stalePlaying ?? []).length} photobooth_purged_sessions=${purged.sessions} photobooth_purged_files=${purged.files} (retensi ${CAPTURE_RETENTION_DAYS} hari)`
   );
 
   return NextResponse.json({
@@ -86,6 +93,8 @@ export async function GET(req: NextRequest) {
       refunded: refundedCount,
       refund_failed: refundFailedCount,
       playing_expired: (stalePlaying ?? []).length,
+      photobooth_purged_sessions: purged.sessions,
+      photobooth_purged_files: purged.files,
     },
   });
 }

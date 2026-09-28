@@ -71,3 +71,54 @@ export async function withSignedPhotoUrls<T extends PhotoboothSession | null>(se
 
   return { ...session, game_state: { ...session.game_state, photos: signed } };
 }
+
+// Foto hanya dibutuhkan selama sesi + unduh hasil akhir; tidak ada halaman
+// riwayat yang menampilkannya lagi.
+export const CAPTURE_RETENTION_DAYS = 7;
+
+/**
+ * Hapus foto sesi photobooth yang sudah berakhir > CAPTURE_RETENTION_DAYS
+ * hari, lalu tandai game_state.photos_purged_at supaya tidak diproses ulang.
+ * Dibatasi per run agar cron tetap cepat; sisanya diproses run berikutnya.
+ */
+export async function purgeOldCaptures(limit = 100): Promise<{ sessions: number; files: number }> {
+  const serviceClient = createServiceClient();
+  const cutoff = new Date(Date.now() - CAPTURE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: sessions, error } = await serviceClient
+    .from("game_sessions")
+    .select("id, session_code, game_state")
+    .eq("game_type", "photobooth")
+    .in("status", ["completed", "expired", "cancelled"])
+    .lt("updated_at", cutoff)
+    .is("game_state->photos_purged_at", null)
+    .limit(limit);
+
+  if (error) {
+    console.error("[photobooth] Query purge gagal:", error.message);
+    return { sessions: 0, files: 0 };
+  }
+
+  let files = 0;
+  for (const s of sessions ?? []) {
+    const { data: objects } = await serviceClient.storage
+      .from(CAPTURE_BUCKET)
+      .list(s.session_code, { limit: 1000 });
+    const paths = (objects ?? []).map((o) => `${s.session_code}/${o.name}`);
+    if (paths.length > 0) {
+      const { error: removeError } = await serviceClient.storage.from(CAPTURE_BUCKET).remove(paths);
+      if (removeError) {
+        console.error(`[photobooth] Gagal hapus foto sesi ${s.session_code}:`, removeError.message);
+        continue;
+      }
+      files += paths.length;
+    }
+
+    await serviceClient
+      .from("game_sessions")
+      .update({ game_state: { ...(s.game_state ?? {}), photos_purged_at: new Date().toISOString() } })
+      .eq("id", s.id);
+  }
+
+  return { sessions: (sessions ?? []).length, files };
+}
