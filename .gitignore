@@ -104,3 +104,6 @@ logs/
 .prettierignore
 .prettierrc
 .eslintignore
+
+# Log sesi AI agent (transkrip lokal, bukan untuk repo)
+docs/kiro-ldr-connect/
