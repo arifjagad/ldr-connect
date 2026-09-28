@@ -400,6 +400,8 @@ CREATE TRIGGER trg_admin_logs_updated_at
 
 -- ============================================================
 -- TRIGGER: Auto-create user profile + wallet saat signup
+-- Sejak migration 042 tidak menelan exception — signup gagal utuh
+-- (auth.users ikut rollback) daripada meninggalkan akun tanpa profile.
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
 RETURNS TRIGGER AS $$
@@ -420,9 +422,6 @@ BEGIN
   INSERT INTO public.wallets (user_id, balance)
   VALUES (NEW.id, 0);
 
-  RETURN NEW;
-EXCEPTION WHEN OTHERS THEN
-  RAISE LOG 'handle_new_auth_user error for %: % (%)', NEW.email, SQLERRM, SQLSTATE;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

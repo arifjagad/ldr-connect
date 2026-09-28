@@ -265,7 +265,12 @@ export default function CouplePage() {
                 </button>
               ) : (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <p className="text-sm text-[#9B93B0]">Yakin ingin memutuskan hubungan dengan <strong className="text-[#FFF5F8]">{partner.name}</strong>?</p>
+                  <p className="text-sm text-[#9B93B0]">
+                    Yakin ingin memutuskan hubungan dengan <strong className="text-[#FFF5F8]">{partner.name}</strong>?
+                    <span className="mt-1 block text-xs text-[#5C5470]">
+                      Game yang sedang berjalan akan dibatalkan. Coin untuk game yang belum dimulai dikembalikan.
+                    </span>
+                  </p>
                   <div className="flex gap-2">
                     <button
                       type="button"

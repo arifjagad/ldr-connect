@@ -127,8 +127,9 @@ END;
 $$;
 
 -- ============================================================
--- FUNCTION: unlink_couple (hardened — migration 036)
--- Putuskan hubungan pasangan (atomic)
+-- FUNCTION: unlink_couple (hardened — migration 036, sesi game — 042)
+-- Putuskan hubungan pasangan (atomic). Sejak 042 juga membereskan sesi
+-- game aktif couple: waiting → refund host, playing → cancelled.
 -- Dipanggil dari: client (supabase.rpc) di app/dashboard/couple/page.tsx
 --
 -- Hardening migration 036: sama seperti link_couple — IDOR fix
@@ -144,6 +145,7 @@ DECLARE
   v_partner_id UUID;
   v_first_id   UUID;
   v_second_id  UUID;
+  v_session    RECORD;
 BEGIN
   IF p_user_id IS DISTINCT FROM auth.uid() THEN
     RAISE EXCEPTION 'UNAUTHORIZED'
@@ -164,6 +166,21 @@ BEGIN
 
   PERFORM 1 FROM public.users WHERE id = v_first_id  FOR UPDATE;
   PERFORM 1 FROM public.users WHERE id = v_second_id FOR UPDATE;
+
+  FOR v_session IN
+    SELECT id, status FROM public.game_sessions
+    WHERE couple_id = v_first_id
+      AND status IN ('waiting', 'playing')
+    FOR UPDATE
+  LOOP
+    IF v_session.status = 'waiting' THEN
+      PERFORM public.refund_expired_session(v_session.id);
+    ELSE
+      UPDATE public.game_sessions
+      SET status = 'cancelled', updated_at = now()
+      WHERE id = v_session.id;
+    END IF;
+  END LOOP;
 
   UPDATE public.users
   SET partner_id = NULL, status = 'single', updated_at = now()
