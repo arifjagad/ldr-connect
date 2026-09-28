@@ -617,10 +617,10 @@ Ditemukan saat audit area Account & Security (2026), severity medium/rendah, bel
 
 | # | Severity | Deskripsi |
 |---|----------|-----------|
-| 1 | Medium | `unlink_couple` tidak cleanup `game_sessions` aktif (`waiting`/`playing`) milik couple yang lama — sesi bisa jadi "orphan" tak terjangkau jika salah satu pihak lalu link ke partner baru. |
-| 2 | Medium | Tidak ada rate limiting pada RPC `link_couple` — couple_code (10 karakter hex dari UUID, keyspace besar) tetap bisa dicoba berulang tanpa dibatasi; error message `INVALID_CODE` vs `PARTNER_ALREADY_LINKED` juga jadi oracle enumerasi. |
+| 1 | ✅ FIXED (042) | `unlink_couple` tidak cleanup `game_sessions` aktif (`waiting`/`playing`) milik couple yang lama — sesi bisa jadi "orphan" tak terjangkau jika salah satu pihak lalu link ke partner baru. |
+| 2 | Rendah (ditinjau ulang) | Tidak ada rate limiting pada RPC `link_couple` — couple_code (10 karakter hex dari UUID, keyspace besar) tetap bisa dicoba berulang tanpa dibatasi; error message `INVALID_CODE` vs `PARTNER_ALREADY_LINKED` juga jadi oracle enumerasi. |
 | 3 | Medium | Rate limiter login (`check_login_rate_limit`) fail-open jika RPC error — proteksi brute-force terlewati saat sistem under stress. |
-| 4 | Medium | Trigger `handle_new_auth_user` (signup) menelan exception (`WHEN OTHERS THEN RAISE LOG ... RETURN NEW`) — jika insert ke `public.users`/`wallets` gagal, `auth.users` tetap terbuat tapi profile tidak pernah ada (orphaned account, tidak ada self-recovery). |
+| 4 | ✅ FIXED (042) | Trigger `handle_new_auth_user` (signup) menelan exception (`WHEN OTHERS THEN RAISE LOG ... RETURN NEW`) — jika insert ke `public.users`/`wallets` gagal, `auth.users` tetap terbuat tapi profile tidak pernah ada (orphaned account, tidak ada self-recovery). |
 | 5 | Rendah | Validasi tipe file avatar (`app/api/user/avatar/route.ts`) hanya cek `Content-Type` dari client, bukan magic-byte/file-header sesungguhnya. |
 | 6 | Rendah | Tidak ada notifikasi email saat password diubah. |
 | 7 | Rendah | Tidak ditemukan flow forgot-password/reset-password di codebase — perlu konfirmasi apakah ini fitur yang disengaja belum dibangun. |
@@ -629,7 +629,13 @@ Ditemukan saat audit area Account & Security (2026), severity medium/rendah, bel
 | 10 | Rendah | RLS `capsules_update_open` tidak punya `WITH CHECK` eksplisit — secara teknis membuat policy ini tidak pernah bisa dipakai dari client langsung (update `status` keluar dari kondisi `USING` setelah perubahan). Saat ini tidak masalah karena endpoint `open` pakai service-role client, tapi ini dead code / trap desain untuk refactor di masa depan. |
 | 11 | Rendah | Lazy-delivery capsule (`GET /api/capsule`) tidak mengirim push notification saat mengubah status jadi `delivered` (hanya cron yang kirim push) — jika cron gagal/lambat dan lazy-delivery menang race, receiver tidak akan dapat notifikasi push meski status di DB sudah delivered. |
 | 12 | Rendah | `POST /api/coin/webhook` tidak punya rate limiting (server-to-server dari Midtrans, tidak ada `user_id` sehingga `checkRateLimit()` tidak bisa dipakai langsung). Sudah dilindungi verifikasi signature SHA512, tapi belum ada mekanisme rate limit berbasis IP sebagai defense-in-depth tambahan — butuh helper baru, di luar scope audit rate limiting saat ini. |
-| 13 | Rendah | `POST /api/push/test` adalah endpoint debug yang komentar kodenya sendiri menyatakan harus dihapus sebelum production, tapi masih ada di codebase (hanya diberi rate limit ketat 5x/10 menit, tidak dihapus). Pertimbangkan menghapus endpoint ini sepenuhnya jika sudah tidak dipakai untuk debugging. |
+| 13 | ✅ FIXED (dihapus) | `POST /api/push/test` adalah endpoint debug yang komentar kodenya sendiri menyatakan harus dihapus sebelum production, tapi masih ada di codebase (hanya diberi rate limit ketat 5x/10 menit, tidak dihapus). Pertimbangkan menghapus endpoint ini sepenuhnya jika sudah tidak dipakai untuk debugging. |
+
+**Catatan tindak lanjut:**
+- **#1** — `unlink_couple` sekarang (migration 042) me-refund sesi `waiting` ke host dan mengubah sesi `playing` jadi `cancelled` dalam transaksi yang sama. Dialog konfirmasi unlink di `app/dashboard/couple/page.tsx` menyebut efek ini.
+- **#2** — Diturunkan ke Rendah. Couple code adalah 10 karakter hex acak (≈1,1 triliun kombinasi), jadi menebak kode valid tidak praktis walau tanpa rate limit, dan oracle `INVALID_CODE` vs `PARTNER_ALREADY_LINKED` hanya membocorkan apakah kode tebakan itu ada. Rate limit di dalam RPC juga tidak efektif untuk percobaan gagal: `RAISE EXCEPTION` me-rollback catatan percobaan. Perbaikan yang benar butuh mengubah kontrak RPC (kembalikan hasil kosong alih-alih exception) — belum sepadan dengan risikonya.
+- **#4** — Trigger tidak lagi menelan exception (migration 042): signup gagal utuh dan bisa diulang. Saat migration dibuat, tidak ada akun orphan di production (6 akun, semua punya profile & wallet).
+- **#13** — Endpoint dihapus (juga mencetak sebagian VAPID key & email ke log).
 
 ---
 

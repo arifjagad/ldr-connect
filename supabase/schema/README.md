@@ -59,6 +59,7 @@ Jalankan file-file berikut **secara berurutan** di Supabase SQL Editor:
 | 039 | `REVOKE EXECUTE` dari `anon`/`authenticated` untuk semua RPC server-only (game + payment) — cegah IDOR via `p_user_id` sembarang, RPC ini SECURITY DEFINER tanpa validasi `auth.uid()` dan sebelumnya bisa dipanggil langsung dari client | ✅ `03_functions.sql` |
 | 040 | `photobooth_action` — gameplay photobooth atomik (`SELECT ... FOR UPDATE`) + guard fase/slot/kuota retake; fix foto host/partner saling timpa & bypass `retakes_left` via request paralel. Sudah `REVOKE` dari client | ✅ `03_functions.sql` |
 | 041 | Bucket privat `photobooth-captures` + `photobooth_action` menyimpan path foto (`host_image_path`/`partner_image_path`), bukan base64 — row base64 ~2.9 MB membuat Realtime berhenti mengirim `game_state` | ✅ `03_functions.sql` |
+| 042 | `unlink_couple` membereskan sesi game aktif couple (waiting → refund, playing → cancelled); `handle_new_auth_user` tidak lagi menelan exception | ✅ `03_functions.sql` + `01_tables.sql` |
 
 ## Fungsi yang Dihapus (Deprecated)
 

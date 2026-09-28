@@ -81,7 +81,7 @@ ldr-connect/
 │       ├── anniversaries/        # CRUD anniversary (migration 037 — sebelumnya operasi langsung dari client via supabase.from(), sekarang wajib lewat API route ini)
 │       ├── wishlist/             # CRUD wishlist + mark done
 │       ├── capsule/              # CRUD time capsule + open (lazy-delivery fallback di GET)
-│       ├── push/                 # Subscribe & test web push
+│       ├── push/                 # Subscribe web push
 │       ├── cron/                 # Anniversary reminders & capsule delivery
 │       ├── user/                 # Avatar, partner-profile
 │       └── admin/                # Admin voucher management
@@ -281,7 +281,6 @@ Daftar lengkap endpoint yang sudah dilindungi `checkRateLimit` (per Februari 202
 | `POST /api/game/{tod,snake-ladder,dare-derby,quoridor,photobooth}/session/join` | `{game}:session:join` | 10x/5m | Cegah brute-force session code + spam push ke host |
 | `GET /api/game/{tod,snake-ladder,dare-derby,quoridor,photobooth}/session/[code]/room` | `{game}:session:room` | 20x/5m | Setiap request panggil Daily.co API (`createDailyRoom`) |
 | `POST /api/user/avatar` | `user:avatar:upload` | 10x/10m | Cegah spam upload file ke Supabase Storage |
-| `POST /api/push/test` | `push:test` | 5x/10m | Endpoint debug, bukan untuk penggunaan reguler |
 
 **Sengaja TIDAK diberi rate limit** (keputusan sadar, bukan gap):
 - Route admin (`app/api/admin/**`) — sudah cukup dilindungi `requireAdmin()`.
@@ -315,6 +314,8 @@ User B masuk /dashboard/couple
   → Stored proc atomic: update partner_id di kedua user, set status = 'linked'
   → Keduanya kini "linked"
 ```
+
+Saat **unlink** (migration 042), sesi game aktif couple ikut dibereskan dalam transaksi yang sama: sesi `waiting` di-refund ke host via `refund_expired_session`, sesi `playing` jadi `cancelled` tanpa refund.
 
 > ⚠️ **Hardening migration 036**: `link_couple`/`unlink_couple` sebelumnya
 > punya 2 celah kritis — (1) IDOR: `p_user_id` tidak divalidasi terhadap
@@ -654,7 +655,7 @@ export async function POST(request: Request) {
 Lihat bagian [Section 8](#8-realtime-supabase). Selalu cleanup channel saat komponen unmount.
 
 ### Security yang Sudah Diimplementasikan
-- CSP dengan nonce-based (bukan `unsafe-inline`) via `middleware.ts`
+- CSP dengan nonce-based (bukan `unsafe-inline`) via `proxy.ts` (dulu `middleware.ts`, di-rename sesuai konvensi Next.js 16)
 - HSTS header
 - Rate limiting via `lib/rate-limit.ts` — lihat daftar lengkap endpoint di [Section 5 § Rate Limiting](#5-konvensi-kritis)
 - Security event logging via `lib/security-logger.ts`
@@ -734,6 +735,7 @@ File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supa
 | `039_revoke_server_only_rpc.sql` | `REVOKE EXECUTE` 27 RPC server-only dari `anon`/`authenticated` (fix IDOR `p_user_id`) |
 | `040_photobooth_atomic_actions.sql` | RPC `photobooth_action` — gameplay photobooth atomik + guard fase/slot/kuota retake |
 | `041_photobooth_storage_captures.sql` | Bucket privat `photobooth-captures`; `photobooth_action` simpan path foto (bukan base64) di `game_state` |
+| `042_unlink_sessions_and_signup_atomic.sql` | `unlink_couple` refund sesi `waiting` & batalkan sesi `playing` couple; trigger signup tidak lagi menelan error (cegah akun tanpa profile) |
 | `add_avatar_url.sql` | Kolom avatar_url di users |
 | `push_subscriptions.sql` | Tabel push_subscriptions |
 
@@ -769,6 +771,6 @@ File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supa
 - `anniversary-reminders`: Push notif H-7, H-3, H-1, dan hari-H anniversary.
 - `capsule-delivery`: Unlock pesan time capsule yang `delivery_date <= today`, kirim push notif ke penerima.
 - `expire-topup`: Batalkan transaksi topup `pending` > 60 menit — menutup akses pembayaran di Midtrans (Snap session + Core API) SEBELUM finalisasi DB, dan mengkredit coin (bukan menggagalkan) jika ternyata user sudah bayar tepat sebelum expire diproses. Logic inti di `lib/coin/cancel-topup.ts`, dipakai bersama oleh `POST /api/coin/cancel-topup` (manual) dan cron ini.
-- `expire-sessions` (migration 038): jaring pengaman untuk `game_sessions` yang ditelantarkan — (1) expire + **refund** coin host untuk sesi `waiting` yang partner tidak pernah join (via RPC `expire_waiting_sessions()`, yang sebelumnya TIDAK PERNAH dipanggil siapa pun), dan (2) expire (tanpa refund) sesi `playing` yang lolos dari timer client (tab ditutup sebelum `/expire` terpanggil). Juga best-effort hapus Daily.co room terkait.
+- `expire-sessions` (migration 038): jaring pengaman untuk `game_sessions` yang ditelantarkan — (1) expire + **refund** coin host untuk sesi `waiting` yang partner tidak pernah join (via RPC `expire_waiting_sessions()`, yang sebelumnya TIDAK PERNAH dipanggil siapa pun), dan (2) expire (tanpa refund) sesi `playing` yang lolos dari timer client (tab ditutup sebelum `/expire` terpanggil). Juga best-effort hapus Daily.co room terkait. Sejak migration 041 juga menghapus foto Photobooth di bucket privat `photobooth-captures` untuk sesi yang sudah berakhir > 7 hari (`purgeOldCaptures` di `lib/games/photobooth/storage.ts`).
 
 > ⚠️ Vercel Hobby plan membatasi cron ke 1x/hari — transaksi topup pending bisa "menggantung" sampai ~24 jam sebelum di-expire (bukan bug, limitasi platform). Lihat **[`readme/DEPLOYMENT_CRON.md`](./readme/DEPLOYMENT_CRON.md)** untuk cara mempercepat jadwal ini setelah upgrade ke Vercel Pro atau pindah ke VPS.

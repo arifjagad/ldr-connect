@@ -113,7 +113,7 @@ Satu tabel terpusat untuk mengelola seluruh jenis game (`tod`, `snake_ladder`, `
    Semua API route memverifikasi token session via `createServerClient` dari `@supabase/ssr`.
 
 ### Keamanan (OWASP Standard)
-- **CSP Nonce-based**: Implementasi Content Security Policy berbasis Nonce di `middleware.ts` (mencegah XSS).
+- **CSP Nonce-based**: Implementasi Content Security Policy berbasis Nonce di `proxy.ts` (mencegah XSS).
 - **HSTS Header**: Strict-Transport-Security diaktifkan.
 - **Service Role Isolation**: `SUPABASE_SERVICE_ROLE_KEY` hanya digunakan di API server-side untuk Bypass RLS pada fungsi sensitif (seperti webhook payment). Tidak pernah di-expose ke client.
 - **Rate Limiting**: Rate limiter bawaan (`lib/rate-limit.ts`) membatasi jumlah request per IP/User.
