@@ -539,6 +539,8 @@ Semua route gameplay photobooth (`select-template`, `trigger-countdown`, `submit
 
 **Lanjutan (migration 041), ditemukan lewat uji end-to-end:** foto base64 di `game_state` membuat row sesi mencapai ~2.9 MB (4 slot × 2 foto ~370 KB). Supabase Realtime berhenti mengirim kolom `game_state` untuk row sebesar itu (hanya 5 dari 18 event yang memuatnya), sehingga client partner berhenti menerima `countdown_started_at` di tengah permainan dan game macet. Fix: foto di-upload ke bucket **privat** `photobooth-captures` (tanpa policy anon/authenticated), `game_state` hanya menyimpan path (`{session_code}/...`, divalidasi RPC), GET sesi (`[code]`, `active`) menambahkan signed URL 2 jam setelah cek peserta, dan frontend mengambil signed URL saat realtime membawa path baru. File lama dihapus saat retake, dan file yang di-upload untuk submit yang ditolak RPC langsung dihapus. Keaslian foto (benar hasil webcam) tetap tidak bisa diverifikasi server; dampaknya terbatas ke album couple sendiri.
 
+**Lanjutan (tanpa migration):** `GET /api/game/photobooth/session/active` meng-UPDATE sendiri semua sesi user yang lewat `expires_at` menjadi `expired` — **tanpa filter `game_type` dan tanpa refund**. Membuka halaman Photobooth menghanguskan coin sesi `waiting` game lain (misal Snake & Ladder 5 coin), dan cron `expire-sessions` tidak bisa me-refund-nya lagi karena statusnya sudah bukan `waiting` (pola sama dengan GAME-01 #2 yang terlewat di route ini). Fix: route dibuat read-only via `get_active_session_for_couple` seperti 4 game lain; expire + refund tetap lewat `create_game_session` dan cron. Diverifikasi dengan uji nyata: sesi ToD `waiting` yang sudah lewat waktu tetap `waiting` setelah GET active, saldo tidak berubah, dan jalur refund resmi mengembalikan coin.
+
 ---
 
 #### ✅ ACC-08 `[PAY]` Rate limiting audit menyeluruh — 15 endpoint tanpa proteksi ditemukan & diperbaiki — **FIXED**
@@ -605,7 +607,7 @@ Audit menyeluruh (sub-agent context-gatherer) menemukan 15 endpoint yang trigger
 | ✅ DONE | GAME-02 | Audit Snake & Ladder: fix endpoint expire tanpa validasi waktu (3 game), tambah endpoint expire yang hilang (Dare Derby, Photobooth), hapus duplikasi update expires_at manual (3 route join), tambah deleteDailyRoom ke semua jalur game-selesai yang belum membersihkan room |
 | ✅ DONE | GAME-03 | REVOKE EXECUTE 26 RPC server-only dari anon/authenticated (IDOR sistemik, migration 039), cap skor Dare Derby max 150 di Zod, matikan DEBUG_FORCE_MINIGAME |
 | ✅ DONE | GAME-04 | Fix tombol "Tinggalkan" saat playing yang cuma reset UI tanpa beri tahu server (Quoridor, Snake & Ladder, Dare Derby, Photobooth) — sekarang panggil endpoint /expire; tambah mapping INVALID_ACTION di action/route.ts Quoridor |
-| ✅ DONE | GAME-05 | Audit Photobooth: RPC atomik `photobooth_action` (migration 040) — fix foto host/partner saling timpa, bypass kuota retake, guard fase/slot/status, validasi format & ukuran `image_url` |
+| ✅ DONE | GAME-05 | Audit Photobooth: RPC atomik `photobooth_action` (migration 040) — fix foto host/partner saling timpa, bypass kuota retake, guard fase/slot/status, validasi format & ukuran `image_url`; foto ke Storage privat (041); route `active` tidak lagi menghanguskan coin sesi game lain |
 
 ---
 
