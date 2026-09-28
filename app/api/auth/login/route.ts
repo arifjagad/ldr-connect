@@ -16,7 +16,7 @@ const bodySchema = z.object({
  * Server-side login dengan dua-tier rate limiting:
  * - Tier 1: 5 gagal dalam 1 menit  → 429 "coba lagi 1 menit"
  * - Tier 2: 10 gagal dalam 1 jam   → 429 "diblokir 1 jam"
- * Setelah berhasil: set cookie ldr_session_age untuk session timeout di middleware.
+ * Setelah berhasil: set cookie ldr_session_age untuk session timeout di proxy.ts.
  */
 export async function POST(request: NextRequest) {
   // 1. Validasi body

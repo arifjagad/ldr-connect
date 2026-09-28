@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE_NAME = "ldr_session_age";
 const SESSION_MAX_MS = 24 * 60 * 60 * 1000; // 24 jam
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   const isDev = process.env.NODE_ENV !== "production";
 
