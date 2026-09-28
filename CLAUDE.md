@@ -106,7 +106,7 @@ ldr-connect/
 │   └── auth-store.ts             # Zustand store (persisted) untuk auth state
 ├── supabase/
 │   ├── migrations/               # SQL migrations (001–030)
-│   └── schema/                   # Snapshot schema (01–06)
+│   └── schema/                   # State akhir DB per kategori (00–11 + seed/) — untuk setup DB baru
 ├── proxy.ts                      # Next.js 16 proxy (auth protect, CSP nonce, session timeout)
 └── public/                       # Static assets
 ```
@@ -246,7 +246,7 @@ Semua API routes harus mengembalikan format ini:
 
 ### ⚠️ Rate Limiting
 
-Helper utama: `checkRateLimit(userId, { endpoint, maxRequests, windowMinutes })` di `lib/rate-limit.ts`, dipanggil **setelah auth check, sebelum parsing body** di setiap route. Backend-nya RPC `check_and_record_rate_limit` (`03_functions.sql`) yang pakai `pg_advisory_xact_lock` per `user_id:endpoint` — **fail-open** by design (kalau RPC error, request diloloskan; availability diprioritaskan di atas strictness, jangan diubah tanpa diskusi).
+Helper utama: `checkRateLimit(userId, { endpoint, maxRequests, windowMinutes })` di `lib/rate-limit.ts`, dipanggil **setelah auth check, sebelum parsing body** di setiap route. Backend-nya RPC `check_and_record_rate_limit` (`supabase/schema/03_rate_limiting.sql`) yang pakai `pg_advisory_xact_lock` per `user_id:endpoint` — **fail-open** by design (kalau RPC error, request diloloskan; availability diprioritaskan di atas strictness, jangan diubah tanpa diskusi).
 
 Pola pakai standar:
 ```typescript
@@ -329,8 +329,8 @@ Saat **unlink** (migration 042), sesi game aktif couple ikut dibereskan dalam tr
 > fungsi ini di masa depan.
 
 > ⚠️ **RLS kolom `users` (migration 036)**: policy `users_update_own` di
-> `02_rls.sql` hanya membatasi BARIS (harus milik sendiri), bukan KOLOM.
-> Trigger `protect_sensitive_user_columns` (`01_tables.sql`) menutup celah
+> `schema/01_accounts_couple.sql` hanya membatasi BARIS (harus milik sendiri), bukan KOLOM.
+> Trigger `protect_sensitive_user_columns` (file yang sama) menutup celah
 > ini — client (role `authenticated`/`anon`) TIDAK BOLEH mengubah
 > `is_admin`, `couple_code`, `partner_id`, `status`, `email`, `id` lewat
 > `supabase.from("users").update(...)` langsung. Kolom-kolom itu hanya
@@ -690,7 +690,11 @@ Lihat bagian [Section 8](#8-realtime-supabase). Selalu cleanup channel saat komp
 
 ## 14. Migrasi Database
 
-File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supabase SQL Editor:
+**Database baru:** jalankan `supabase/schema/` (file `00`–`11`, lalu `seed/`) — lihat `supabase/schema/README.md`. `migrations/` TIDAK bisa di-replay dari 001 apa adanya (urutan historis bermasalah) dan hasilnya sedikit berbeda dari production.
+
+**Perubahan DB:** buat migration bernomor berikutnya di `supabase/migrations/`, jalankan di production, lalu terapkan perubahan yang sama ke file kategori di `supabase/schema/`.
+
+Riwayat migration di `supabase/migrations/`:
 
 | File | Isi |
 |---|---|
@@ -736,6 +740,7 @@ File migration di `supabase/migrations/` dijalankan **secara berurutan** di Supa
 | `040_photobooth_atomic_actions.sql` | RPC `photobooth_action` — gameplay photobooth atomik + guard fase/slot/kuota retake |
 | `041_photobooth_storage_captures.sql` | Bucket privat `photobooth-captures`; `photobooth_action` simpan path foto (bukan base64) di `game_state` |
 | `042_unlink_sessions_and_signup_atomic.sql` | `unlink_couple` refund sesi `waiting` & batalkan sesi `playing` couple; trigger signup tidak lagi menelan error (cegah akun tanpa profile) |
+| `043_avatars_bucket.sql` | Bucket Storage `avatars` (publik, 3 MB) — sebelumnya tidak pernah dibuat, upload avatar selalu gagal |
 | `add_avatar_url.sql` | Kolom avatar_url di users |
 | `push_subscriptions.sql` | Tabel push_subscriptions |
 

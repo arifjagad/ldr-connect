@@ -1,43 +1,7 @@
 -- ============================================================
--- LDR-Connect: Schema Fresh — 04 Seed Data
--- Jalankan SETELAH 03_functions.sql
---
--- Berisi: game_settings, coin_packages, minigame_configs,
---         dare_questions, vouchers (dummy)
--- Pertanyaan game lanjutkan dengan:
---   05_seed_tod_questions.sql   (ToD questions)
---   06_seed_snake_questions.sql (Snake questions)
+-- LDR-Connect Seed — Mini-game Dare Derby + pool dare
+-- Jalankan setelah semua file schema (00–11).
 -- ============================================================
-
--- ============================================================
--- SEED: game_settings
--- coin_cost Dare Derby = biaya partner join; biaya host dihitung
--- di API route berdasarkan total_rounds (5→3, 7→4, 10→6 coin).
--- ============================================================
-INSERT INTO public.game_settings
-  (game_type, display_name, description, coin_cost, expires_in_minutes, is_active)
-VALUES
-  ('tod',          'Truth or Dare', 'Game seru Truth or Dare untuk pasangan LDR',                        1,  10, true),
-  ('snake_ladder', 'Ular Tangga',   'Main ular tangga bareng pasangan',                                  5,  20, true),
-  ('quiz',         'Quiz Pasangan', 'Uji seberapa kenal kamu dengan pasanganmu',                         5,  15, false),
-  ('dare_derby',   'Dare Derby',    'Mini-game kompetitif! Yang kalah tiap ronde dapat dare.',            3,  60, true),
-  ('quoridor',     'Quoridor',      'Game strategi papan 9×9. Gerakkan pion atau pasang tembok!',         3,  30, true)
-ON CONFLICT (game_type) DO UPDATE
-  SET coin_cost          = EXCLUDED.coin_cost,
-      expires_in_minutes = EXCLUDED.expires_in_minutes,
-      is_active          = EXCLUDED.is_active,
-      updated_at         = now();
-
--- ============================================================
--- SEED: coin_packages
--- ============================================================
-INSERT INTO public.coin_packages (name, coin_amount, price, is_active)
-VALUES
-  ('Starter Pack',  20,  15000,  true),
-  ('Popular Pack',  50,  35000,  true),
-  ('Value Pack',    100, 65000,  true),
-  ('Premium Pack',  200, 120000, true)
-ON CONFLICT DO NOTHING;
 
 -- ============================================================
 -- SEED: game_minigame_configs (migration 016 + 019 + 030)
@@ -102,30 +66,3 @@ INSERT INTO public.game_dare_questions (category, content) VALUES
   ('challenge', 'Gambar wajah aku (semampunya), foto hasilnya, dan kirim'),
   ('challenge', 'Rekam video kamu lagi joget 20 detik dengan lagu favorit kita, kirim')
 ON CONFLICT DO NOTHING;
-
--- ============================================================
--- SEED: vouchers — dummy data untuk testing
--- Hapus dulu sebelum re-seed:
---   TRUNCATE public.voucher_redemptions, public.vouchers RESTART IDENTITY CASCADE;
--- ============================================================
-INSERT INTO public.vouchers
-  (code, type, coin_value, discount_type, discount_value, max_discount, min_purchase,
-   max_uses, uses_remaining, valid_from, valid_until, is_active)
-VALUES
-  -- COIN CREDIT
-  ('WELCOME10',   'coin_credit', 10,  NULL, NULL, NULL, NULL, 100, 100, NOW(), NULL, true),
-  ('LOVE-EVENT',  'coin_credit', 25,  NULL, NULL, NULL, NULL,  10,  10, NOW(), NOW() + INTERVAL '30 days', true),
-  ('LDR-SPECIAL', 'coin_credit', 50,  NULL, NULL, NULL, NULL,   1,   1, NOW(), NOW() + INTERVAL '7 days',  true),
-  ('PREMIUM-LDR', 'coin_credit', 100, NULL, NULL, NULL, NULL,   5,   5, NOW(), NOW() + INTERVAL '14 days', true),
-  ('SOON-2026',   'coin_credit', 15,  NULL, NULL, NULL, NULL,  50,  50, NOW() + INTERVAL '3 days', NOW() + INTERVAL '10 days', true),
-  ('EXPIRED-OLD', 'coin_credit', 20,  NULL, NULL, NULL, NULL,  50,  50, NOW() - INTERVAL '30 days', NOW() - INTERVAL '1 day', true),
-  ('PAUSED-VOC',  'coin_credit', 30,  NULL, NULL, NULL, NULL,  20,  20, NOW(), NULL, false),
-  ('SOLD-OUT',    'coin_credit', 5,   NULL, NULL, NULL, NULL,   3,   0, NOW() - INTERVAL '5 days', NULL, true),
-  -- TOPUP DISCOUNT
-  ('HEMAT20',     'topup_discount', NULL, 'percentage', 20, 20000, 35000,  50, 50, NOW(), NOW() + INTERVAL '30 days', true),
-  ('DISC10K',     'topup_discount', NULL, 'fixed',  10000,  NULL, 50000,   30, 30, NOW(), NOW() + INTERVAL '14 days', true),
-  ('COUPLE50',    'topup_discount', NULL, 'percentage', 50, 30000, 65000,   5,  5, NOW(), NOW() + INTERVAL '7 days',  true),
-  ('DISKON5K',    'topup_discount', NULL, 'fixed',   5000,  NULL,  NULL,  100,100, NOW(), NULL, true),
-  ('PROMO-OFF',   'topup_discount', NULL, 'percentage', 15, 25000, 35000,  20, 20, NOW(), NOW() + INTERVAL '30 days', false),
-  ('OLDPROMO',    'topup_discount', NULL, 'fixed',  15000,  NULL, 50000,  100,100, NOW() - INTERVAL '30 days', NOW() - INTERVAL '1 day', true)
-ON CONFLICT (code) DO NOTHING;

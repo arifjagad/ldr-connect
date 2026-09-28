@@ -1,9 +1,6 @@
 -- ============================================================
--- LDR-Connect: Schema Fresh — 06 Seed Pertanyaan Ular Tangga
--- Jalankan SETELAH 05_seed_tod_questions.sql
---
--- 100 pertanyaan Truth or Dare untuk game Ular Tangga
--- Kategori: romantis, kenangan, harapan, umum, tantangan, seru
+-- LDR-Connect Seed — Pertanyaan tantangan Ular Tangga
+-- Jalankan setelah semua file schema (00–11).
 -- ============================================================
 
 INSERT INTO public.game_snake_questions (type, category, question) VALUES

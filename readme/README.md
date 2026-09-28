@@ -111,18 +111,17 @@ NEXT_PUBLIC_DAILY_DOMAIN=
 
 ### 3. Setup Database
 
-Jalankan semua file migration di **Supabase SQL Editor** secara berurutan:
+Jalankan file di `supabase/schema/` di **Supabase SQL Editor** secara berurutan:
 
 ```
-supabase/migrations/001_tables.sql
-supabase/migrations/002_rls_policies.sql
-supabase/migrations/003_functions.sql
-supabase/migrations/004_tod_questions_seed.sql
-supabase/migrations/005_snake_questions_seed.sql
-... (lanjutkan sampai 019)
+supabase/schema/00_common.sql
+supabase/schema/01_accounts_couple.sql
+... (sampai 11_push_notifications.sql)
+supabase/schema/seed/01_game_settings.sql
+... (sampai seed/07_photobooth_templates.sql)
 ```
 
-> Lihat `supabase/README.md` untuk panduan lengkap urutan migration.
+> Lihat `supabase/schema/README.md` untuk isi tiap file. Jangan setup DB baru dengan menjalankan `supabase/migrations/` dari 001 — urutan historisnya tidak bisa di-replay apa adanya.
 
 ### 4. Jalankan Dev Server
 

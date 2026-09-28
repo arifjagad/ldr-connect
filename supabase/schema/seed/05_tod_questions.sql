@@ -1,10 +1,6 @@
 -- ============================================================
--- LDR-Connect: Schema Fresh — 05 Seed Pertanyaan Truth or Dare
--- Jalankan SETELAH 04_seed_data.sql
---
--- Semua pertanyaan: couple_id = NULL (global, dari admin)
--- source = 'admin', is_active = true
--- Kategori: romantis, kenangan, mimpi, tantangan, seru
+-- LDR-Connect Seed — Pertanyaan global Truth or Dare
+-- Jalankan setelah semua file schema (00–11).
 -- ============================================================
 
 INSERT INTO public.game_tod_questions

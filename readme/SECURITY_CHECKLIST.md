@@ -421,13 +421,13 @@ File diperbarui dengan variabel Supabase, Midtrans, Daily.co yang benar.
 ---
 
 #### ✅ ACC-01 `[RACE]` Privilege escalation via RLS column-gap pada `users` — **FIXED**
-Policy `users_update_own` (`02_rls.sql`) hanya membatasi BARIS (`auth.uid() = id`), tidak membatasi KOLOM. Karena `app/dashboard/profile/page.tsx` dan komponen lain memanggil `supabase.from("users").update(...)` langsung dari browser (anon key), user manapun bisa menjalankan `supabase.from("users").update({ is_admin: true }).eq("id", myId)` dari console dan self-promote jadi admin — lalu mengakses semua fitur `/admin/*` karena `app/admin/layout.tsx` dan setiap route admin membaca `is_admin` langsung dari tabel yang sama.
-**Fix (migration 036):** trigger `protect_sensitive_user_columns` di `01_tables.sql` menolak UPDATE kolom `is_admin`, `couple_code`, `partner_id`, `status`, `email`, `id` jika `current_user` adalah role `authenticated`/`anon`. RPC `SECURITY DEFINER` dan service role tidak terpengaruh.
+Policy `users_update_own` (`schema/01_accounts_couple.sql`) hanya membatasi BARIS (`auth.uid() = id`), tidak membatasi KOLOM. Karena `app/dashboard/profile/page.tsx` dan komponen lain memanggil `supabase.from("users").update(...)` langsung dari browser (anon key), user manapun bisa menjalankan `supabase.from("users").update({ is_admin: true }).eq("id", myId)` dari console dan self-promote jadi admin — lalu mengakses semua fitur `/admin/*` karena `app/admin/layout.tsx` dan setiap route admin membaca `is_admin` langsung dari tabel yang sama.
+**Fix (migration 036):** trigger `protect_sensitive_user_columns` di `schema/01_accounts_couple.sql` menolak UPDATE kolom `is_admin`, `couple_code`, `partner_id`, `status`, `email`, `id` jika `current_user` adalah role `authenticated`/`anon`. RPC `SECURITY DEFINER` dan service role tidak terpengaruh.
 
 ---
 
 #### ✅ ACC-02 `[PAY]` IDOR pada RPC `link_couple`/`unlink_couple` — **FIXED**
-Kedua fungsi (`03_functions.sql`) menerima `p_user_id` sebagai parameter bebas tanpa memvalidasi `p_user_id = auth.uid()`. Karena RPC ini `SECURITY DEFINER` (bypass RLS) dan dipanggil langsung dari client tanpa API route perantara, siapa pun yang login bisa memanggil `supabase.rpc("unlink_couple", { p_user_id: "<uuid korban>" })` dan memutuskan/memaksa-link akun orang lain tanpa consent.
+Kedua fungsi (`schema/01_accounts_couple.sql`) menerima `p_user_id` sebagai parameter bebas tanpa memvalidasi `p_user_id = auth.uid()`. Karena RPC ini `SECURITY DEFINER` (bypass RLS) dan dipanggil langsung dari client tanpa API route perantara, siapa pun yang login bisa memanggil `supabase.rpc("unlink_couple", { p_user_id: "<uuid korban>" })` dan memutuskan/memaksa-link akun orang lain tanpa consent.
 **Fix (migration 036):** kedua fungsi sekarang menolak eksekusi (`RAISE EXCEPTION 'UNAUTHORIZED'`) jika `p_user_id IS DISTINCT FROM auth.uid()`.
 
 ---
@@ -630,6 +630,10 @@ Ditemukan saat audit area Account & Security (2026), severity medium/rendah, bel
 | 11 | Rendah | Lazy-delivery capsule (`GET /api/capsule`) tidak mengirim push notification saat mengubah status jadi `delivered` (hanya cron yang kirim push) — jika cron gagal/lambat dan lazy-delivery menang race, receiver tidak akan dapat notifikasi push meski status di DB sudah delivered. |
 | 12 | Rendah | `POST /api/coin/webhook` tidak punya rate limiting (server-to-server dari Midtrans, tidak ada `user_id` sehingga `checkRateLimit()` tidak bisa dipakai langsung). Sudah dilindungi verifikasi signature SHA512, tapi belum ada mekanisme rate limit berbasis IP sebagai defense-in-depth tambahan — butuh helper baru, di luar scope audit rate limiting saat ini. |
 | 13 | ✅ FIXED (dihapus) | `POST /api/push/test` adalah endpoint debug yang komentar kodenya sendiri menyatakan harus dihapus sebelum production, tapi masih ada di codebase (hanya diberi rate limit ketat 5x/10 menit, tidak dihapus). Pertimbangkan menghapus endpoint ini sepenuhnya jika sudah tidak dipakai untuk debugging. |
+
+**Temuan saat merapikan `supabase/schema/` (migration 043):**
+- **Bucket `avatars` tidak pernah dibuat.** Migration `add_avatar_url.sql` membiarkan INSERT bucket sebagai komentar ("jalankan manual di Dashboard"), dan production tidak punya bucket itu — `POST /api/user/avatar` selalu gagal "Bucket not found" (belum ada satu user pun dengan `avatar_url`). Fix: migration 043.
+- **`schema/` lama tidak lengkap dan tidak bisa dijalankan.** `03_functions.sql` gagal di database baru karena `photobooth_action` butuh tabel `game_photobooth_templates` (033) yang tidak ada di schema; realtime saldo (032), bucket Photobooth (034/041), dan `redeem_voucher` versi perbaikan (029_fix) juga belum masuk. Schema disusun ulang per kategori dan diverifikasi identik dengan kondisi production + 043.
 
 **Catatan tindak lanjut:**
 - **#1** — `unlink_couple` sekarang (migration 042) me-refund sesi `waiting` ke host dan mengubah sesi `playing` jadi `cancelled` dalam transaksi yang sama. Dialog konfirmasi unlink di `app/dashboard/couple/page.tsx` menyebut efek ini.

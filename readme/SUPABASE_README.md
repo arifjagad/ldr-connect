@@ -2,15 +2,12 @@
 
 ## Urutan Eksekusi
 
-Jalankan file-file ini berurutan di **Supabase SQL Editor**
-(Dashboard → SQL Editor → New Query):
+Untuk database baru, jalankan file di **`supabase/schema/`** berurutan di **Supabase SQL Editor**
+(Dashboard → SQL Editor → New Query): `00_common.sql` sampai `11_push_notifications.sql`,
+lalu `seed/01_game_settings.sql` sampai `seed/07_photobooth_templates.sql`.
 
-| Urutan | File | Isi |
-|--------|------|-----|
-| 1 | `migrations/001_tables.sql` | Semua tabel, index, triggers, seed game_settings & coin_packages |
-| 2 | `migrations/002_rls_policies.sql` | Row Level Security policies |
-| 3 | `migrations/003_functions.sql` | Stored functions (business logic) |
-| 4 | `migrations/004_tod_questions_seed.sql` | Seed ~60 pertanyaan Truth or Dare |
+Isi tiap file ada di [`supabase/schema/README.md`](../supabase/schema/README.md). Folder
+`migrations/` hanya riwayat perubahan dan tidak bisa di-replay dari 001 apa adanya.
 
 ---
 
